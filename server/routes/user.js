@@ -4,6 +4,9 @@ const { authenticateToken } = require("../middleware/auth");
 const router = express.Router();
 
 //* Protected User Routes (JWT Required) - Using req.user.id from token
+
+router.get("/test", authenticateToken, userController.test);
+
 router.post(
   "/complete-profile",
   authenticateToken,

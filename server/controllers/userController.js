@@ -1,6 +1,19 @@
 const User = require("../models/User");
 const MedicalCenter = require("../models/MedicalCenter");
 
+//* test route to check if jwt is valid
+const test = async (req, res) => {
+  try {
+    res.status(200).json({
+      success: true,
+      message: "JWT Valid !!!",
+    });
+  } catch (error) {
+    console.error("Complete profile error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 //* Complete user profile after signup
 const completeProfile = async (req, res) => {
   try {
@@ -115,6 +128,7 @@ const getProfile = async (req, res) => {
         currentMedicines: user.currentMedicines,
         medicalConditions: user.medicalConditions,
         location: user.location,
+        medicineCount : user.medicineCount,
         stats: user.stats,
         badges: user.badges,
         savedMedicalCenters: user.savedMedicalCenters,
@@ -148,6 +162,12 @@ const saveMedicalCenter = async (req, res) => {
 
     if (!medicalCenter) {
       return res.status(404).json({ message: "Medical center not found" });
+    }
+
+    if (user.savedMedicalCenters.length >= 50) {
+      return res.status(400).json({
+        message: "You have reached the limit of saved medical centers.",
+      });
     }
 
     //* Check if already saved
@@ -204,7 +224,7 @@ const removeSavedMedicalCenter = async (req, res) => {
 //* Get user's saved medical centers with pagination
 const getSavedMedicalCenters = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
+    const { page = 1, limit = 20 } = req.query;
 
     //* Get userId from JWT token
     const userId = req.user.id;
@@ -243,6 +263,7 @@ const getSavedMedicalCenters = async (req, res) => {
 };
 
 module.exports = {
+  test,
   completeProfile,
   editProfile,
   getProfile,

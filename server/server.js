@@ -10,14 +10,17 @@ const userRoutes = require("./routes/user");
 const medicineRoutes = require("./routes/medicine");
 const medicalCenterRoutes = require("./routes/medicalCenter");
 const { connectDB } = require("./config/database");
+const morgan = require("morgan");
 
 //* Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
 
 //* Connect to Database
 connectDB();
+
 
 //* Use Routes
 app.use("/api/auth", authRoutes);

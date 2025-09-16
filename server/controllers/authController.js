@@ -1,4 +1,5 @@
 const User = require("../models/User");
+const sendOTP = require("../services/fast2SMS");
 const { generateToken, generateRefreshToken } = require("../utils/jwt");
 
 //* Generate random 6-digit OTP
@@ -27,6 +28,16 @@ const signup = async (req, res) => {
     //* Generate OTP
     const otpCode = generateOTP();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    //* Send OTP to user
+    // const result = await sendOTP(phoneNumber, otpCode);
+
+    // if (!result) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Error sending OTP! Please Try Again",
+    //   });
+    // }
 
     if (user) {
       //* Update existing unverified user
@@ -123,6 +134,16 @@ const signin = async (req, res) => {
     //* Generate OTP
     const otpCode = generateOTP();
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    //* Send OTP to user
+    // const result = await sendOTP(phoneNumber, otpCode);
+
+    // if (!result) {
+    //   res.status(400).json({
+    //     success: false,
+    //     message: "Error sending OTP! Please Try Again",
+    //   });
+    // }
 
     user.otp = { code: otpCode, expiresAt: otpExpiry };
     await user.save();

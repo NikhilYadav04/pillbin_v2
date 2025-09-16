@@ -62,6 +62,10 @@ const userSchema = new mongoose.Schema(
         longitude: Number,
       },
     },
+    medicineCount: {
+      type: Number,
+      default: 0,
+    },
     // Profile Statistics (default 0)
     stats: {
       totalMedicinesTracked: { type: Number, default: 0 },
@@ -91,9 +95,9 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-// Method to update badge achievements
+//* Method to update badge achievements
 userSchema.methods.updateBadges = function () {
-  // First Timer - dispose 1st medicine
+  //* First Timer - dispose 1st medicine
   if (
     this.stats.medicinesDisposedCount >= 1 &&
     !this.badges.firstTimer.achieved
@@ -102,7 +106,7 @@ userSchema.methods.updateBadges = function () {
     this.badges.firstTimer.unlockedAt = new Date();
   }
 
-  // Eco Helper - dispose 5 medicines
+  //* Eco Helper - dispose 5 medicines
   if (
     this.stats.medicinesDisposedCount >= 5 &&
     !this.badges.ecoHelper.achieved
@@ -111,7 +115,7 @@ userSchema.methods.updateBadges = function () {
     this.badges.ecoHelper.unlockedAt = new Date();
   }
 
-  // Green Champion - dispose 20 medicines
+  //* Green Champion - dispose 20 medicines
   if (
     this.stats.medicinesDisposedCount >= 20 &&
     !this.badges.greenChampion.achieved

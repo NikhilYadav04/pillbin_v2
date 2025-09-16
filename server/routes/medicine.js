@@ -5,18 +5,9 @@ const router = express.Router();
 
 //* Protected Medicine Routes (JWT Required) - Using req.user.id from token
 router.post("/add", authenticateToken, medicineController.addMedicine);
+
 router.get("/inventory", authenticateToken, medicineController.getInventory);
-router.get("/active", authenticateToken, medicineController.getActiveMedicines);
-router.get(
-  "/expiring-soon",
-  authenticateToken,
-  medicineController.getExpiringSoonMedicines
-);
-router.get(
-  "/expired",
-  authenticateToken,
-  medicineController.getExpiredMedicines
-);
+
 router.delete(
   "/delete/:medicineId",
   authenticateToken,

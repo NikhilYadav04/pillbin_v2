@@ -260,7 +260,7 @@ const updateMedicalCenter = async (req, res) => {
   }
 };
 
-//* Delete (deactivate) medical center
+//* Delete (deactivate) medical center ( Soft Delete )
 const deleteMedicalCenter = async (req, res) => {
   try {
     const { id } = req.params;
@@ -277,6 +277,26 @@ const deleteMedicalCenter = async (req, res) => {
 
     res.status(200).json({
       message: "Medical center deactivated successfully",
+    });
+  } catch (error) {
+    console.error("Delete medical center error:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+//* Delete (deactivate) medical center ( Hard Delete )
+const deleteMedicalCenterPermanent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const medicalCenter = await MedicalCenter.findByIdAndDelete(id);
+
+    if (!medicalCenter) {
+      return res.status(404).json({ message: "Medical center not found" });
+    }
+
+    res.status(200).json({
+      message: "Medical center deleted successfully",
     });
   } catch (error) {
     console.error("Delete medical center error:", error);
@@ -327,39 +347,6 @@ const searchMedicalCenters = async (req, res) => {
   }
 };
 
-//* Get all available facility types
-const getFacilityTypes = async (req, res) => {
-  try {
-    const facilityTypes = ["hospital", "clinic", "pharmacy", "health_center"];
-
-    res.status(200).json({ facilityTypes });
-  } catch (error) {
-    console.error("Get facility types error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-//* Get all accepted medicine types
-const getMedicineTypes = async (req, res) => {
-  try {
-    const medicineTypes = [
-      "tablets",
-      "capsules",
-      "syrups",
-      "injections",
-      "ointments",
-      "inhalers",
-      "drops",
-      "all",
-    ];
-
-    res.status(200).json({ medicineTypes });
-  } catch (error) {
-    console.error("Get medicine types error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
 module.exports = {
   addMedicalCenter,
   getAllMedicalCenters,
@@ -367,7 +354,6 @@ module.exports = {
   getMedicalCenterById,
   updateMedicalCenter,
   deleteMedicalCenter,
+  deleteMedicalCenterPermanent,
   searchMedicalCenters,
-  getFacilityTypes,
-  getMedicineTypes,
 };

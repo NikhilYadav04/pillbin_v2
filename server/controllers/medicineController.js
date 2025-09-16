@@ -38,6 +38,13 @@ const addMedicine = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
+    if (user.medicineCount > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "You have reached the limit of 100 medicines !!",
+      });
+    }
+
     const medicine = new Medicine({
       userId,
       name,
@@ -53,7 +60,9 @@ const addMedicine = async (req, res) => {
     await medicine.save();
 
     //* Update user stats
-    await updateUserStats(userId);
+    // await updateUserStats(userId);
+    user.medicineCount += 1;
+    await user.save();
 
     res.status(201).json({
       message: "Medicine added successfully",
@@ -68,8 +77,6 @@ const addMedicine = async (req, res) => {
 //* Get user's medicine inventory with counts and pagination
 const getInventory = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-
     //* Get userId from JWT token
     const userId = req.user.id;
     const user = await User.findById(userId);
@@ -77,8 +84,10 @@ const getInventory = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    //* Update all medicine statuses first
-    const medicines = await Medicine.find({ userId });
+    //* Fetch all medicines of the user
+    const medicines = await Medicine.find({ userId }).sort({ expiryDate: 1 });
+
+    //* Update status in memory (and save if changed)
     for (let medicine of medicines) {
       const oldStatus = medicine.status;
       medicine.updateStatus();
@@ -87,39 +96,24 @@ const getInventory = async (req, res) => {
       }
     }
 
-    //* Get updated medicines by status with pagination
-    const skip = (page - 1) * limit;
-    const activeMedicines = await Medicine.find({ userId, status: "active" })
-      .sort({ expiryDate: 1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+    //* Classify medicines
+    const activeMedicines = [];
+    const expiringSoonMedicines = [];
+    const expiredMedicines = [];
 
-    const expiringSoonMedicines = await Medicine.find({
-      userId,
-      status: "expiring_soon",
-    })
-      .sort({ expiryDate: 1 })
-      .limit(parseInt(limit))
-      .skip(skip);
+    medicines.forEach((med) => {
+      if (med.status === "active") activeMedicines.push(med);
+      else if (med.status === "expiring_soon") expiringSoonMedicines.push(med);
+      else if (med.status === "expired") expiredMedicines.push(med);
+    });
 
-    const expiredMedicines = await Medicine.find({ userId, status: "expired" })
-      .sort({ expiryDate: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
-
-    //* Get counts
+    //* Counts
     const counts = {
-      active: await Medicine.countDocuments({ userId, status: "active" }),
-      expiring_soon: await Medicine.countDocuments({
-        userId,
-        status: "expiring_soon",
-      }),
-      expired: await Medicine.countDocuments({ userId, status: "expired" }),
-      total: await Medicine.countDocuments({ userId }),
+      active: activeMedicines.length,
+      expiring_soon: expiringSoonMedicines.length,
+      expired: expiredMedicines.length,
+      total: medicines.length,
     };
-
-    //* Update user stats
-    await updateUserStats(userId);
 
     res.status(200).json({
       inventory: {
@@ -128,116 +122,9 @@ const getInventory = async (req, res) => {
         expiredMedicines,
         counts,
       },
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(counts.total / limit),
-        limit: parseInt(limit),
-      },
     });
   } catch (error) {
     console.error("Get inventory error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-//* Get user's active medicines with pagination
-const getActiveMedicines = async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-
-    //* Get userId from JWT token
-    const userId = req.user.id;
-    const skip = (page - 1) * limit;
-    const total = await Medicine.countDocuments({ userId, status: "active" });
-
-    const activeMedicines = await Medicine.find({
-      userId,
-      status: "active",
-    })
-      .sort({ expiryDate: 1 })
-      .limit(parseInt(limit))
-      .skip(skip);
-
-    res.status(200).json({
-      activeMedicines,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalMedicines: total,
-        limit: parseInt(limit),
-      },
-    });
-  } catch (error) {
-    console.error("Get active medicines error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-//* Get user's medicines expiring soon with pagination
-const getExpiringSoonMedicines = async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-
-    //* Get userId from JWT token
-    const userId = req.user.id;
-    const skip = (page - 1) * limit;
-    const total = await Medicine.countDocuments({
-      userId,
-      status: "expiring_soon",
-    });
-
-    const expiringSoonMedicines = await Medicine.find({
-      userId,
-      status: "expiring_soon",
-    })
-      .sort({ expiryDate: 1 })
-      .limit(parseInt(limit))
-      .skip(skip);
-
-    res.status(200).json({
-      expiringSoonMedicines,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalMedicines: total,
-        limit: parseInt(limit),
-      },
-    });
-  } catch (error) {
-    console.error("Get expiring soon medicines error:", error);
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-//* Get user's expired medicines with pagination
-const getExpiredMedicines = async (req, res) => {
-  try {
-    const { page = 1, limit = 10 } = req.query;
-
-    //* Get userId from JWT token
-    const userId = req.user.id;
-    const skip = (page - 1) * limit;
-    const total = await Medicine.countDocuments({ userId, status: "expired" });
-
-    const expiredMedicines = await Medicine.find({
-      userId,
-      status: "expired",
-    })
-      .sort({ expiryDate: -1 })
-      .limit(parseInt(limit))
-      .skip(skip);
-
-    res.status(200).json({
-      expiredMedicines,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalMedicines: total,
-        limit: parseInt(limit),
-      },
-    });
-  } catch (error) {
-    console.error("Get expired medicines error:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -255,8 +142,11 @@ const deleteMedicine = async (req, res) => {
       return res.status(404).json({ message: "Medicine not found" });
     }
 
+    console.log(userId)
+    console.log(medicine.userId.toString())
+
     //* Verify medicine belongs to authenticated user
-    if (medicine.userId.toString() !== userId) {
+    if (medicine.userId.toString() != userId) {
       return res
         .status(403)
         .json({ message: "Not authorized to delete this medicine" });
@@ -267,17 +157,14 @@ const deleteMedicine = async (req, res) => {
 
     //* Update user stats - increment disposed count
     const user = await User.findById(userId);
-    if (user) {
-      user.stats.medicinesDisposedCount += 1;
-      user.updateBadges(); //* Check and update badges
-      await user.save();
-    }
 
     //* Update other stats
-    await updateUserStats(userId);
+    //await updateUserStats(userId);
+    user.medicineCount -= 1;
+    await user.save();
 
     res.status(200).json({
-      message: "Medicine disposed successfully",
+      message: "Medicine deleted successfully",
       disposedCount: user.stats.medicinesDisposedCount,
     });
   } catch (error) {
@@ -311,15 +198,17 @@ const deleteAllExpiredMedicines = async (req, res) => {
     await Medicine.deleteMany({ userId, status: "expired" });
 
     //* Update user stats
-    user.stats.medicinesDisposedCount += expiredCount;
-    user.updateBadges(); //* Check and update badges
+    //await updateUserStats(userId);
+    if ((user.medicineCount -= expiredCount < 0)) {
+      user.medicineCount = 0;
+    } else {
+      user.medicineCount -= expiredCount;
+    }
+
     await user.save();
 
-    //* Update other stats
-    await updateUserStats(userId);
-
     res.status(200).json({
-      message: `${expiredCount} expired medicines disposed successfully`,
+      message: `${expiredCount} expired medicines successfully`,
       disposedCount: expiredCount,
       totalDisposedCount: user.stats.medicinesDisposedCount,
     });
@@ -373,7 +262,7 @@ const updateMedicine = async (req, res) => {
     await medicine.save();
 
     //* Update user stats
-    await updateUserStats(medicine.userId);
+    //await updateUserStats(medicine.userId);
 
     res.status(200).json({
       message: "Medicine updated successfully",
@@ -417,9 +306,6 @@ const cleanupExpiredMedicines = async (req, res) => {
 module.exports = {
   addMedicine,
   getInventory,
-  getActiveMedicines,
-  getExpiringSoonMedicines,
-  getExpiredMedicines,
   deleteMedicine,
   deleteAllExpiredMedicines,
   updateMedicine,

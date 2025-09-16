@@ -5,10 +5,11 @@ const router = express.Router();
 
 //* Public Medical Center Routes (No JWT Required)
 router.get("/all", medicalCenterController.getAllMedicalCenters);
+
 router.get("/nearby", medicalCenterController.getNearbyMedicalCenters);
+
 router.get("/search", medicalCenterController.searchMedicalCenters);
-router.get("/meta/facility-types", medicalCenterController.getFacilityTypes);
-router.get("/meta/medicine-types", medicalCenterController.getMedicineTypes);
+
 router.get("/:id", medicalCenterController.getMedicalCenterById);
 
 //* Protected/Admin Routes (JWT Required)

@@ -47,11 +47,11 @@ const medicineSchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient querying
+//* Index for efficient querying
 medicineSchema.index({ userId: 1, status: 1 });
 medicineSchema.index({ expiryDate: 1 });
 
-// Method to update medicine status based on expiry date
+//* Method to update medicine status based on expiry date
 medicineSchema.methods.updateStatus = function () {
   const now = new Date();
   const expiryDate = new Date(this.expiryDate);
@@ -68,7 +68,7 @@ medicineSchema.methods.updateStatus = function () {
   return this.status;
 };
 
-// Static method to update all medicines status
+//* Static method to update all medicines status
 medicineSchema.statics.updateAllStatuses = async function () {
   const medicines = await this.find({});
 
@@ -82,10 +82,10 @@ medicineSchema.statics.updateAllStatuses = async function () {
   }
 };
 
-// Static method to clean up expired medicines (remove after 2 days of expiry)
+//* Static method to clean up expired medicines (remove after 2 days of expiry)
 medicineSchema.statics.cleanupExpiredMedicines = async function () {
   const twoDaysAgo = new Date();
-  twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  twoDaysAgo.setDate(twoDaysAgo.getDate() - 15);
 
   const result = await this.deleteMany({
     status: "expired",
