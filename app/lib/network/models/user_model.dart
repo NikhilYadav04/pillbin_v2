@@ -251,4 +251,40 @@ class UserModel {
       'updatedAt': updatedAt.toIso8601String(),
     };
   }
+
+  UserModel copyWith({
+    String? fullName,
+    String? email,
+    List<Medicine>? currentMedicines,
+    List<MedicalCondition>? medicalConditions,
+    Location? location,
+    bool? profileCompleted,
+    DateTime? updatedAt,
+    List<String>? savedMedicalCenters,
+  }) {
+    return UserModel(
+      id: id,
+      phoneNumber: phoneNumber,
+      isVerified: isVerified,
+      fullName: fullName ?? this.fullName,
+      email: email ?? this.email,
+      currentMedicines: currentMedicines ?? this.currentMedicines,
+      medicalConditions: medicalConditions ?? this.medicalConditions,
+      location: location ?? this.location,
+      medicineCount: medicineCount,
+      stats: stats,
+      badges: badges,
+      savedMedicalCenters: savedMedicalCenters ?? this.savedMedicalCenters,
+      profileCompleted: profileCompleted ?? this.profileCompleted,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
+    );
+  }
+
+  ///]* Remove a medical center from savedMedicalCenters
+  UserModel removeMedicalCenter(String centerId) {
+    final updatedCenters = List<String>.from(savedMedicalCenters)
+      ..remove(centerId);
+    return copyWith(savedMedicalCenters: updatedCenters);
+  }
 }

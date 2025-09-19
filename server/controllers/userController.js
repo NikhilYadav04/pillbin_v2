@@ -6,11 +6,12 @@ const test = async (req, res) => {
   try {
     res.status(200).json({
       success: true,
+      statusCode: 200,
       message: "JWT Valid !!!",
     });
   } catch (error) {
     console.error("Complete profile error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", statusCode: 500 });
   }
 };
 
@@ -23,7 +24,7 @@ const completeProfile = async (req, res) => {
     if (!fullName || !email) {
       return res
         .status(400)
-        .json({ message: "Full name and email are required" });
+        .json({ message: "Full name and email are required", statusCode: 400 });
     }
 
     //* Get userId from JWT token
@@ -31,7 +32,9 @@ const completeProfile = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found", statusCode: 404 });
     }
 
     //* Update profile
@@ -45,18 +48,21 @@ const completeProfile = async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Profile completed successfully",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        profileCompleted: user.profileCompleted,
+      data: {
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          profileCompleted: user.profileCompleted,
+        },
       },
     });
   } catch (error) {
     console.error("Complete profile error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", statusCode: 500 });
   }
 };
 
@@ -70,7 +76,9 @@ const editProfile = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found", statusCode: 404 });
     }
 
     //* Update allowed fields
@@ -91,20 +99,23 @@ const editProfile = async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Profile updated successfully",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        currentMedicines: user.currentMedicines,
-        medicalConditions: user.medicalConditions,
-        location: user.location,
+      data: {
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          currentMedicines: user.currentMedicines,
+          medicalConditions: user.medicalConditions,
+          location: user.location,
+        },
       },
     });
   } catch (error) {
     console.error("Edit profile error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: "Server error", statusCode: 500 });
   }
 };
 
@@ -116,29 +127,35 @@ const getProfile = async (req, res) => {
     const user = await User.findById(userId).populate("savedMedicalCenters");
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ message: "User not found", statusCode: 404 });
     }
 
     res.status(200).json({
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        phoneNumber: user.phoneNumber,
-        currentMedicines: user.currentMedicines,
-        medicalConditions: user.medicalConditions,
-        location: user.location,
-        medicineCount : user.medicineCount,
-        stats: user.stats,
-        badges: user.badges,
-        savedMedicalCenters: user.savedMedicalCenters,
-        profileCompleted: user.profileCompleted,
-        createdAt: user.createdAt,
+      statusCode: 200,
+      data: {
+        user: {
+          id: user._id,
+          fullName: user.fullName,
+          email: user.email,
+          phoneNumber: user.phoneNumber,
+          currentMedicines: user.currentMedicines,
+          medicalConditions: user.medicalConditions,
+          location: user.location,
+          medicineCount: user.medicineCount,
+          stats: user.stats,
+          badges: user.badges,
+          savedMedicalCenters: user.savedMedicalCenters,
+          profileCompleted: user.profileCompleted,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+        },
       },
     });
   } catch (error) {
     console.error("Get profile error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -148,7 +165,9 @@ const saveMedicalCenter = async (req, res) => {
     const { medicalCenterId } = req.body;
 
     if (!medicalCenterId) {
-      return res.status(400).json({ message: "Medical Center ID is required" });
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "Medical Center ID is required" });
     }
 
     //* Get userId from JWT token
@@ -157,34 +176,44 @@ const saveMedicalCenter = async (req, res) => {
     const medicalCenter = await MedicalCenter.findById(medicalCenterId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     if (!medicalCenter) {
-      return res.status(404).json({ message: "Medical center not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medical center not found" });
     }
 
     if (user.savedMedicalCenters.length >= 50) {
       return res.status(400).json({
+        statusCode: 400,
         message: "You have reached the limit of saved medical centers.",
       });
     }
 
     //* Check if already saved
     if (user.savedMedicalCenters.includes(medicalCenterId)) {
-      return res.status(400).json({ message: "Medical center already saved" });
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "Medical center already saved" });
     }
 
     user.savedMedicalCenters.push(medicalCenterId);
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medical center saved successfully",
-      savedMedicalCenters: user.savedMedicalCenters,
+      data: {
+        savedMedicalCenters: user.savedMedicalCenters,
+      },
     });
   } catch (error) {
     console.error("Save medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -194,7 +223,9 @@ const removeSavedMedicalCenter = async (req, res) => {
     const { medicalCenterId } = req.body;
 
     if (!medicalCenterId) {
-      return res.status(400).json({ message: "Medical Center ID is required" });
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "Medical Center ID is required" });
     }
 
     //* Get userId from JWT token
@@ -202,7 +233,9 @@ const removeSavedMedicalCenter = async (req, res) => {
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     user.savedMedicalCenters = user.savedMedicalCenters.filter(
@@ -212,26 +245,31 @@ const removeSavedMedicalCenter = async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medical center removed from saved list",
-      savedMedicalCenters: user.savedMedicalCenters,
+      data: {
+        removedMedicalCenter : medicalCenterId,
+      },
     });
   } catch (error) {
     console.error("Remove saved medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
 //* Get user's saved medical centers with pagination
 const getSavedMedicalCenters = async (req, res) => {
   try {
-    const { page = 1, limit = 20 } = req.query;
+    const { page = 1, limit = 10 } = req.query;
 
     //* Get userId from JWT token
     const userId = req.user.id;
     const user = await User.findById(userId);
 
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     //* Get paginated saved medical centers
@@ -248,17 +286,20 @@ const getSavedMedicalCenters = async (req, res) => {
     });
 
     res.status(200).json({
-      savedMedicalCenters,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(totalSaved / limit),
-        totalSaved,
-        limit: parseInt(limit),
+      statusCode: 200,
+      data: {
+        savedMedicalCenters,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(totalSaved / limit),
+          totalSaved,
+          limit: parseInt(limit),
+        },
       },
     });
   } catch (error) {
     console.error("Get saved medical centers error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 

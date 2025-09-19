@@ -18,6 +18,7 @@ const addMedicalCenter = async (req, res) => {
 
     if (!name || !address || !phoneNumber || !location) {
       return res.status(400).json({
+        statusCode: 400,
         message:
           "Name, address, phone number, and location coordinates are required",
       });
@@ -39,7 +40,9 @@ const addMedicalCenter = async (req, res) => {
         location.coordinates.latitude,
       ];
     } else {
-      return res.status(400).json({ message: "Invalid location format" });
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "Invalid location format" });
     }
 
     const medicalCenter = new MedicalCenter({
@@ -61,12 +64,15 @@ const addMedicalCenter = async (req, res) => {
     await medicalCenter.save();
 
     res.status(201).json({
+      statusCode: 201,
       message: "Medical center added successfully",
-      medicalCenter,
+      data: {
+        medicalCenter,
+      },
     });
   } catch (error) {
     console.error("Add medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -89,17 +95,20 @@ const getAllMedicalCenters = async (req, res) => {
     const total = await MedicalCenter.countDocuments(query);
 
     res.status(200).json({
-      medicalCenters,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalCenters: total,
-        limit: parseInt(limit),
+      statusCode: 200,
+      data: {
+        medicalCenters,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+          totalCenters: total,
+          limit: parseInt(limit),
+        },
       },
     });
   } catch (error) {
     console.error("Get all medical centers error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -116,6 +125,7 @@ const getNearbyMedicalCenters = async (req, res) => {
 
     if (!latitude || !longitude) {
       return res.status(400).json({
+        statusCode: 400,
         message: "Latitude and longitude are required",
       });
     }
@@ -126,6 +136,7 @@ const getNearbyMedicalCenters = async (req, res) => {
 
     if (isNaN(lat) || isNaN(lng) || isNaN(radiusKm)) {
       return res.status(400).json({
+        statusCode: 400,
         message: "Invalid latitude, longitude, or radius values",
       });
     }
@@ -145,19 +156,22 @@ const getNearbyMedicalCenters = async (req, res) => {
     );
 
     res.status(200).json({
-      medicalCenters: nearbyMedicalCenters,
-      searchLocation: { latitude: lat, longitude: lng },
-      radiusKm,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(allNearbyMedicalCenters.length / limit),
-        totalFound: allNearbyMedicalCenters.length,
-        limit: parseInt(limit),
+      statusCode: 200,
+      data: {
+        medicalCenters: nearbyMedicalCenters,
+        searchLocation: { latitude: lat, longitude: lng },
+        radiusKm,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(allNearbyMedicalCenters.length / limit),
+          totalFound: allNearbyMedicalCenters.length,
+          limit: parseInt(limit),
+        },
       },
     });
   } catch (error) {
     console.error("Find nearby medical centers error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 200, message: "Server error" });
   }
 };
 
@@ -169,13 +183,20 @@ const getMedicalCenterById = async (req, res) => {
     const medicalCenter = await MedicalCenter.findById(id);
 
     if (!medicalCenter) {
-      return res.status(404).json({ message: "Medical center not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medical center not found" });
     }
 
-    res.status(200).json({ medicalCenter });
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        medicalCenter,
+      },
+    });
   } catch (error) {
     console.error("Get medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -188,7 +209,9 @@ const updateMedicalCenter = async (req, res) => {
     const medicalCenter = await MedicalCenter.findById(id);
 
     if (!medicalCenter) {
-      return res.status(404).json({ message: "Medical center not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medical center not found" });
     }
 
     //* Handle location updates with proper GeoJSON format
@@ -251,12 +274,15 @@ const updateMedicalCenter = async (req, res) => {
     await medicalCenter.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medical center updated successfully",
-      medicalCenter,
+      data: {
+        medicalCenter,
+      },
     });
   } catch (error) {
     console.error("Update medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -268,7 +294,9 @@ const deleteMedicalCenter = async (req, res) => {
     const medicalCenter = await MedicalCenter.findById(id);
 
     if (!medicalCenter) {
-      return res.status(404).json({ message: "Medical center not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medical center not found" });
     }
 
     //* Instead of deleting, mark as inactive
@@ -276,11 +304,12 @@ const deleteMedicalCenter = async (req, res) => {
     await medicalCenter.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medical center deactivated successfully",
     });
   } catch (error) {
     console.error("Delete medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -292,15 +321,18 @@ const deleteMedicalCenterPermanent = async (req, res) => {
     const medicalCenter = await MedicalCenter.findByIdAndDelete(id);
 
     if (!medicalCenter) {
-      return res.status(404).json({ message: "Medical center not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medical center not found" });
     }
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medical center deleted successfully",
     });
   } catch (error) {
     console.error("Delete medical center error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -331,19 +363,22 @@ const searchMedicalCenters = async (req, res) => {
     const total = await MedicalCenter.countDocuments(searchQuery);
 
     res.status(200).json({
-      medicalCenters,
-      searchQuery: query,
-      facilityType,
-      pagination: {
-        currentPage: parseInt(page),
-        totalPages: Math.ceil(total / limit),
-        totalFound: total,
-        limit: parseInt(limit),
+      statusCode: 200,
+      data: {
+        medicalCenters,
+        searchQuery: query,
+        facilityType,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages: Math.ceil(total / limit),
+          totalFound: total,
+          limit: parseInt(limit),
+        },
       },
     });
   } catch (error) {
     console.error("Search medical centers error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 

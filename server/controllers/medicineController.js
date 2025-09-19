@@ -27,6 +27,7 @@ const addMedicine = async (req, res) => {
 
     if (!name || !expiryDate) {
       return res.status(400).json({
+        statusCode: 400,
         message: "Medicine name and expiry date are required",
       });
     }
@@ -35,11 +36,14 @@ const addMedicine = async (req, res) => {
     const userId = req.user.id;
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     if (user.medicineCount > 100) {
       return res.status(400).json({
+        statusCode: 400,
         success: false,
         message: "You have reached the limit of 100 medicines !!",
       });
@@ -65,12 +69,15 @@ const addMedicine = async (req, res) => {
     await user.save();
 
     res.status(201).json({
+      statusCode: 201,
       message: "Medicine added successfully",
-      medicine,
+      data: {
+        medicine,
+      },
     });
   } catch (error) {
     console.error("Add medicine error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -81,7 +88,9 @@ const getInventory = async (req, res) => {
     const userId = req.user.id;
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     //* Fetch all medicines of the user
@@ -116,16 +125,19 @@ const getInventory = async (req, res) => {
     };
 
     res.status(200).json({
-      inventory: {
-        activeMedicines,
-        expiringSoonMedicines,
-        expiredMedicines,
-        counts,
+      statusCode: 200,
+      data: {
+        inventory: {
+          activeMedicines,
+          expiringSoonMedicines,
+          expiredMedicines,
+          counts,
+        },
       },
     });
   } catch (error) {
     console.error("Get inventory error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -139,17 +151,20 @@ const deleteMedicine = async (req, res) => {
 
     const medicine = await Medicine.findById(medicineId);
     if (!medicine) {
-      return res.status(404).json({ message: "Medicine not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medicine not found" });
     }
 
-    console.log(userId)
-    console.log(medicine.userId.toString())
+    console.log(userId);
+    console.log(medicine.userId.toString());
 
     //* Verify medicine belongs to authenticated user
     if (medicine.userId.toString() != userId) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to delete this medicine" });
+      return res.status(403).json({
+        statusCode: 403,
+        message: "Not authorized to delete this medicine",
+      });
     }
 
     //* Delete the medicine
@@ -164,12 +179,15 @@ const deleteMedicine = async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medicine deleted successfully",
-      disposedCount: user.stats.medicinesDisposedCount,
+      data: {
+        disposedCount: user.stats.medicinesDisposedCount,
+      },
     });
   } catch (error) {
     console.error("Delete medicine error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -181,7 +199,9 @@ const deleteAllExpiredMedicines = async (req, res) => {
 
     const user = await User.findById(userId);
     if (!user) {
-      return res.status(404).json({ message: "User not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
     }
 
     //* Count expired medicines before deletion
@@ -191,7 +211,9 @@ const deleteAllExpiredMedicines = async (req, res) => {
     });
 
     if (expiredCount === 0) {
-      return res.status(400).json({ message: "No expired medicines found" });
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "No expired medicines found" });
     }
 
     //* Delete all expired medicines
@@ -208,13 +230,16 @@ const deleteAllExpiredMedicines = async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      statusCode: 200,
       message: `${expiredCount} expired medicines successfully`,
-      disposedCount: expiredCount,
-      totalDisposedCount: user.stats.medicinesDisposedCount,
+      data: {
+        disposedCount: expiredCount,
+        totalDisposedCount: user.stats.medicinesDisposedCount,
+      },
     });
   } catch (error) {
     console.error("Delete all expired medicines error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -229,14 +254,20 @@ const updateMedicine = async (req, res) => {
 
     const medicine = await Medicine.findById(medicineId);
     if (!medicine) {
-      return res.status(404).json({ message: "Medicine not found" });
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medicine not found" });
     }
 
+    console.log(userId);
+    console.log(medicine.userId.toString());
+
     //* Verify medicine belongs to authenticated user
-    if (medicine.userId.toString() !== userId) {
-      return res
-        .status(403)
-        .json({ message: "Not authorized to update this medicine" });
+    if (medicine.userId.toString() != userId) {
+      return res.status(403).json({
+        statusCode: 403,
+        message: "Not authorized to update this medicine",
+      });
     }
 
     //* Update allowed fields
@@ -265,12 +296,15 @@ const updateMedicine = async (req, res) => {
     //await updateUserStats(medicine.userId);
 
     res.status(200).json({
+      statusCode: 200,
       message: "Medicine updated successfully",
-      medicine,
+      data: {
+        medicine,
+      },
     });
   } catch (error) {
     console.error("Update medicine error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -280,11 +314,12 @@ const updateAllStatuses = async (req, res) => {
     await Medicine.updateAllStatuses();
 
     res.status(200).json({
+      statusCode: 200,
       message: "All medicine statuses updated successfully",
     });
   } catch (error) {
     console.error("Update statuses error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 
@@ -294,12 +329,15 @@ const cleanupExpiredMedicines = async (req, res) => {
     const deletedCount = await Medicine.cleanupExpiredMedicines();
 
     res.status(200).json({
+      statusCode: 200,
       message: `${deletedCount} expired medicines cleaned up successfully`,
-      deletedCount,
+      data: {
+        deletedCount,
+      },
     });
   } catch (error) {
     console.error("Cleanup expired medicines error:", error);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
 

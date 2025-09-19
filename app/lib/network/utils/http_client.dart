@@ -22,6 +22,10 @@ class HttpClient {
   static final String _userDataKey = dotenv.get("USER_DATA_KEY");
   static final String _isAuthenticatedKey = dotenv.get("IS_AUTHENTICATED_KEY");
 
+  static final String _nameKey = dotenv.get('USER_NAME_KEY');
+  static final String _phoneKey = dotenv.get('USER_PHONE_KEY');
+  static final String _emailKey = dotenv.get('USER_EMAIL_KEY');
+
   Dio get dio => _dio;
 
   Future<void> init() async {
@@ -218,6 +222,23 @@ class HttpClient {
     await removeAuthToken();
     await _secureStorage.delete(key: _refreshTokenKey);
     await _secureStorage.delete(key: _userDataKey);
+    await removeUserData();
     await _secureStorage.write(key: _isAuthenticatedKey, value: 'false');
+  }
+
+  //* ============ USER DATA METHODS ============
+
+  //* save data
+  Future<void> saveUserData(String name, String phone, String email) async {
+    await _secureStorage.write(key: _nameKey, value: name);
+    await _secureStorage.write(key: _emailKey, value: email);
+    await _secureStorage.write(key: _phoneKey, value: phone);
+  }
+
+  //* remove data
+  Future<void> removeUserData() async {
+    await _secureStorage.delete(key: _nameKey);
+    await _secureStorage.delete(key: _emailKey);
+    await _secureStorage.delete(key: _phoneKey);
   }
 }
