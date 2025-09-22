@@ -73,7 +73,7 @@ Widget buildOTPLogo(double sw, double sh, bool isTablet) {
   );
 }
 
-Widget buildOTPInstructions(double sw, double sh, bool isTablet) {
+Widget buildOTPInstructions(double sw, double sh,String email, bool isTablet) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -88,7 +88,7 @@ Widget buildOTPInstructions(double sw, double sh, bool isTablet) {
             const TextSpan(
                 text: 'We\'ve sent a 6-digit verification code to\n'),
             TextSpan(
-              text: "9152502571",
+              text: "${email}",
               style: PillBinMedium.style(
                 fontSize: isTablet ? sw * 0.025 : sw * 0.04,
                 color: PillBinColors.primary,

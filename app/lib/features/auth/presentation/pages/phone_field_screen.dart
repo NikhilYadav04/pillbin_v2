@@ -3,22 +3,22 @@ import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 
-class PhoneAuthScreen extends StatefulWidget {
+class EmailAuthScreen extends StatefulWidget {
   final bool isLogin;
 
-  const PhoneAuthScreen({Key? key, required this.isLogin}) : super(key: key);
+  const EmailAuthScreen({Key? key, required this.isLogin}) : super(key: key);
 
   @override
-  State<PhoneAuthScreen> createState() => _PhoneAuthScreenState();
+  State<EmailAuthScreen> createState() => _EmailAuthScreenState();
 }
 
-class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
-  final TextEditingController _phoneController = TextEditingController();
+class _EmailAuthScreenState extends State<EmailAuthScreen> {
+  final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _emailController.dispose();
     super.dispose();
   }
 
@@ -49,7 +49,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                         SizedBox(height: sh * 0.06),
                         _buildWelcomeSection(sw, sh, isTablet),
                         SizedBox(height: sh * 0.08),
-                        _buildPhoneInputSection(sw, sh, isTablet),
+                        _buildEmailInputSection(sw, sh, isTablet),
                         SizedBox(height: sh * 0.04),
                         _buildActionButton(sw, sh, isTablet),
                         Expanded(child: Container()),
@@ -123,12 +123,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     );
   }
 
-  Widget _buildPhoneInputSection(double sw, double sh, bool isTablet) {
+  Widget _buildEmailInputSection(double sw, double sh, bool isTablet) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Phone Number',
+          'Email Address',
           style: PillBinMedium.style(
             fontSize: isTablet ? sw * 0.025 : sw * 0.04,
             color: PillBinColors.textPrimary,
@@ -150,7 +150,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
           ),
           child: Row(
             children: [
-              // Country code
+              // Email icon
               Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: isTablet ? sw * 0.025 : sw * 0.04,
@@ -161,31 +161,19 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
                     right: BorderSide(color: PillBinColors.greyLight),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Text(
-                      '🇮🇳',
-                      style: TextStyle(
-                          fontSize: isTablet ? sw * 0.025 : sw * 0.04),
-                    ),
-                    SizedBox(width: sw * 0.02),
-                    Text(
-                      '+91',
-                      style: PillBinMedium.style(
-                        fontSize: isTablet ? sw * 0.025 : sw * 0.04,
-                        color: PillBinColors.textPrimary,
-                      ),
-                    ),
-                  ],
+                child: Icon(
+                  Icons.email_outlined,
+                  color: PillBinColors.textSecondary,
+                  size: isTablet ? sw * 0.025 : sw * 0.05,
                 ),
               ),
-              // Phone input
+              // Email input
               Expanded(
                 child: TextField(
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'Enter your phone number',
+                    hintText: 'Enter your email address',
                     hintStyle: PillBinRegular.style(
                       fontSize: isTablet ? sw * 0.022 : sw * 0.035,
                       color: PillBinColors.textLight,
@@ -207,7 +195,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
         ),
         SizedBox(height: sh * 0.015),
         Text(
-          'We\'ll send you a verification code via SMS',
+          'We\'ll send you a verification code via email',
           style: PillBinRegular.style(
             fontSize: isTablet ? sw * 0.02 : sw * 0.03,
             color: PillBinColors.textLight,
@@ -245,7 +233,7 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
           onTap: _isLoading
               ? null
               : () {
-                  _handleAuth(_phoneController.text.toString(), widget.isLogin);
+                  _handleAuth(_emailController.text.toString(), widget.isLogin);
                 },
           child: Padding(
             padding: EdgeInsets.symmetric(
@@ -305,12 +293,12 @@ class _PhoneAuthScreenState extends State<PhoneAuthScreen> {
     );
   }
 
-  void _handleAuth(String phone, bool login) {
+  void _handleAuth(String email, bool login) {
     Navigator.pushNamed(
       context,
       '/otp-field-screen',
       arguments: {
-        'phone': phone,
+        'email': email, // Changed from 'phone' to 'email'
         'login': login,
         'transition': TransitionType.rightToLeft,
         'duration': 300,

@@ -8,12 +8,12 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/auth/presentation/widgets/otp_widgets.dart';
 
 class OtpScreen extends StatefulWidget {
-  final String phoneNumber;
+  final String email;
   final bool isLogin;
 
   const OtpScreen({
     Key? key,
-    required this.phoneNumber,
+    required this.email,
     required this.isLogin,
   }) : super(key: key);
 
@@ -94,7 +94,7 @@ class _OtpScreenState extends State<OtpScreen> {
                   SizedBox(height: sh * 0.04),
                   buildOTPLogo(sw, sh, isTablet),
                   SizedBox(height: sh * 0.05),
-                  buildOTPInstructions(sw, sh, isTablet),
+                  buildOTPInstructions(sw, sh,widget.email, isTablet),
                   SizedBox(height: sh * 0.02),
                   _buildOtpInput(sw, sh, isTablet),
                   SizedBox(height: sh * 0.06),
@@ -292,7 +292,7 @@ class _OtpScreenState extends State<OtpScreen> {
         _startResendTimer();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Verification code sent to ${widget.phoneNumber}'),
+            content: Text('Verification code sent to ${widget.email}'),
             backgroundColor: PillBinColors.success,
           ),
         );
