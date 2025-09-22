@@ -167,6 +167,8 @@ const deleteMedicine = async (req, res) => {
       });
     }
 
+    const status = medicine.status;
+
     //* Delete the medicine
     await Medicine.findByIdAndDelete(medicineId);
 
@@ -182,6 +184,9 @@ const deleteMedicine = async (req, res) => {
       statusCode: 200,
       message: "Medicine deleted successfully",
       data: {
+        medicine: {
+          status: status,
+        },
         disposedCount: user.stats.medicinesDisposedCount,
       },
     });
@@ -231,7 +236,7 @@ const deleteAllExpiredMedicines = async (req, res) => {
 
     res.status(200).json({
       statusCode: 200,
-      message: `${expiredCount} expired medicines successfully`,
+      message: `${expiredCount} expired medicines successfully deleted`,
       data: {
         disposedCount: expiredCount,
         totalDisposedCount: user.stats.medicinesDisposedCount,

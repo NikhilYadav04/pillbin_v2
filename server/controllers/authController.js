@@ -1,6 +1,18 @@
 const User = require("../models/User");
 const sendOTP = require("../services/fast2SMS");
 const { generateToken, generateRefreshToken } = require("../utils/jwt");
+const nodemailer = require("nodemailer");
+
+//* Nodemailer transporter setup
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: process.env.SMTP_PORT,
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
 
 //* Generate random 6-digit OTP
 const generateOTP = () => {
@@ -10,20 +22,20 @@ const generateOTP = () => {
 //* Send OTP for signup
 const signup = async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { email } = req.body;
 
-    if (!phoneNumber) {
+    if (!email) {
       return res
         .status(400)
-        .json({ message: "Phone number is required", statusCode: 400 });
+        .json({ message: "Email is required", statusCode: 400 });
     }
 
     //* Check if user already exists
-    let user = await User.findOne({ phoneNumber });
+    let user = await User.findOne({ email });
 
     if (user && user.isVerified) {
       return res.status(400).json({
-        message: "User already exists with this phone number",
+        message: "User already exists with this email",
         statusCode: 400,
       });
     }
@@ -33,14 +45,40 @@ const signup = async (req, res) => {
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     //* Send OTP to user
-    // const result = await sendOTP(phoneNumber, otpCode);
+    const subject = "Welcome to PillBin – Your OTP for Signup";
 
-    // if (!result) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Error sending OTP! Please Try Again",
-    //   });
-    // }
+    const html = `
+      <p>Hi ${email || "there"},</p>
+    
+      <p>Welcome to <b>PillBin</b>! 🎉</p>
+      <p>We’re excited to have you on board. Use the OTP below to complete your signup process:</p>
+      
+      <p style="font-size:18px;"><b>${otpCode}</b></p>
+    
+      <p>This OTP is valid for the next 10 minutes. Please do not share it with anyone.</p>
+    
+      <p>Best regards,<br/>The PillBin Team</p>
+    `;
+
+    const text = `Hi ${email || "there"},
+    
+    Welcome to PillBin! 🎉
+    We’re excited to have you on board. Use the OTP below to complete your signup:
+    
+    ${otpCode}
+    
+    This OTP is valid for the next 10 minutes. Please do not share it with anyone.
+    
+    Best regards,
+    The PillBin Team`;
+
+    const info = await transporter.sendMail({
+      from: `PillBin`,
+      to: email,
+      subject,
+      text,
+      html,
+    });
 
     if (user) {
       //* Update existing unverified user
@@ -49,15 +87,12 @@ const signup = async (req, res) => {
     } else {
       //* Create new user
       user = new User({
-        phoneNumber,
+        email,
         otp: { code: otpCode, expiresAt: otpExpiry },
         isVerified: false,
       });
       await user.save();
     }
-
-    //* TODO: Send OTP via SMS service (for now just log it)
-    console.log(`OTP for ${phoneNumber}: ${otpCode}`);
 
     res.status(200).json({
       message: "OTP sent successfully",
@@ -74,16 +109,16 @@ const signup = async (req, res) => {
 //* Verify OTP and complete signup
 const verifySignup = async (req, res) => {
   try {
-    const { phoneNumber, otp } = req.body;
+    const { email, otp } = req.body;
 
-    if (!phoneNumber || !otp) {
+    if (!email|| !otp) {
       return res.status(400).json({
-        message: "Phone number and OTP are required",
+        message: "Email and OTP are required",
         statusCode: 400,
       });
     }
 
-    const user = await User.findOne({ phoneNumber });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res
@@ -109,13 +144,14 @@ const verifySignup = async (req, res) => {
 
     res.status(200).json({
       statusCode: 200,
-      message: "Phone number verified successfully",
+      message: "Email verified successfully",
       data: {
         accessToken,
         refreshToken,
         user: {
           id: user._id,
           phoneNumber: user.phoneNumber,
+          email: user.email,
           profileCompleted: user.profileCompleted,
         },
       },
@@ -129,15 +165,15 @@ const verifySignup = async (req, res) => {
 //* Send OTP for signin
 const signin = async (req, res) => {
   try {
-    const { phoneNumber } = req.body;
+    const { email } = req.body;
 
-    if (!phoneNumber) {
+    if (!email) {
       return res
         .status(400)
-        .json({ message: "Phone number is required", statusCode: 400 });
+        .json({ message: "Email is required", statusCode: 400 });
     }
 
-    const user = await User.findOne({ phoneNumber, isVerified: true });
+    const user = await User.findOne({ email, isVerified: true });
 
     if (!user) {
       return res
@@ -150,20 +186,44 @@ const signin = async (req, res) => {
     const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     //* Send OTP to user
-    // const result = await sendOTP(phoneNumber, otpCode);
+    //* Send OTP to user
+    const subject = "Welcome to PillBin – Your OTP for Signup";
 
-    // if (!result) {
-    //   res.status(400).json({
-    //     success: false,
-    //     message: "Error sending OTP! Please Try Again",
-    //   });
-    // }
+    const html = `
+       <p>Hi ${email || "there"},</p>
+     
+       <p>Welcome to <b>PillBin</b>! 🎉</p>
+       <p>We’re excited to have you on board. Use the OTP below to complete your signin process:</p>
+       
+       <p style="font-size:18px;"><b>${otpCode}</b></p>
+     
+       <p>This OTP is valid for the next 10 minutes. Please do not share it with anyone.</p>
+     
+       <p>Best regards,<br/>The PillBin Team</p>
+     `;
+
+    const text = `Hi ${email || "there"},
+     
+     Welcome to PillBin! 🎉
+     We’re excited to have you on board. Use the OTP below to complete your signup:
+     
+     ${otpCode}
+     
+     This OTP is valid for the next 10 minutes. Please do not share it with anyone.
+     
+     Best regards,
+     The PillBin Team`;
+
+    const info = await transporter.sendMail({
+      from: `PillBin`,
+      to: email,
+      subject,
+      text,
+      html,
+    });
 
     user.otp = { code: otpCode, expiresAt: otpExpiry };
     await user.save();
-
-    //* TODO: Send OTP via SMS service (for now just log it)
-    console.log(`Login OTP for ${phoneNumber}: ${otpCode}`);
 
     res.status(200).json({
       message: "OTP sent successfully",
@@ -180,16 +240,16 @@ const signin = async (req, res) => {
 //* Verify OTP and signin
 const verifySignin = async (req, res) => {
   try {
-    const { phoneNumber, otp } = req.body;
+    const { email, otp } = req.body;
 
-    if (!phoneNumber || !otp) {
+    if (!email || !otp) {
       return res.status(400).json({
-        message: "Phone number and OTP are required",
+        message: "Email and OTP are required",
         statusCode: 400,
       });
     }
 
-    const user = await User.findOne({ phoneNumber, isVerified: true });
+    const user = await User.findOne({ email, isVerified: true });
 
     if (!user) {
       return res

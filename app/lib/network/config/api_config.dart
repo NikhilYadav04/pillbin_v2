@@ -2,9 +2,9 @@ class ApiConfig {
   //* Base URLs for different environments
   static const String IP = "192.168.56.1";
 
-  static const String _baseUrlDev = 'https://${IP}:5000';
+  static const String _baseUrlDev = 'http://${IP}:5000';
   static const String _baseUrlStaging = 'https://staging-api.example.com';
-  static const String _baseUrlProd = 'https://attendance-track-prisma.onrender.com';
+  static const String _baseUrlProd = 'http://${IP}:5000';
 
   static const String baseUrl2 = 'https://srv882174.hstgr.cloud';
 

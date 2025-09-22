@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/medicines/data/service/medicine_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -109,12 +110,14 @@ class MedicineProvider extends ChangeNotifier {
 
         String medicineStatus = data["status"];
 
+        Logger().d(data);
+
         //* locally add medicine in my list
         Medicine newMedicine = Medicine(
             id: data["_id"],
             userId: data["userId"],
             name: name,
-            expiryDate: data["expiryDate"]);
+            expiryDate: DateTime.parse(data["expiryDate"]));
 
         if (medicineStatus == "active") {
           _activeMedicinesInventory.add(newMedicine);
@@ -148,6 +151,7 @@ class MedicineProvider extends ChangeNotifier {
           context: context,
           icon: Icons.medical_information,
           title: "Error adding medicine !");
+      Logger().d(e.toString());
       return 'error';
     }
   }
@@ -288,6 +292,8 @@ class MedicineProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!["medicine"];
 
+        Logger().d(data);
+
         deleteInventory(data["status"], medicineId);
 
         CustomSnackBar.show(
@@ -309,6 +315,7 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      Logger().d(e.toString());
       CustomSnackBar.show(
           context: context,
           icon: Icons.medical_information,

@@ -5,7 +5,9 @@ import 'package:pillbin/features/auth/presentation/pages/phone_field_screen.dart
 import 'package:pillbin/features/campaign/presentation/pages/campaign_screen.dart';
 import 'package:pillbin/features/chatbot/presentation/pages/chatbot_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
-import 'package:pillbin/features/landing_screen.dart';
+import 'package:pillbin/features/home/presentation/pages/test/medicalcenter_screen.dart';
+import 'package:pillbin/features/home/presentation/pages/test/test_screen.dart';
+import 'package:pillbin/features/home/presentation/pages/test/test_screen_user_routes.dart';
 import 'package:pillbin/features/locations/presentation/pages/location_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/add_medicine_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
@@ -90,7 +92,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   Widget page;
   switch (settings.name) {
     case '/':
-      page = LandingPage();
+      page = TestScreenMedicalCenter();
       break;
     case '/phone-field-screen':
       bool isLogin = args?['login'] ?? false;

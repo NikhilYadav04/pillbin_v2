@@ -1,7 +1,7 @@
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/locations/data/network/medical_center_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -38,6 +38,16 @@ class MedicalCenterProvider extends ChangeNotifier {
   int _limitFetch = 10;
   int get limitFetch => _limitFetch;
 
+  void resetPage() {
+    _page = 1;
+    notifyListeners();
+  }
+
+  void resetPageFetch() {
+    _pageFetch = 1;
+    notifyListeners();
+  }
+
   //* Add medical Center
   Future<String> addMedicalCenter({
     required BuildContext context,
@@ -63,9 +73,12 @@ class MedicalCenterProvider extends ChangeNotifier {
               longitude: longitude,
               acceptedMedicineTypes: acceptedMedicineTypes,
               operatingHours: operatingHours,
-              facilityType: facilityType);
+              facilityType: facilityType,
+              specialServices: specialServices,
+              email: email,
+              website: website);
 
-      if (response.statusCode == 200) {
+      if (response.statusCode == 201) {
         CustomSnackBar.show(
             context: context,
             icon: Icons.shop_rounded,
@@ -89,7 +102,7 @@ class MedicalCenterProvider extends ChangeNotifier {
           context: context,
           icon: Icons.shop_rounded,
           title: "Error adding medical center !");
-      print(e.toString());
+      Logger().d(e.toString());
       return 'error';
     }
   }
@@ -208,11 +221,13 @@ class MedicalCenterProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!;
 
-        List<MedicalCenter> medicalCenters = data["medicalCenters"]
-            .map((item) => MedicalCenter.fromJson(item))
+        List<MedicalCenter> medicalCenters = (data["medicalCenters"] as List)
+            .map((item) => MedicalCenter.fromJson(item as Map<String, dynamic>))
             .toList();
 
         _totalCount = data["pagination"]["totalCenters"];
+
+        Logger().d(_totalCount);
 
         _allCenters = medicalCenters;
         notifyListeners();
@@ -256,13 +271,15 @@ class MedicalCenterProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!;
 
-        List<MedicalCenter> medicalCenters = data["medicalCenters"]
+        List<MedicalCenter> medicalCenters = (data["medicalCenters"] as List)
             .map((item) => MedicalCenter.fromJson(item))
             .toList();
 
         _fetchedCenters = medicalCenters;
 
         _fetchedCount = data["pagination"]["totalFound"];
+
+        Logger().d(_fetchedCount);
 
         _pageFetch++;
 
@@ -309,13 +326,14 @@ class MedicalCenterProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!;
 
-        List<MedicalCenter> medicalCenters = data["medicalCenters"]
+        List<MedicalCenter> medicalCenters = (data["medicalCenters"] as List)
             .map((item) => MedicalCenter.fromJson(item))
             .toList();
 
         _fetchedCenters = medicalCenters;
 
         _fetchedCount = data["pagination"]["totalFound"];
+        Logger().d(_fetchedCount);
         _pageFetch++;
 
         notifyListeners();

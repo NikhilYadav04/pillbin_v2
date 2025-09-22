@@ -26,7 +26,7 @@ const medicalCenterSchema = new mongoose.Schema(
       coordinates: {
         type: [Number], //* [longitude, latitude] - GeoJSON format
         required: true,
-        index: "2dsphere",
+        // removed: index: "2dsphere"
       },
     },
     distance: {

@@ -1,7 +1,7 @@
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/data/service/auth_service.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -12,35 +12,46 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   final HttpClient _httpClient = HttpClient();
 
+  var logger = Logger();
+
   //* Register with phone number
   Future<String> register(
-      {required BuildContext context, required String phoneNumber}) async {
+      {required BuildContext context, required String email}) async {
     try {
       //* validation
-      if (phoneNumber.isEmpty) {
+      if (email.isEmpty) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.phone,
-            title: "Please enter your phone number !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter your email address!",
+        );
         return 'error';
       }
 
-      if (phoneNumber.length != 10) {
+//* ✅ Email Regex Validation
+      final emailRegex = RegExp(
+        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+      );
+
+      if (!emailRegex.hasMatch(email)) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.phone,
-            title: "Phone number must be 10 digits !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter a valid email address!",
+        );
         return 'error';
       }
 
       ApiResponse<Map<String, dynamic>> response =
-          await _authService.signUp(phoneNumber: phoneNumber);
+          await _authService.signUp(email: email);
+
+      logger.d(response.statusCode);
 
       if (response.statusCode == 200) {
         CustomSnackBar.show(
             context: context,
             icon: Icons.phone,
-            title: "OTP sent successfully to ${phoneNumber}");
+            title: "OTP sent successfully to ${email}");
         return 'success';
       } else if (response.statusCode == 400) {
         CustomSnackBar.show(
@@ -65,33 +76,40 @@ class AuthProvider extends ChangeNotifier {
 
   //* Login with phone number
   Future<String> login(
-      {required BuildContext context, required String phoneNumber}) async {
+      {required BuildContext context, required String email}) async {
     try {
       //* validation
-      if (phoneNumber.isEmpty) {
+      if (email.isEmpty) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.phone,
-            title: "Please enter your phone number !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter your email address!",
+        );
         return 'error';
       }
 
-      if (phoneNumber.length != 10) {
+//* ✅ Email Regex Validation
+      final emailRegex = RegExp(
+        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+      );
+
+      if (!emailRegex.hasMatch(email)) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.phone,
-            title: "Phone number must be 10 digits !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter a valid email address!",
+        );
         return 'error';
       }
 
       ApiResponse<Map<String, dynamic>> response =
-          await _authService.signIn(phoneNumber: phoneNumber);
+          await _authService.signIn(email: email);
 
       if (response.statusCode == 200) {
         CustomSnackBar.show(
             context: context,
             icon: Icons.phone,
-            title: "OTP sent successfully to ${phoneNumber}");
+            title: "OTP sent successfully to ${email}");
         return 'success';
       } else if (response.statusCode == 404) {
         CustomSnackBar.show(
@@ -117,7 +135,7 @@ class AuthProvider extends ChangeNotifier {
   //* Verify OTP SignUp
   Future<String> verifyOTPlogin(
       {required BuildContext context,
-      required String phoneNumber,
+      required String email,
       required String otp}) async {
     try {
       if (otp.isEmpty) {
@@ -136,24 +154,31 @@ class AuthProvider extends ChangeNotifier {
         return 'error';
       }
 
-      if (phoneNumber.isEmpty) {
+      if (email.isEmpty) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.lock,
-            title: "Please enter your phone number !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter your email address!",
+        );
         return 'error';
       }
 
-      if (phoneNumber.length != 10) {
+//* ✅ Email Regex Validation
+      final emailRegex = RegExp(
+        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+      );
+
+      if (!emailRegex.hasMatch(email)) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.lock,
-            title: "Phone number must be 10 digits !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter a valid email address!",
+        );
         return 'error';
       }
 
-      ApiResponse<Map<String, dynamic>> response = await _authService
-          .verifyOTPsignIn(phoneNumber: phoneNumber, otp: otp);
+      ApiResponse<Map<String, dynamic>> response =
+          await _authService.verifyOTPsignIn(email: email, otp: otp);
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!;
@@ -193,7 +218,7 @@ class AuthProvider extends ChangeNotifier {
   //* Verify OTP Signin
   Future<String> verifyOTPregister(
       {required BuildContext context,
-      required String phoneNumber,
+      required String email,
       required String otp}) async {
     try {
       if (otp.isEmpty) {
@@ -212,24 +237,31 @@ class AuthProvider extends ChangeNotifier {
         return 'error';
       }
 
-      if (phoneNumber.isEmpty) {
+      if (email.isEmpty) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.lock,
-            title: "Please enter your phone number !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter your email address!",
+        );
         return 'error';
       }
 
-      if (phoneNumber.length != 10) {
+      //* ✅ Email Regex Validation
+      final emailRegex = RegExp(
+        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
+      );
+
+      if (!emailRegex.hasMatch(email)) {
         CustomSnackBar.show(
-            context: context,
-            icon: Icons.lock,
-            title: "Phone number must be 10 digits !");
+          context: context,
+          icon: Icons.email,
+          title: "Please enter a valid email address!",
+        );
         return 'error';
       }
 
-      ApiResponse<Map<String, dynamic>> response = await _authService
-          .verifyOTPsignUp(phoneNumber: phoneNumber, otp: otp);
+      ApiResponse<Map<String, dynamic>> response =
+          await _authService.verifyOTPsignUp(email: email, otp: otp);
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!;

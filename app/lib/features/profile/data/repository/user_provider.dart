@@ -1,7 +1,7 @@
-import 'dart:convert';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/profile/data/network/user_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -46,7 +46,7 @@ class UserProvider extends ChangeNotifier {
   Future<String> completeProfile({
     required BuildContext context,
     required String fullName,
-    required String email,
+    required String phone,
     required List<Map<String, dynamic>> currentMedicines,
     required List<Map<String, dynamic>> medicalConditions,
     required String locationName,
@@ -57,7 +57,7 @@ class UserProvider extends ChangeNotifier {
       ApiResponse<Map<String, dynamic>> response =
           await _userServices.completeProfile(
               fullName: fullName,
-              email: email,
+              phone: phone,
               currentMedicines: currentMedicines,
               medicalConditions: medicalConditions,
               locationName: locationName,
@@ -65,7 +65,7 @@ class UserProvider extends ChangeNotifier {
               longitude: longitude);
 
       if (response.statusCode == 200) {
-        Map<String, dynamic> userData = jsonDecode(response.message)["user"];
+        Map<String, dynamic> userData = response.data!["user"];
 
         List<userClass.Medicine> medicines = [];
 
@@ -154,7 +154,7 @@ class UserProvider extends ChangeNotifier {
   Future<String> editProfile({
     required BuildContext context,
     required String fullName,
-    required String email,
+    required String phone,
     required List<Map<String, dynamic>> currentMedicines,
     required List<Map<String, dynamic>> medicalConditions,
     required String locationName,
@@ -165,7 +165,7 @@ class UserProvider extends ChangeNotifier {
       ApiResponse<Map<String, dynamic>> response =
           await _userServices.editProfile(
               fullName: fullName,
-              email: email,
+              phoneNumber: phone,
               currentMedicines: currentMedicines,
               medicalConditions: medicalConditions,
               locationName: locationName,
@@ -194,9 +194,11 @@ class UserProvider extends ChangeNotifier {
           conditions.add(condition);
         }
 
+        Logger().d("profile eidted");
+
         userClass.UserModel updatedModel = user!.copyWith(
           fullName: fullName,
-          email: email,
+          phone: phone,
           currentMedicines: medicines,
           medicalConditions: conditions,
           location: userClass.Location(
@@ -243,6 +245,8 @@ class UserProvider extends ChangeNotifier {
 
       if (response.statusCode == 200) {
         Map<String, dynamic> responseData = response.data!;
+
+        Logger().d(responseData["user"]);
 
         userClass.UserModel userData =
             userClass.UserModel.fromJson(responseData["user"]);

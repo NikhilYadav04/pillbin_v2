@@ -207,7 +207,7 @@ class UserModel {
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
-      id: json['_id'],
+      id: json['id'],
       phoneNumber: json['phoneNumber'],
       isVerified: json['isVerified'] ?? false,
       fullName: json['fullName'],
@@ -254,7 +254,7 @@ class UserModel {
 
   UserModel copyWith({
     String? fullName,
-    String? email,
+    String? phone,
     List<Medicine>? currentMedicines,
     List<MedicalCondition>? medicalConditions,
     Location? location,
@@ -264,7 +264,7 @@ class UserModel {
   }) {
     return UserModel(
       id: id,
-      phoneNumber: phoneNumber,
+      phoneNumber: phone ?? this.phoneNumber,
       isVerified: isVerified,
       fullName: fullName ?? this.fullName,
       email: email ?? this.email,

@@ -6,7 +6,7 @@ const rateLimit = require("express-rate-limit");
 //* Rate Limited for OTP
 const otpLimiter = rateLimit({
   windowMs: 10 * 60 * 1000,
-  max: 3,
+  max: 10,
   keyGenerator: (req, res) => req.body.phoneNumber || req.ip,
   message: {
     success: false,

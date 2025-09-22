@@ -190,7 +190,9 @@ const getMedicalCenterById = async (req, res) => {
 
     res.status(200).json({
       statusCode: 200,
+      message : "Fetched details successfully!",
       data: {
+
         medicalCenter,
       },
     });

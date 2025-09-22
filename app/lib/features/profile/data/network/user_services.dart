@@ -6,7 +6,7 @@ class UserServices extends ApiService {
   //* Complete the Profile
   Future<ApiResponse<Map<String, dynamic>>> completeProfile({
     required String fullName,
-    required String email,
+    required String phone,
     required List<Map<String, dynamic>> currentMedicines,
     required List<Map<String, dynamic>> medicalConditions,
     required String locationName,
@@ -17,7 +17,7 @@ class UserServices extends ApiService {
       ApiEndpoints.completeProfile,
       data: {
         "fullName": fullName,
-        "email": email,
+        "phone": phone,
         "currentMedicines": currentMedicines,
         "medicalConditions": medicalConditions,
         "location": {
@@ -35,7 +35,7 @@ class UserServices extends ApiService {
   //* Edit the Profile
   Future<ApiResponse<Map<String, dynamic>>> editProfile({
     String? fullName,
-    String? email,
+    String? phoneNumber,
     List<Map<String, dynamic>>? currentMedicines,
     List<Map<String, dynamic>>? medicalConditions,
     String? locationName,
@@ -45,7 +45,7 @@ class UserServices extends ApiService {
     final Map<String, dynamic> data = {};
 
     if (fullName != null) data["fullName"] = fullName;
-    if (email != null) data["email"] = email;
+    if (phoneNumber != null) data["phoneNumber"] = phoneNumber;
     if (currentMedicines != null) data["currentMedicines"] = currentMedicines;
     if (medicalConditions != null)
       data["medicalConditions"] = medicalConditions;

@@ -18,13 +18,13 @@ const test = async (req, res) => {
 //* Complete user profile after signup
 const completeProfile = async (req, res) => {
   try {
-    const { fullName, email, currentMedicines, medicalConditions, location } =
+    const { fullName, phone, currentMedicines, medicalConditions, location } =
       req.body;
 
-    if (!fullName || !email) {
+    if (!fullName || !phone) {
       return res
         .status(400)
-        .json({ message: "Full name and email are required", statusCode: 400 });
+        .json({ message: "Full name and phone are required", statusCode: 400 });
     }
 
     //* Get userId from JWT token
@@ -37,9 +37,15 @@ const completeProfile = async (req, res) => {
         .json({ message: "User not found", statusCode: 404 });
     }
 
+    if (user.profileCompleted) {
+      return res
+        .status(400)
+        .json({ message: "Profile Details already completed !!", statusCode: 400 });
+    }
+
     //* Update profile
     user.fullName = fullName;
-    user.email = email;
+    user.phoneNumber = phone;
     user.currentMedicines = currentMedicines || [];
     user.medicalConditions = medicalConditions || [];
     user.location = location || null;
@@ -84,7 +90,7 @@ const editProfile = async (req, res) => {
     //* Update allowed fields
     const allowedFields = [
       "fullName",
-      "email",
+      "phoneNumber",
       "currentMedicines",
       "medicalConditions",
       "location",
@@ -248,7 +254,7 @@ const removeSavedMedicalCenter = async (req, res) => {
       statusCode: 200,
       message: "Medical center removed from saved list",
       data: {
-        removedMedicalCenter : medicalCenterId,
+        removedMedicalCenter: medicalCenterId,
       },
     });
   } catch (error) {
