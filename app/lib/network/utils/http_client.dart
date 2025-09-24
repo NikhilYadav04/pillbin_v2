@@ -179,10 +179,10 @@ class HttpClient {
     final token = await getAuthToken();
     final tokenRefresh = await getRefreshToken();
 
-    Logger().d("Token is Valid ${token!}");
+    Logger().d("Token is Valid ${token}");
     Logger().d("Token is Valid ${tokenRefresh}");
 
-    if (token.isEmpty) {
+    if (token == null || token.isEmpty) {
       return false;
     } else {
       final response = await _dio.get(

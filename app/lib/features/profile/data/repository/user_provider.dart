@@ -128,7 +128,7 @@ class UserProvider extends ChangeNotifier {
             context: context,
             icon: Icons.person,
             title: "Profile Completed Successfully !");
-        return 'error';
+        return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
         CustomSnackBar.show(
             context: context, icon: Icons.person, title: response.message);

@@ -53,4 +53,7 @@ class ApiEndpoints {
       '${ApiConfig.baseUrl}/api/medical-center/update/${medicalCenterId}';
   static String deleteMedicalCenter(String medicalCenterId) =>
       '${ApiConfig.baseUrl}/api/medical-center/delete/${medicalCenterId}';
+
+  //* Chatnot
+  static String get sendQueryToChatbot => '${ApiConfig.baseUrl}/api/chatbot/';
 }

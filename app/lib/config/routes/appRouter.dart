@@ -11,6 +11,7 @@ import 'package:pillbin/features/medicines/presentation/pages/add_medicine_scree
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
+import 'package:pillbin/features/splash_screen.dart';
 import 'package:pillbin/root_screen.dart';
 
 enum TransitionType {
@@ -90,6 +91,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
   Widget page;
   switch (settings.name) {
     case '/':
+      page = SplashScreen();
+      break;
+    case '/landing-screen':
       page = LandingPage();
       break;
     case '/phone-field-screen':
@@ -105,7 +109,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       page = OtpScreen(email: email, isLogin: isLogin);
       break;
     case '/complete-profile-screen':
-      page = UserRegistrationForm();
+      String phone = args?['phone'] ?? "";
+      page = UserRegistrationForm(
+        phone: phone,
+      );
       break;
     case '/home-screen':
       page = HomeScreen();

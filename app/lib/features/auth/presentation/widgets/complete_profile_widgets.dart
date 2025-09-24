@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 
@@ -20,7 +21,9 @@ Widget buildCompleteProfileHeader(
               color: PillBinColors.textPrimary,
             ),
           ),
-          SizedBox(width: 5,),
+          SizedBox(
+            width: 5,
+          ),
           Text(
             'Complete Your Profile',
             style: PillBinBold.style(
@@ -255,7 +258,17 @@ Widget buildCompleteProfileCancelButton(
       color: Colors.transparent,
       child: InkWell(
         borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-        onTap: () => Navigator.pop(context),
+        onTap: () => {
+          Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/bottom-bar-screen',
+            (Route<dynamic> route) => false,
+            arguments: {
+              'transition': TransitionType.bottomToTop,
+              'duration': 300,
+            },
+          )
+        },
         child: Padding(
           padding: EdgeInsets.symmetric(
             vertical: isTablet ? sh * 0.02 : sh * 0.015,

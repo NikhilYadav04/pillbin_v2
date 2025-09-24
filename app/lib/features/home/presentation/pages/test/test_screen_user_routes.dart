@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 
 class TestScreenUser extends StatefulWidget {
@@ -12,6 +13,7 @@ class TestScreenUser extends StatefulWidget {
 class _TestScreenUserState extends State<TestScreenUser> {
   //* provider
   final UserProvider _userProvider = UserProvider();
+  final ChatbotProvider _chatbotProvider = ChatbotProvider();
 
   // Test phone number for testing
   final String testPhoneNumber = "+1234567890";
@@ -141,6 +143,19 @@ class _TestScreenUserState extends State<TestScreenUser> {
               title: "Get Saved Medical Centers",
               color: Colors.brown,
               onPressed: () => _testGetSavedMedicalCenters(),
+            ),
+
+            SizedBox(height: 15),
+
+            // 10. Get Saved Medical Centers
+            _buildTestButton(
+              title: "Chatbot",
+              color: Colors.brown,
+              onPressed: () {
+                _chatbotProvider.sendQueryToChatbot(
+                    context: context,
+                    prompt: "WHat would you prefer mango or apple?");
+              },
             ),
           ],
         ),
