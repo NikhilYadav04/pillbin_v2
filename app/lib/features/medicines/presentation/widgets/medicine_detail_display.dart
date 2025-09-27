@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/medicines/presentation/widgets/medicine_item.dart';
+import 'package:pillbin/core/utils/dateFormatter.dart';
+import 'package:pillbin/network/models/medicine_model.dart';
 
 class MedicineDetailsModal extends StatelessWidget {
   final Medicine medicine;
@@ -58,14 +59,26 @@ class MedicineDetailsModal extends StatelessWidget {
                           vertical: isTablet ? sh * 0.005 : sh * 0.008,
                         ),
                         decoration: BoxDecoration(
-                          color: medicine.statusColor.withOpacity(0.1),
+                          color: medicine.status.toString() == 'MedicineStatus.active'
+                              ? PillBinColors.success.withOpacity(0.1)
+                              : medicine.status.toString() == 'MedicineStatus.expired'
+                                  ? PillBinColors.error.withOpacity(0.1)
+                                  : PillBinColors.warning.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          medicine.status,
+                          medicine.status.toString() == 'MedicineStatus.active'
+                              ? 'Active'
+                              : medicine.status.toString() == 'MedicineStatus.expired'
+                                  ? 'Expiring Soon'
+                                  : 'Expired',
                           style: PillBinMedium.style(
                             fontSize: isTablet ? sw * 0.02 : sw * 0.03,
-                            color: medicine.statusColor,
+                            color: medicine.status.toString() == 'MedicineStatus.active'
+                                ? PillBinColors.success
+                                : medicine.status.toString() == 'MedicineStatus.expired'
+                                    ? PillBinColors.error
+                                    : PillBinColors.warning,
                           ),
                         ),
                       ),
@@ -73,25 +86,38 @@ class MedicineDetailsModal extends StatelessWidget {
                   ),
                   SizedBox(height: sh * 0.03),
                   _buildDetailRow(
-                      'Quantity', medicine.quantity, sw, sh, isTablet),
+                      'Quantity',
+                      (medicine.dosage == null || medicine.dosage!.isEmpty)
+                          ? "Not Mentioned"
+                          : medicine.dosage!,
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow('Expiry Date', "${medicine.expiryDate}", sw,
+                      sh, isTablet),
                   _buildDetailRow(
-                      'Expiry Date',
-                      '${medicine.expiryDate.day}/${medicine.expiryDate.month}/${medicine.expiryDate.year}',
+                      'Status',
+                      medicine.status.toString() == 'MedicineStatus.expired'
+                          ? 'Expired'
+                          : 'Expires' +
+                              "in ${Dateformatter.customDateDifference(DateTime.now(), medicine.expiryDate)}",
                       sw,
                       sh,
                       isTablet),
                   _buildDetailRow(
-                      'Status', medicine.daysUntilExpiry, sw, sh, isTablet),
+                      'Added Date', '${medicine.addedDate}', sw, sh, isTablet),
+                  _buildDetailRow('Purchase Date', '${medicine.purchaseDate}',
+                      sw, sh, isTablet),
                   _buildDetailRow(
-                      'Added Date',
-                      '${medicine.addedDate.day}/${medicine.addedDate.month}/${medicine.addedDate.year}',
+                      'Notes',
+                      (medicine.notes == null || medicine.notes!.isEmpty)
+                          ? "Not Mentioned"
+                          : medicine.notes!,
                       sw,
                       sh,
                       isTablet),
-                  if (medicine.notes.isNotEmpty)
-                    _buildDetailRow('Notes', medicine.notes, sw, sh, isTablet),
                   const Spacer(),
-                  if (medicine.status == 'Expired')
+                  if (medicine.status.toString() == 'MedicineStatus.expired')
                     Container(
                       width: double.infinity,
                       padding:

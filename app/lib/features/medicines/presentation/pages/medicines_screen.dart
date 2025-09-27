@@ -1,6 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/dateFormatter.dart';
+import 'package:pillbin/core/utils/medicineDescriptionShimmer.dart';
+import 'package:pillbin/core/utils/medicineShimmerCard.dart';
+import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:provider/provider.dart';
+import 'package:pillbin/network/models/medicine_model.dart' as medicine;
+import 'package:intl/intl.dart';
 
 class InventoryScreen extends StatefulWidget {
   const InventoryScreen({Key? key}) : super(key: key);
@@ -25,12 +33,29 @@ class _InventoryScreenState extends State<InventoryScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<MedicineProvider>(context, listen: false);
+      if (provider.activeMedicinesInventory.isEmpty) {}
+
+      provider.getInventory(context: context);
+    });
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  void refresh() {
+    final provider = Provider.of<MedicineProvider>(context, listen: false);
+
+    if (provider.isFetching) {
+      return;
+    }
+
+    provider.getInventory(context: context);
   }
 
   @override
@@ -44,49 +69,57 @@ class _InventoryScreenState extends State<InventoryScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Column(
-            children: [
-              _buildHeader(sw, sh, isTablet),
-              Expanded(
-                child: isTablet
-                    ? _buildTabletLayout(sw, sh)
-                    : _buildMobileLayout(sw, sh),
-              ),
-            ],
+          child: Consumer<MedicineProvider>(
+            builder: (context, provider, _) {
+              return Column(
+                children: [
+                  _buildHeader(sw, sh, isTablet, provider, () {
+                    refresh();
+                  }),
+                  Expanded(
+                    child: isTablet
+                        ? _buildTabletLayout(sw, sh, provider)
+                        : _buildMobileLayout(sw, sh, provider),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMobileLayout(double sw, double sh) {
+  Widget _buildMobileLayout(
+      double sw, double sh, MedicineProvider medicineProvider) {
     return SingleChildScrollView(
       child: Column(
         children: [
           SizedBox(height: sh * 0.02),
-          _buildStatsCards(sw, sh, false),
+          _buildStatsCards(sw, sh, false, medicineProvider),
           SizedBox(height: sh * 0.025),
-          _buildClearExpiredButton(sw, sh, false),
+          _buildClearExpiredButton(sw, sh, false, medicineProvider),
           SizedBox(height: sh * 0.025),
-          _buildMedicinesList(sw, sh, false),
+          _buildMedicinesList(sw, sh, false, medicineProvider),
           SizedBox(height: sh * 0.02),
         ],
       ),
     );
   }
 
-  Widget _buildTabletLayout(double sw, double sh) {
+  Widget _buildTabletLayout(
+      double sw, double sh, MedicineProvider medicineProvider) {
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
         child: Column(
           children: [
             SizedBox(height: sh * 0.02),
-            _buildStatsCards(sw, sh, true),
+            _buildStatsCards(sw, sh, true, medicineProvider),
             SizedBox(height: sh * 0.025),
-            _buildClearExpiredButton(sw, sh, true),
+            _buildClearExpiredButton(sw, sh, true, medicineProvider),
             SizedBox(height: sh * 0.025),
-            _buildMedicinesList(sw, sh, true),
+            _buildMedicinesList(sw, sh, true, medicineProvider),
             SizedBox(height: sh * 0.02),
           ],
         ),
@@ -94,7 +127,8 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildHeader(double sw, double sh, bool isTablet) {
+  Widget _buildHeader(double sw, double sh, bool isTablet,
+      MedicineProvider provider, void Function() onTap) {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -123,13 +157,29 @@ class _InventoryScreenState extends State<InventoryScreen>
                     ),
                     SizedBox(height: sh * 0.005),
                     Text(
-                      '4 medicines tracked',
+                      '${provider.countInventory()} medicines tracked',
                       style: PillBinRegular.style(
                         fontSize: isTablet ? sw * 0.02 : sw * 0.038,
                         color: PillBinColors.textWhite.withOpacity(0.9),
                       ),
                     ),
                   ],
+                ),
+              ),
+              //* Refresh icon on the right
+              GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.refresh,
+                    color: Colors.white,
+                    size: isTablet ? sw * 0.03 : sw * 0.05,
+                  ),
                 ),
               ),
             ],
@@ -139,86 +189,99 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildStatsCards(double sw, double sh, bool isTablet) {
+  Widget _buildStatsCards(
+      double sw, double sh, bool isTablet, MedicineProvider medicineProvider) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
       child: isTablet
-          ? _buildTabletStatsGrid(sw, sh)
-          : _buildMobileStatsRow(sw, sh),
+          ? _buildTabletStatsGrid(sw, sh, medicineProvider)
+          : _buildMobileStatsRow(sw, sh, medicineProvider),
     );
   }
 
-  Widget _buildMobileStatsRow(double sw, double sh) {
-    return Row(
-      children: [
-        Expanded(
-          child: StatCard(
-            count: '1',
-            label: 'Active',
-            color: PillBinColors.primary,
-            sw: sw,
-            sh: sh,
-          ),
-        ),
-        SizedBox(width: sw * 0.03),
-        Expanded(
-          child: StatCard(
-            count: '1',
-            label: 'Expiring',
-            color: PillBinColors.warning,
-            sw: sw,
-            sh: sh,
-          ),
-        ),
-        SizedBox(width: sw * 0.03),
-        Expanded(
-          child: StatCard(
-            count: '2',
-            label: 'Expired',
-            color: PillBinColors.error,
-            sw: sw,
-            sh: sh,
-          ),
-        ),
-      ],
-    );
+  Widget _buildMobileStatsRow(
+      double sw, double sh, MedicineProvider medicineProvider) {
+    return medicineProvider.isFetching
+        ? MedicineStatCardShimmerRow(sw: sw, sh: sh)
+        : Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  count: medicineProvider.activeMedicinesInventory.length
+                      .toString(),
+                  label: 'Active',
+                  color: PillBinColors.primary,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+              SizedBox(width: sw * 0.03),
+              Expanded(
+                child: StatCard(
+                  count: medicineProvider.expiringSoonMedicinesInventory.length
+                      .toString(),
+                  label: 'Expiring',
+                  color: PillBinColors.warning,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+              SizedBox(width: sw * 0.03),
+              Expanded(
+                child: StatCard(
+                  count: medicineProvider.expiredMedicinesInventory.length
+                      .toString(),
+                  label: 'Expired',
+                  color: PillBinColors.error,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+            ],
+          );
   }
 
-  Widget _buildTabletStatsGrid(double sw, double sh) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        StatCard(
-          count: '1',
-          label: 'Active',
-          color: PillBinColors.primary,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(width: sw * 0.03),
-        StatCard(
-          count: '1',
-          label: 'Expiring',
-          color: PillBinColors.warning,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(width: sw * 0.03),
-        StatCard(
-          count: '2',
-          label: 'Expired',
-          color: PillBinColors.error,
-          sw: sw,
-          sh: sh,
-        ),
-      ],
-    );
+  Widget _buildTabletStatsGrid(
+      double sw, double sh, MedicineProvider medicineProvider) {
+    return medicineProvider.isFetching
+        ? MedicineStatCardShimmerRow(sw: sw, sh: sh)
+        : Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              StatCard(
+                count:
+                    medicineProvider.activeMedicinesInventory.length.toString(),
+                label: 'Active',
+                color: PillBinColors.primary,
+                sw: sw,
+                sh: sh,
+              ),
+              SizedBox(width: sw * 0.03),
+              StatCard(
+                count: medicineProvider.expiringSoonMedicinesInventory.length
+                    .toString(),
+                label: 'Expiring',
+                color: PillBinColors.warning,
+                sw: sw,
+                sh: sh,
+              ),
+              SizedBox(width: sw * 0.03),
+              StatCard(
+                count: medicineProvider.expiredMedicinesInventory.length
+                    .toString(),
+                label: 'Expired',
+                color: PillBinColors.error,
+                sw: sw,
+                sh: sh,
+              ),
+            ],
+          );
   }
 
-  Widget _buildClearExpiredButton(double sw, double sh, bool isTablet) {
+  Widget _buildClearExpiredButton(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
     return Padding(
-      padding:
-          EdgeInsets.symmetric(horizontal: isTablet ? sw * 0 : sw * 0.04),
+      padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
       child: Container(
         width: double.infinity,
         decoration: BoxDecoration(
@@ -236,7 +299,9 @@ class _InventoryScreenState extends State<InventoryScreen>
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-            onTap: () {},
+            onTap: () {
+              // TODO: Implement clear expired functionality
+            },
             child: Padding(
               padding: EdgeInsets.symmetric(
                 vertical: isTablet ? sh * 0.02 : sh * 0.015,
@@ -252,7 +317,7 @@ class _InventoryScreenState extends State<InventoryScreen>
                   ),
                   SizedBox(width: sw * 0.02),
                   Text(
-                    'Clear All Expired (2)',
+                    'Clear All Expired (${provider.expiredMedicinesInventory.length})',
                     style: PillBinMedium.style(
                       fontSize: isTablet ? sw * 0.025 : sw * 0.04,
                       color: PillBinColors.textWhite,
@@ -267,126 +332,199 @@ class _InventoryScreenState extends State<InventoryScreen>
     );
   }
 
-  Widget _buildMedicinesList(double sw, double sh, bool isTablet) {
+  Widget _buildMedicinesList(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
       child: Column(
         children: [
-          _buildExpiredSection(sw, sh, isTablet),
+          _buildExpiredSection(sw, sh, isTablet, provider),
           SizedBox(height: sh * 0.03),
-          _buildExpiringSoonSection(sw, sh, isTablet),
+          _buildExpiringSoonSection(sw, sh, isTablet, provider),
           SizedBox(height: sh * 0.03),
-          _buildActiveSection(sw, sh, isTablet),
+          _buildActiveSection(sw, sh, isTablet, provider),
         ],
       ),
     );
   }
 
-  Widget _buildExpiredSection(double sw, double sh, bool isTablet) {
-    return Column(
-      children: [
-        SectionHeader(
-          icon: Icons.warning,
-          title: 'Expired Medicines (2)',
-          color: PillBinColors.error,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(height: sh * 0.015),
-        MedicineCard(
-          name: 'Ibuprofen',
-          status: 'Expired 3 days ago',
-          quantity: '15 tablets',
-          category: 'Anti-inflammatory',
-          statusColor: PillBinColors.error,
-          actionText: 'Dispose',
-          actionColor: PillBinColors.error,
-          sw: sw,
-          sh: sh,
-          showViewMore: true,
-          onViewMore: () => _showMedicineDetails(context, 'Ibuprofen'),
-        ),
-        SizedBox(height: sh * 0.01),
-        MedicineCard(
-          name: 'Cough Syrup',
-          status: 'Expired 13 days ago',
-          quantity: '100ml',
-          category: 'Opened 2 months ago',
-          statusColor: PillBinColors.error,
-          actionText: 'Dispose',
-          actionColor: PillBinColors.error,
-          sw: sw,
-          sh: sh,
-          showViewMore: true,
-          onViewMore: () => _showMedicineDetails(context, 'Cough Syrup'),
-        ),
-      ],
-    );
+  Widget _buildExpiredSection(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
+    return provider.isFetching
+        ? medicineShimmerList(
+            sw: sw, sh: sh, baseColor: const Color.fromARGB(255, 237, 132, 125))
+        : Column(
+            children: [
+              SectionHeader(
+                icon: Icons.warning,
+                title:
+                    'Expired Medicines (${provider.expiredMedicinesInventory.length})',
+                color: PillBinColors.error,
+                sw: sw,
+                sh: sh,
+              ),
+              SizedBox(height: sh * 0.015),
+              if (provider.expiredMedicinesInventory.isNotEmpty)
+                ...provider.expiredMedicinesInventory
+                    .take(2)
+                    .map((meds) => Padding(
+                          padding: EdgeInsets.only(bottom: sh * 0.01),
+                          child: MedicineCard(
+                            name: meds.name,
+                            status:
+                                'Expired ${Dateformatter.customDateDifference(DateTime.now(), meds.expiryDate)} ago',
+                            quantity: '${meds.dosage} tablets',
+                            category: meds.type ?? '',
+                            statusColor: PillBinColors.error,
+                            actionText: 'Dispose',
+                            actionColor: PillBinColors.error,
+                            sw: sw,
+                            sh: sh,
+                            showViewMore: true,
+                            onViewMore: () =>
+                                _showMedicineDetails(context, meds.name, meds),
+                          ),
+                        ))
+                    .toList()
+              else
+                Container(
+                  padding: EdgeInsets.all(sw * 0.04),
+                  child: Text(
+                    'No expired medicines',
+                    style: PillBinRegular.style(
+                      fontSize: sw * 0.035,
+                      color: PillBinColors.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          );
   }
 
-  Widget _buildExpiringSoonSection(double sw, double sh, bool isTablet) {
-    return Column(
-      children: [
-        SectionHeader(
-          icon: Icons.schedule,
-          title: 'Expiring Soon (1)',
-          color: PillBinColors.warning,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(height: sh * 0.015),
-        MedicineCard(
-          name: 'Crocin',
-          status: 'Expires in 38 days',
-          quantity: '10 tablets',
-          category: 'Pain reliever',
-          statusColor: PillBinColors.warning,
-          actionText: '38d',
-          actionColor: PillBinColors.primary,
-          isCountdown: true,
-          sw: sw,
-          sh: sh,
-          showViewMore: true,
-          onViewMore: () => _showMedicineDetails(context, 'Crocin'),
-        ),
-      ],
-    );
+  Widget _buildExpiringSoonSection(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
+    return provider.isFetching
+        ? medicineShimmerList(
+            sw: sw,
+            sh: sh,
+            baseColor: const Color.fromARGB(255, 235, 186, 112),
+          )
+        : Column(
+            children: [
+              SectionHeader(
+                icon: Icons.schedule,
+                title:
+                    'Expiring Soon (${provider.expiringSoonMedicinesInventory.length})',
+                color: PillBinColors.warning,
+                sw: sw,
+                sh: sh,
+              ),
+              SizedBox(height: sh * 0.015),
+              if (provider.expiringSoonMedicinesInventory.isNotEmpty)
+                ...provider.expiringSoonMedicinesInventory
+                    .take(2)
+                    .map((meds) => Padding(
+                          padding: EdgeInsets.only(bottom: sh * 0.01),
+                          child: MedicineCard(
+                            name: meds.name,
+                            status:
+                                'Expires in ${Dateformatter.customDateDifference(DateTime.now(), meds.expiryDate)}',
+                            quantity: '${meds.dosage} tablets',
+                            category: meds.type ?? '',
+                            statusColor: PillBinColors.warning,
+                            actionText: 'Reorder',
+                            actionColor: PillBinColors.warning,
+                            sw: sw,
+                            sh: sh,
+                            showViewMore: true,
+                            onViewMore: () =>
+                                _showMedicineDetails(context, meds.name, meds),
+                          ),
+                        ))
+                    .toList()
+              else
+                Container(
+                  padding: EdgeInsets.all(sw * 0.04),
+                  child: Text(
+                    'No medicines expiring soon',
+                    style: PillBinRegular.style(
+                      fontSize: sw * 0.035,
+                      color: PillBinColors.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          );
   }
 
-  Widget _buildActiveSection(double sw, double sh, bool isTablet) {
-    return Column(
-      children: [
-        SectionHeader(
-          icon: Icons.check_circle,
-          title: 'Active Medicines (1)',
-          color: PillBinColors.primary,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(height: sh * 0.015),
-        MedicineCard(
-          name: 'Paracetamol',
-          status: 'Expires in 145 days',
-          quantity: '20 tablets',
-          category: 'For fever and pain relief',
-          statusColor: PillBinColors.success,
-          actionText: 'Active',
-          actionColor: PillBinColors.success,
-          sw: sw,
-          sh: sh,
-          showViewMore: true,
-          onViewMore: () => _showMedicineDetails(context, 'Paracetamol'),
-        ),
-      ],
-    );
+  Widget _buildActiveSection(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
+    return provider.isFetching
+        ? medicineShimmerList(
+            sw: sw,
+            sh: sh,
+            baseColor: const Color.fromARGB(255, 117, 232, 121),
+          )
+        : Column(
+            children: [
+              SectionHeader(
+                icon: Icons.check_circle,
+                title:
+                    'Active Medicines (${provider.activeMedicinesInventory.length})',
+                color: PillBinColors.primary,
+                sw: sw,
+                sh: sh,
+              ),
+              SizedBox(height: sh * 0.015),
+              if (provider.activeMedicinesInventory.isNotEmpty)
+                ...provider.activeMedicinesInventory
+                    .take(2)
+                    .map((meds) => Padding(
+                          padding: EdgeInsets.only(bottom: sh * 0.01),
+                          child: MedicineCard(
+                            name: meds.name,
+                            status:
+                                'Active - ${Dateformatter.customDateDifference(DateTime.now(), meds.expiryDate)} remaining',
+                            quantity: '${meds.dosage} tablets',
+                            category: meds.type ?? '',
+                            statusColor: PillBinColors.primary,
+                            actionText: 'Details',
+                            actionColor: PillBinColors.primary,
+                            sw: sw,
+                            sh: sh,
+                            showViewMore: true,
+                            onViewMore: () =>
+                                _showMedicineDetails(context, meds.name, meds),
+                          ),
+                        ))
+                    .toList()
+              else
+                Container(
+                  padding: EdgeInsets.all(sw * 0.04),
+                  child: Text(
+                    'No active medicines',
+                    style: PillBinRegular.style(
+                      fontSize: sw * 0.035,
+                      color: PillBinColors.textSecondary,
+                    ),
+                  ),
+                ),
+            ],
+          );
   }
 
-  void _showMedicineDetails(BuildContext context, String medicineName) {
+  void _showMedicineDetails(
+      BuildContext context, String medicineName, medicine.Medicine medicine) {
+    Logger().d(medicine.status.toString());
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => MedicineDetailsModal(medicineName: medicineName),
+      builder: (context) => MedicineDetailsModal(
+        status: medicine.status.toString(),
+        medicineName: medicineName,
+        medicineItem: medicine,
+      ),
     );
   }
 }
@@ -560,27 +698,33 @@ class MedicineCard extends StatelessWidget {
                     SizedBox(height: sh * 0.005),
                     Text(
                       status,
+                      maxLines: 2,
+                      softWrap: true,
                       style: PillBinRegular.style(
                         fontSize: isTablet ? sw * 0.02 : sw * 0.035,
                         color: statusColor,
                       ),
                     ),
-                    SizedBox(height: sh * 0.003),
-                    Text(
-                      quantity,
-                      style: PillBinRegular.style(
-                        fontSize: isTablet ? sw * 0.018 : sw * 0.032,
-                        color: PillBinColors.textSecondary,
+                    if (quantity.isNotEmpty) ...[
+                      SizedBox(height: sh * 0.003),
+                      Text(
+                        quantity.trim(),
+                        style: PillBinRegular.style(
+                          fontSize: isTablet ? sw * 0.018 : sw * 0.032,
+                          color: PillBinColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    SizedBox(height: sh * 0.003),
-                    Text(
-                      category,
-                      style: PillBinRegular.style(
-                        fontSize: isTablet ? sw * 0.018 : sw * 0.032,
-                        color: PillBinColors.textSecondary,
+                    ],
+                    if (category.isNotEmpty) ...[
+                      SizedBox(height: sh * 0.003),
+                      Text(
+                        category.trim(),
+                        style: PillBinRegular.style(
+                          fontSize: isTablet ? sw * 0.018 : sw * 0.032,
+                          color: PillBinColors.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),
@@ -681,10 +825,16 @@ class MedicineCard extends StatelessWidget {
 }
 
 class MedicineDetailsModal extends StatelessWidget {
+  final medicine.Medicine medicineItem;
   final String medicineName;
+  final String status;
 
-  const MedicineDetailsModal({Key? key, required this.medicineName})
-      : super(key: key);
+  const MedicineDetailsModal({
+    Key? key,
+    required this.medicineName,
+    required this.medicineItem,
+    required this.status,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -703,6 +853,7 @@ class MedicineDetailsModal extends StatelessWidget {
       ),
       child: Column(
         children: [
+          // top drag indicator
           Container(
             width: sw * 0.12,
             height: 4,
@@ -712,48 +863,83 @@ class MedicineDetailsModal extends StatelessWidget {
               borderRadius: BorderRadius.circular(2),
             ),
           ),
-          Padding(
-            padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.06),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  medicineName,
-                  style: PillBinBold.style(
-                    fontSize: isTablet ? sw * 0.035 : sw * 0.06,
-                    color: PillBinColors.textPrimary,
-                  ),
-                ),
-                SizedBox(height: sh * 0.02),
-                _buildDetailRow('Medicine Type', 'Tablet', sw, sh, isTablet),
-                _buildDetailRow('Dosage', '200mg', sw, sh, isTablet),
-                _buildDetailRow(
-                    'Manufacturer', 'Generic Pharma', sw, sh, isTablet),
-                _buildDetailRow('Batch Number', 'BP2024001', sw, sh, isTablet),
-                _buildDetailRow(
-                    'Purchase Date', '15 Jan 2024', sw, sh, isTablet),
-                _buildDetailRow('Expiry Date', '15 Jan 2025', sw, sh, isTablet),
-                _buildDetailRow(
-                    'Storage', 'Room temperature', sw, sh, isTablet),
-                SizedBox(height: sh * 0.03),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
-                  decoration: BoxDecoration(
-                    color: PillBinColors.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: PillBinColors.warning.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    'Note: This medicine has expired. Please dispose of it safely at a designated collection point.',
-                    style: PillBinRegular.style(
-                      fontSize: isTablet ? sw * 0.02 : sw * 0.035,
-                      color: PillBinColors.warning,
+          Expanded(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.06),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    medicineName,
+                    style: PillBinBold.style(
+                      fontSize: isTablet ? sw * 0.035 : sw * 0.06,
+                      color: PillBinColors.textPrimary,
                     ),
                   ),
-                ),
-              ],
+                  SizedBox(height: sh * 0.02),
+                  _buildDetailRow(
+                      'Medicine Type',
+                      medicineItem.type == null || medicineItem.type!.isEmpty
+                          ? "Not Mentioned"
+                          : medicineItem.type!.trim(),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Dosage',
+                      medicineItem.dosage == null ||
+                              medicineItem.dosage!.isEmpty
+                          ? "Not Mentioned"
+                          : medicineItem.dosage!.trim(),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Manufacturer',
+                      medicineItem.manufacturer == null ||
+                              medicineItem.manufacturer!.isEmpty
+                          ? "Not Mentioned"
+                          : medicineItem.manufacturer!.trim(),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Batch Number',
+                      medicineItem.batchNumber == null ||
+                              medicineItem.batchNumber!.isEmpty
+                          ? "Not Mentioned"
+                          : medicineItem.batchNumber!.trim(),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Purchase Date',
+                      DateFormat('d MMMM yyyy')
+                          .format(medicineItem.purchaseDate),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Expiry Date',
+                      DateFormat('d MMMM yyyy').format(medicineItem.expiryDate),
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Notes',
+                      medicineItem.notes == null ||
+                              medicineItem.notes!.isEmpty
+                          ? "Not Mentioned"
+                          : medicineItem.notes!.trim(),
+                      sw,
+                      sh,
+                      isTablet),
+                  SizedBox(height: sh * 0.03),
+
+                  /// 🔥 Dynamic Status Container
+                  _buildStatusContainer(status, sw, isTablet),
+                ],
+              ),
             ),
           ),
         ],
@@ -761,34 +947,85 @@ class MedicineDetailsModal extends StatelessWidget {
     );
   }
 
-  Widget _buildDetailRow(
-      String label, String value, double sw, double sh, bool isTablet) {
-    return Padding(
-      padding: EdgeInsets.only(bottom: sh * 0.015),
-      child: Row(
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              label,
-              style: PillBinMedium.style(
-                fontSize: isTablet ? sw * 0.022 : sw * 0.038,
-                color: PillBinColors.textSecondary,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value,
-              style: PillBinRegular.style(
-                fontSize: isTablet ? sw * 0.022 : sw * 0.038,
-                color: PillBinColors.textDark,
-              ),
-            ),
-          ),
-        ],
+  /// Builds the colored note container depending on medicine status
+  Widget _buildStatusContainer(String status, double sw, bool isTablet) {
+    Color bgColor;
+    Color borderColor;
+    Color textColor;
+    String message;
+
+    switch (status) {
+      case 'MedicineStatus.active':
+        bgColor = PillBinColors.success.withOpacity(0.1);
+        borderColor = PillBinColors.success.withOpacity(0.3);
+        textColor = PillBinColors.success;
+        message = 'Great! This medicine is active and safe to use.';
+        break;
+      case 'MedicineStatus.expiringSoon':
+        bgColor = PillBinColors.warning.withOpacity(0.1);
+        borderColor = PillBinColors.warning.withOpacity(0.3);
+        textColor = PillBinColors.warning;
+        message =
+            'Alert: This medicine is expiring soon. Please plan for safe disposal or replacement.';
+        break;
+      case 'MedicineStatus.expired':
+      default:
+        bgColor = PillBinColors.error.withOpacity(0.1);
+        borderColor = PillBinColors.error.withOpacity(0.3);
+        textColor = PillBinColors.error;
+        message =
+            'Note: This medicine has expired. Please dispose of it safely at a designated collection point.';
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Text(
+        message,
+        style: PillBinRegular.style(
+          fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+          color: textColor,
+        ),
       ),
     );
   }
+
+  // Keep your _buildDetailRow function as is
+}
+
+Widget _buildDetailRow(
+    String label, String value, double sw, double sh, bool isTablet) {
+  return Padding(
+    padding: EdgeInsets.only(bottom: sh * 0.015),
+    child: Row(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Text(
+            label,
+            style: PillBinMedium.style(
+              fontSize: isTablet ? sw * 0.022 : sw * 0.038,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
+        ),
+        Expanded(
+          flex: 3,
+          child: Text(
+            value,
+            style: PillBinRegular.style(
+              fontSize: isTablet ? sw * 0.022 : sw * 0.038,
+              color: PillBinColors.textDark,
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 }

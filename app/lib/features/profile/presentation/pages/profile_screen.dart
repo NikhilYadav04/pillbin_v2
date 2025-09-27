@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/shimmerCard.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_widgets.dart';
+import 'package:pillbin/network/models/user_model.dart';
+import 'package:provider/provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -15,6 +19,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  //* provider
+
+  bool _isFetchingProfile = false;
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +34,26 @@ class _ProfileScreenState extends State<ProfileScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+
+    //* Fetch user details after the first frame is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchUserDetails();
+    });
+  }
+
+  //* fetch User Details
+
+  Future<void> _fetchUserDetails() async {
+    setState(() {
+      _isFetchingProfile = true;
+    });
+
+    final userProvider = context.read<UserProvider>();
+    await userProvider.getProfile(context: context);
+
+    setState(() {
+      _isFetchingProfile = false;
+    });
   }
 
   @override
@@ -42,12 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-
     return Scaffold(
       key: _scaffoldKey,
       drawer: isTablet
           ? Drawer(
-            width: sw*0.5,
+              width: sw * 0.5,
               backgroundColor: PillBinColors.surface,
               child: Column(
                 children: [
@@ -90,7 +117,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                   Expanded(
                     child: SingleChildScrollView(
                       padding: EdgeInsets.all(sw * 0.025),
-                      child: buildProfileSettings(sw, sh, isTablet),
+                      child: buildProfileSettings(sw, sh, isTablet, context),
                     ),
                   ),
                 ],
@@ -99,48 +126,71 @@ class _ProfileScreenState extends State<ProfileScreen>
           : null,
       backgroundColor: PillBinColors.background,
       body: SafeArea(
-        child: FadeTransition(
-          opacity: _fadeAnimation,
-          child: isTablet
-              ? _buildTabletLayout(sw, sh,_scaffoldKey)
-              : _buildMobileLayout(sw, sh,_scaffoldKey),
-        ),
+        child: Consumer<UserProvider>(builder: (context, provider, _) {
+          UserModel? _user = provider.user;
+
+          return FadeTransition(
+            opacity: _fadeAnimation,
+            child: isTablet
+                ? _buildTabletLayout(
+                    sw, sh, _scaffoldKey, _user, _isFetchingProfile)
+                : _buildMobileLayout(
+                    sw, sh, _scaffoldKey, _user, _isFetchingProfile),
+          );
+        }),
       ),
     );
   }
 
-  Widget _buildMobileLayout(double sw, double sh,GlobalKey<ScaffoldState> key) {
+  Widget _buildMobileLayout(double sw, double sh, GlobalKey<ScaffoldState> key,
+      UserModel? user, bool isLoading) {
     return SingleChildScrollView(
       child: Column(
         children: [
-          buildProfileAppBar(sw, sh, context,key),
+          GestureDetector(
+              onTap: () => {
+                    setState(() {
+                      _isFetchingProfile = !_isFetchingProfile;
+                    })
+                  },
+              child: buildProfileAppBar(sw, sh, context, key,
+                  _isFetchingProfile ? () {} : _fetchUserDetails)),
           SizedBox(height: sh * 0.025),
-          buildProfileHeader(sw, sh, false),
+          isLoading
+              ? ShimmerCards.buildProfileHeaderShimmer(sw, sh, false)
+              : buildProfileHeader(sw, sh, false, context, user),
           SizedBox(height: sh * 0.025),
-          buildProfileStatsCards(sw, sh, false),
+          isLoading
+              ? ShimmerCards.buildProfileStatsShimmer(sw, sh, false)
+              : buildProfileStatsCards(
+                  sw, sh, false, user?.medicineCount.toString() ?? "0"),
           SizedBox(height: sh * 0.03),
-          buildProfileAchievements(sw, sh, false),
+          buildProfileAchievements(sw, sh, false, user),
           SizedBox(height: sh * 0.03),
           // buildProfileCampaigns(sw, sh, false),
           // SizedBox(height: sh * 0.03),
           buildProfileSurveySection(sw, sh, false),
           SizedBox(height: sh * 0.03),
-          buildProfileSettings(sw, sh, false),
+          buildProfileSettings(sw, sh, false, context),
           SizedBox(height: sh * 0.02),
         ],
       ),
     );
   }
 
-  Widget _buildTabletLayout(double sw, double sh,GlobalKey<ScaffoldState> key) {
+  Widget _buildTabletLayout(double sw, double sh, GlobalKey<ScaffoldState> key,
+      UserModel? user, bool isLoading) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
       child: Column(
         children: [
           // Fixed header section (non-scrollable)
-          buildProfileAppBar(sw, sh, context,key),
+          buildProfileAppBar(sw, sh, context, key,
+              _isFetchingProfile ? () {} : _fetchUserDetails),
           SizedBox(height: sh * 0.025),
-          buildProfileHeader(sw, sh, true),
+          isLoading
+              ? ShimmerCards.buildProfileHeaderShimmer(sw, sh, true)
+              : buildProfileHeader(sw, sh, true, context, user),
           SizedBox(height: sh * 0.025),
 
           // Scrollable content section with independent columns
@@ -155,9 +205,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                     physics: const BouncingScrollPhysics(),
                     child: Column(
                       children: [
-                        buildProfileStatsCards(sw, sh, true),
+                        isLoading
+                            ? ShimmerCards.buildProfileStatsShimmer(
+                                sw, sh, true)
+                            : buildProfileStatsCards(sw, sh, true,
+                                user?.medicineCount.toString() ?? "0"),
                         SizedBox(height: sh * 0.03),
-                        buildProfileAchievements(sw, sh, true),
+                        buildProfileAchievements(sw, sh, true, user),
                         SizedBox(height: sh * 0.03),
                         buildProfileSurveySection(sw, sh, true),
                         SizedBox(height: sh * 0.02), // Bottom padding

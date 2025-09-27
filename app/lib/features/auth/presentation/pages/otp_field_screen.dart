@@ -135,35 +135,40 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     final bool isTablet = sw > 600;
 
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       backgroundColor: PillBinColors.background,
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            return Padding(
-              padding: EdgeInsets.symmetric(
-                  horizontal: isTablet ? sw * 0.1 : sw * 0.06),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(height: sh * 0.02),
-                  buildOTPHeader(sw, sh, isTablet, context),
-                  SizedBox(height: sh * 0.04),
-                  buildOTPLogo(sw, sh, isTablet),
-                  SizedBox(height: sh * 0.05),
-                  buildOTPInstructions(sw, sh, widget.email, isTablet),
-                  SizedBox(height: sh * 0.02),
-                  _buildOtpInput(sw, sh, isTablet),
-                  SizedBox(height: sh * 0.04),
-                  _buildResendSection(sw, sh, isTablet),
-                  Spacer(),
-                  _buildVerifyButton(sw, sh, isTablet),
-                  SizedBox(height: sh * 0.04),
-                ],
+      body: SafeArea(child: LayoutBuilder(builder: (context, constraints) {
+        return SingleChildScrollView(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              minHeight: constraints.maxHeight,
+            ),
+            child: IntrinsicHeight(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: isTablet ? sw * 0.1 : sw * 0.06),
+                child: Column(
+                  children: [
+                    SizedBox(height: sh * 0.02),
+                    buildOTPHeader(sw, sh, isTablet, context),
+                    SizedBox(height: sh * 0.04),
+                    buildOTPLogo(sw, sh, isTablet),
+                    SizedBox(height: sh * 0.05),
+                    buildOTPInstructions(sw, sh, widget.email, isTablet),
+                    SizedBox(height: sh * 0.02),
+                    _buildOtpInput(sw, sh, isTablet),
+                    SizedBox(height: sh * 0.04),
+                    _buildResendSection(sw, sh, isTablet),
+                    Spacer(),
+                    _buildVerifyButton(sw, sh, isTablet),
+                    SizedBox(height: sh * 0.04),
+                  ],
+                ),
               ),
-            );
-          },
-        ),
-      ),
+            ),
+          ),
+        );
+      })),
     );
   }
 

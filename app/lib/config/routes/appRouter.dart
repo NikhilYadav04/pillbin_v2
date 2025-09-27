@@ -10,6 +10,7 @@ import 'package:pillbin/features/locations/presentation/pages/location_screen.da
 import 'package:pillbin/features/medicines/presentation/pages/add_medicine_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
+import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
 import 'package:pillbin/features/splash_screen.dart';
 import 'package:pillbin/root_screen.dart';
@@ -113,6 +114,26 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       page = UserRegistrationForm(
         phone: phone,
       );
+      break;
+    case '/edit-profile-screen':
+      String fullName = args?['fullName'] ?? "";
+      String phone = args?["phone"] ?? "";
+      String locationName = args?["locationName"] ?? "";
+      double latitude = args?["latitude"] ?? 0.0;
+      double longitude = args?["longitude"] ?? 0.0;
+      List<Map<String, dynamic>> currentMedicines =
+          args?["currentMedicines"] ?? [];
+      List<Map<String, dynamic>> medicalConditions =
+          args?["medicalConditions"] ?? [];
+
+      page = ProfileEditScreen(
+          fullName: fullName,
+          phone: phone,
+          locationName: locationName,
+          latitude: latitude,
+          longitude: longitude,
+          currentMedicines: currentMedicines,
+          medicalConditions: medicalConditions);
       break;
     case '/home-screen':
       page = HomeScreen();

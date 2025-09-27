@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/homeShimmer.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_action_button.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_stat_card.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_tablet_action_card.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
+import 'package:pillbin/network/models/user_model.dart';
+import 'package:provider/provider.dart';
 
 Widget buildHomeHeader(double sw, double sh) {
   final bool isTablet = sw > 600;
@@ -42,81 +46,93 @@ Widget buildHomeHeader(double sw, double sh) {
 }
 
 Widget buildMobileStatsColumn(double sw, double sh) {
-  return Column(
-    children: [
-      StatCard(
-        icon: Icons.medication,
-        title: 'Total Medicines Tracked',
-        value: '12',
-        iconColor: PillBinColors.primary,
-        delay: 100,
-        sw: sw,
-        sh: sh,
-      ),
-      SizedBox(height: sh * 0.02),
-      StatCard(
-        icon: Icons.schedule,
-        title: 'Expiring Soon',
-        value: '3',
-        iconColor: PillBinColors.warning,
-        delay: 200,
-        sw: sw,
-        sh: sh,
-      ),
-      SizedBox(height: sh * 0.02),
-      StatCard(
-        icon: Icons.check_circle,
-        title: 'Medicines Disposed',
-        value: '8',
-        iconColor: PillBinColors.success,
-        delay: 300,
-        sw: sw,
-        sh: sh,
-      ),
-    ],
+  return Consumer<UserProvider>(
+    builder: (context, provider, _) {
+      UserModel? user = provider.user;
+      return provider.isFetching
+          ? homeStatsShimmer(sw: sw, sh: sh)
+          : Column(
+              children: [
+                StatCard(
+                  icon: Icons.medication,
+                  title: 'Total Medicines Tracked',
+                  value: '${user?.stats.totalMedicinesTracked ?? 0}',
+                  iconColor: PillBinColors.primary,
+                  delay: 100,
+                  sw: sw,
+                  sh: sh,
+                ),
+                SizedBox(height: sh * 0.02),
+                StatCard(
+                  icon: Icons.schedule,
+                  title: 'Expiring Soon',
+                  value: '${user?.stats.expiringSoonCount ?? 0}',
+                  iconColor: PillBinColors.warning,
+                  delay: 200,
+                  sw: sw,
+                  sh: sh,
+                ),
+                SizedBox(height: sh * 0.02),
+                StatCard(
+                  icon: Icons.check_circle,
+                  title: 'Medicines Disposed',
+                  value: '0',
+                  iconColor: PillBinColors.success,
+                  delay: 300,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ],
+            );
+    },
   );
 }
 
 Widget buildTabletStatsGrid(double sw, double sh) {
-  return Row(
-    children: [
-      Expanded(
-        child: StatCard(
-          icon: Icons.medication,
-          title: 'Total Medicines Tracked',
-          value: '12',
-          iconColor: PillBinColors.primary,
-          delay: 100,
-          sw: sw,
-          sh: sh,
-        ),
-      ),
-      SizedBox(width: sw * 0.02),
-      Expanded(
-        child: StatCard(
-          icon: Icons.schedule,
-          title: 'Expiring Soon',
-          value: '3',
-          iconColor: PillBinColors.warning,
-          delay: 200,
-          sw: sw,
-          sh: sh,
-        ),
-      ),
-      SizedBox(width: sw * 0.02),
-      Expanded(
-        child: StatCard(
-          icon: Icons.check_circle,
-          title: 'Medicines Disposed',
-          value: '8',
-          iconColor: PillBinColors.success,
-          delay: 300,
-          sw: sw,
-          sh: sh,
-        ),
-      ),
-    ],
-  );
+  return Consumer<UserProvider>(builder: (context, provider, _) {
+    UserModel? user = provider.user;
+    return provider.isFetching
+        ? homeStatsShimmer(sw: sw, sh: sh)
+        : Row(
+            children: [
+              Expanded(
+                child: StatCard(
+                  icon: Icons.medication,
+                  title: 'Total Medicines Tracked',
+                  value: '${user?.stats.totalMedicinesTracked ?? 0}',
+                  iconColor: PillBinColors.primary,
+                  delay: 100,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+              SizedBox(width: sw * 0.02),
+              Expanded(
+                child: StatCard(
+                  icon: Icons.schedule,
+                  title: 'Expiring Soon',
+                  value: '${user?.stats.expiringSoonCount ?? 0}',
+                  iconColor: PillBinColors.warning,
+                  delay: 200,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+              SizedBox(width: sw * 0.02),
+              Expanded(
+                child: StatCard(
+                  icon: Icons.check_circle,
+                  title: 'Medicines Disposed',
+                  value: '0',
+                  iconColor: PillBinColors.success,
+                  delay: 300,
+                  sw: sw,
+                  sh: sh,
+                ),
+              ),
+            ],
+          );
+  });
 }
 
 Widget buildMobileActions(double sw, double sh, void Function() onTap1,

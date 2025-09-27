@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/add_medicine_widgets.dart';
+import 'package:provider/provider.dart';
 
 class AddMedicineScreen extends StatefulWidget {
   const AddMedicineScreen({Key? key}) : super(key: key);
@@ -26,8 +28,32 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   final _medicineNameController = TextEditingController();
   final _quantityController = TextEditingController();
   final _notesController = TextEditingController();
+  final _manufacturerController = TextEditingController();
+  final _batchNumberController = TextEditingController();
 
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 365));
+  DateTime _purchaseDate = DateTime.now();
+  String? _selectedMedicineType;
+
+  // Common medicine types
+  final List<String> _medicineTypes = [
+    'Tablet',
+    'Capsule',
+    'Syrup',
+    'Injection',
+    'Cream/Ointment',
+    'Drops',
+    'Inhaler',
+    'Patch',
+    'Powder',
+    'Gel',
+    'Spray',
+    'Lotion',
+    'Suspension',
+    'Suppository',
+    'Other'
+  ];
+
   bool _isSaving = false;
   bool _isScanning = false;
 
@@ -88,6 +114,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     _medicineNameController.dispose();
     _quantityController.dispose();
     _notesController.dispose();
+    _manufacturerController.dispose();
+    _batchNumberController.dispose();
     super.dispose();
   }
 
@@ -250,6 +278,19 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
             },
           ),
           SizedBox(height: sh * 0.02),
+          _buildMedicineTypeDropdown(sw, sh, isTablet),
+          SizedBox(height: sh * 0.02),
+          _buildDatePicker(
+            'Purchase Date',
+            _purchaseDate,
+            (date) => setState(() => _purchaseDate = date),
+            sw,
+            sh,
+            isTablet,
+            isRequired: true,
+            isPurchaseDate: true,
+          ),
+          SizedBox(height: sh * 0.02),
           _buildDatePicker(
             'Expiry Date',
             _expiryDate,
@@ -271,6 +312,28 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
           ),
           SizedBox(height: sh * 0.02),
           _buildTextField(
+            'Manufacturer',
+            'Enter manufacturer name (Optional)',
+            _manufacturerController,
+            sw,
+            sh,
+            isTablet,
+            maxLines: 1,
+            isRequired: false,
+          ),
+          SizedBox(height: sh * 0.02),
+          _buildTextField(
+            'Batch Number',
+            'Enter batch number (Optional)',
+            _batchNumberController,
+            sw,
+            sh,
+            isTablet,
+            maxLines: 1,
+            isRequired: false,
+          ),
+          SizedBox(height: sh * 0.02),
+          _buildTextField(
             'Notes',
             'Any additional notes (Optional)',
             _notesController,
@@ -282,6 +345,80 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMedicineTypeDropdown(double sw, double sh, bool isTablet) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Medicine Type',
+          style: PillBinMedium.style(
+            fontSize: isTablet ? sw * 0.025 : sw * 0.04,
+            color: PillBinColors.textPrimary,
+          ),
+        ),
+        SizedBox(height: sh * 0.008),
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          child: DropdownButtonFormField<String>(
+            value: _selectedMedicineType,
+            decoration: InputDecoration(
+              hintText: 'Select medicine type',
+              hintStyle: PillBinRegular.style(
+                fontSize: isTablet ? sw * 0.022 : sw * 0.035,
+                color: PillBinColors.textLight,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
+                borderSide: BorderSide(color: PillBinColors.greyLight),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
+                borderSide: BorderSide(color: PillBinColors.primary, width: 2),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
+                borderSide: BorderSide(color: PillBinColors.error, width: 1),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
+                borderSide: BorderSide(color: PillBinColors.error, width: 2),
+              ),
+              contentPadding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
+              filled: true,
+              fillColor: PillBinColors.surface,
+            ),
+            icon: Icon(
+              Icons.arrow_drop_down,
+              color: PillBinColors.textSecondary,
+              size: isTablet ? sw * 0.03 : sw * 0.06,
+            ),
+            style: PillBinRegular.style(
+              fontSize: isTablet ? sw * 0.022 : sw * 0.035,
+              color: PillBinColors.textDark,
+            ),
+            items: _medicineTypes.map((String type) {
+              return DropdownMenuItem<String>(
+                value: type,
+                child: Text(
+                  type,
+                  style: PillBinRegular.style(
+                    fontSize: isTablet ? sw * 0.022 : sw * 0.035,
+                    color: PillBinColors.textDark,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (String? newValue) {
+              setState(() {
+                _selectedMedicineType = newValue;
+              });
+            },
+          ),
+        ),
+      ],
     );
   }
 
@@ -359,7 +496,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
 
   Widget _buildDatePicker(String label, DateTime date,
       Function(DateTime) onChanged, double sw, double sh, bool isTablet,
-      {bool isRequired = false}) {
+      {bool isRequired = false, bool isPurchaseDate = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -399,8 +536,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
               final DateTime? picked = await showDatePicker(
                 context: context,
                 initialDate: date,
-                firstDate: DateTime.now(),
-                lastDate: DateTime(2030),
+                firstDate: DateTime(2000), // User can select any date from 2000
+                lastDate: DateTime(2030), // Up to 2030
               );
               if (picked != null && picked != date) {
                 onChanged(picked);
@@ -585,8 +722,27 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     }
   }
 
+  //* validate dates
+  bool _validateDates() {
+    if (_expiryDate.isBefore(_purchaseDate) ||
+        _expiryDate.isAtSameMomentAs(_purchaseDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Expiry date must be after purchase date'),
+          backgroundColor: PillBinColors.error,
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
+  DateTime createSafeDateTime(DateTime date) {
+    return DateTime(date.year, date.month, date.day, 12, 0, 0);
+  }
+
   void _handleSaveMedicine() async {
-    // Validate form
+    //* Validate form
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -597,7 +753,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       return;
     }
 
-    // Check required fields
+    //* Check required fields
     if (_medicineNameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -608,16 +764,36 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       return;
     }
 
+    // Validate dates - ADD THIS CHECK
+    if (!_validateDates()) {
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
-    // Start save animation
+    //* Start save animation
     _saveAnimationController.forward();
 
     try {
-      // Simulate API call
-      await Future.delayed(const Duration(seconds: 2));
+      //* API Call
+      MedicineProvider _provider = context.read<MedicineProvider>();
+
+      DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
+      DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);
+
+      String response = await _provider.addMedicine(
+        context: context,
+        name: _medicineNameController.text.trim(),
+        expiryDate: safeExpiryDate.toIso8601String(),
+        notes: _notesController.text.trim(),
+        dosage: _quantityController.text.trim(),
+        manufacturer: _manufacturerController.text.trim(),
+        batchNumber: _batchNumberController.text.trim(),
+        type: _selectedMedicineType ?? 'Other',
+        purchaseDate: safePurchaseDate.toIso8601String(),
+      );
 
       // Stop animation
       _saveAnimationController.reverse();
@@ -626,28 +802,21 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         _isSaving = false;
       });
 
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 8),
-              Text('Medicine added successfully!'),
-            ],
-          ),
-          backgroundColor: PillBinColors.success,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Clear form after success
-      _medicineNameController.clear();
-      _quantityController.clear();
-      _notesController.clear();
-      setState(() {
-        _expiryDate = DateTime.now().add(const Duration(days: 365));
-      });
+      if (response == 'success') {
+        //* Clear form after success
+        _medicineNameController.clear();
+        _quantityController.clear();
+        _notesController.clear();
+        _manufacturerController.clear();
+        _batchNumberController.clear();
+        setState(() {
+          _expiryDate = DateTime.now().add(const Duration(days: 365));
+          _purchaseDate = DateTime.now();
+          _selectedMedicineType = null;
+        });
+      } else {
+        return;
+      }
     } catch (e) {
       // Handle error
       _saveAnimationController.reverse();
@@ -655,13 +824,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       setState(() {
         _isSaving = false;
       });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Failed to add medicine. Please try again.'),
-          backgroundColor: PillBinColors.error,
-        ),
-      );
     }
   }
 }

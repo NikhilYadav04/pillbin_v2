@@ -1,52 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/dateFormatter.dart';
+import 'package:pillbin/network/models/medicine_model.dart';
 
-class Medicine {
-  final String name;
-  final String quantity;
-  final DateTime expiryDate;
-  final String status;
-  final String notes;
-  final DateTime addedDate;
-
-  Medicine({
-    required this.name,
-    required this.quantity,
-    required this.expiryDate,
-    required this.status,
-    required this.notes,
-    required this.addedDate,
-  });
-
-  Color get statusColor {
-    switch (status) {
-      case 'Active':
-        return PillBinColors.success;
-      case 'Expiring Soon':
-        return PillBinColors.warning;
-      case 'Expired':
-        return PillBinColors.error;
-      default:
-        return PillBinColors.textSecondary;
-    }
-  }
-
-  String get daysUntilExpiry {
-    final now = DateTime.now();
-    final difference = expiryDate.difference(now).inDays;
-
-    if (difference < 0) {
-      return 'Expired ${difference.abs()} days ago';
-    } else if (difference == 0) {
-      return 'Expires today';
-    } else if (difference == 1) {
-      return 'Expires tomorrow';
-    } else {
-      return 'Expires in $difference days';
-    }
-  }
-}
+// case 'Active':
+//       return PillBinColors.success;
+//     case 'Expiring Soon':
+//       return PillBinColors.warning;
+//     case 'Expired':
+//       return PillBinColors.error;
+//     default:
+//       return PillBinColors.textSecondary;
 
 class MedicineListItem extends StatefulWidget {
   final Medicine medicine;
@@ -130,7 +95,13 @@ class _MedicineListItemState extends State<MedicineListItem> {
                   child: Container(
                     width: 4,
                     decoration: BoxDecoration(
-                      color: widget.medicine.statusColor,
+                      color: widget.medicine.status.toString() ==
+                              'MedicineStatus.active'
+                          ? PillBinColors.success
+                          : widget.medicine.status.toString() ==
+                                  'MedicineStatus.expired'
+                              ? PillBinColors.error
+                              : PillBinColors.warning,
                       borderRadius: const BorderRadius.only(
                         topLeft: Radius.circular(16),
                         bottomLeft: Radius.circular(16),
@@ -158,19 +129,36 @@ class _MedicineListItemState extends State<MedicineListItem> {
                                 ? widget.sw * 0.025
                                 : widget.sw * 0.035),
                             decoration: BoxDecoration(
-                              color:
-                                  widget.medicine.statusColor.withOpacity(0.1),
+                              color: widget.medicine.status.toString() ==
+                                      'MedicineStatus.active'
+                                  ? PillBinColors.success.withOpacity(0.1)
+                                  : widget.medicine.status.toString() ==
+                                          'MedicineStatus.expired'
+                                      ? PillBinColors.error.withOpacity(0.1)
+                                      : PillBinColors.warning.withOpacity(0.1),
                               borderRadius:
                                   BorderRadius.circular(isTablet ? 16 : 12),
                               border: Border.all(
-                                color: widget.medicine.statusColor
-                                    .withOpacity(0.2),
+                                color: widget.medicine.status.toString() ==
+                                        'MedicineStatus.active'
+                                    ? PillBinColors.success.withOpacity(0.2)
+                                    : widget.medicine.status.toString() ==
+                                            'MedicineStatus.expired'
+                                        ? PillBinColors.error.withOpacity(0.2)
+                                        : PillBinColors.warning
+                                            .withOpacity(0.2),
                                 width: 1,
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: widget.medicine.statusColor
-                                      .withOpacity(0.2),
+                                  color: widget.medicine.status.toString() ==
+                                          'MedicineStatus.active'
+                                      ? PillBinColors.success.withOpacity(0.2)
+                                      : widget.medicine.status.toString() ==
+                                              'MedicineStatus.expired'
+                                          ? PillBinColors.error.withOpacity(0.2)
+                                          : PillBinColors.warning
+                                              .withOpacity(0.2),
                                   blurRadius: 8,
                                   offset: const Offset(0, 2),
                                 ),
@@ -178,7 +166,13 @@ class _MedicineListItemState extends State<MedicineListItem> {
                             ),
                             child: Icon(
                               Icons.medication,
-                              color: widget.medicine.statusColor,
+                              color: widget.medicine.status.toString() ==
+                                      'MedicineStatus.active'
+                                  ? PillBinColors.success
+                                  : widget.medicine.status.toString() ==
+                                          'MedicineStatus.expired'
+                                      ? PillBinColors.error
+                                      : PillBinColors.warning,
                               size: isTablet
                                   ? widget.sw * 0.03
                                   : widget.sw * 0.055,
@@ -201,7 +195,10 @@ class _MedicineListItemState extends State<MedicineListItem> {
                                 ),
                                 SizedBox(height: widget.sh * 0.008),
                                 Text(
-                                  widget.medicine.quantity,
+                                  (widget.medicine.dosage == null ||
+                                          widget.medicine.dosage!.isEmpty)
+                                      ? "Not Mentioned"
+                                      : widget.medicine.dosage!,
                                   style: PillBinRegular.style(
                                     fontSize: isTablet
                                         ? widget.sw * 0.02
@@ -220,17 +217,35 @@ class _MedicineListItemState extends State<MedicineListItem> {
                                         : widget.sh * 0.005,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: widget.medicine.statusColor
-                                        .withOpacity(0.1),
+                                    color: widget.medicine.status.toString() ==
+                                            'MedicineStatus.active'
+                                        ? PillBinColors.success.withOpacity(0.1)
+                                        : widget.medicine.status.toString() ==
+                                                'MedicineStatus.expired'
+                                            ? PillBinColors.error
+                                                .withOpacity(0.1)
+                                            : PillBinColors.warning
+                                                .withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Text(
-                                    widget.medicine.daysUntilExpiry,
+                                    widget.medicine.status ==
+                                            'MedicineStatus.expired'
+                                        ? 'Expired'
+                                        : 'Expires' +
+                                            "in ${Dateformatter.customDateDifference(DateTime.now(), widget.medicine.expiryDate)}",
                                     style: PillBinMedium.style(
                                       fontSize: isTablet
                                           ? widget.sw * 0.018
                                           : widget.sw * 0.03,
-                                      color: widget.medicine.statusColor,
+                                      color: widget.medicine.status
+                                                  .toString() ==
+                                              'MedicineStatus.active'
+                                          ? PillBinColors.success
+                                          : widget.medicine.status.toString() ==
+                                                  'MedicineStatus.expired'
+                                              ? PillBinColors.error
+                                              : PillBinColors.warning,
                                     ),
                                   ),
                                 ),

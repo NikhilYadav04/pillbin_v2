@@ -4,8 +4,11 @@ import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/medicines/data/service/medicine_services.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/models/medicine_model.dart';
+import 'package:pillbin/network/models/user_model.dart' as userClass;
+import 'package:provider/provider.dart';
 
 class MedicineProvider extends ChangeNotifier {
   //* initialize services
@@ -66,6 +69,10 @@ class MedicineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  //* getters and setters for loaders
+  bool _isFetching = false;
+  bool get isFetching => _isFetching;
+
   void deleteInventory(String status, String medicineId) {
     if (status == 'active') {
       _activeMedicinesInventory.removeWhere((m) => m.id == medicineId);
@@ -86,15 +93,16 @@ class MedicineProvider extends ChangeNotifier {
   //* function
 
   //* Add Medicine
-  Future<String> addMedicine({
-    required BuildContext context,
-    required String name,
-    required String expiryDate,
-    required String notes,
-    required String dosage,
-    required String manufacturer,
-    required String batchNumber,
-  }) async {
+  Future<String> addMedicine(
+      {required BuildContext context,
+      required String name,
+      required String expiryDate,
+      required String notes,
+      required String dosage,
+      required String manufacturer,
+      required String batchNumber,
+      required String type,
+      required String purchaseDate}) async {
     try {
       ApiResponse<Map<String, dynamic>> response =
           await _medicineServices.addMedicine(
@@ -103,7 +111,9 @@ class MedicineProvider extends ChangeNotifier {
               notes: notes,
               dosage: dosage,
               manufacturer: manufacturer,
-              batchNumber: batchNumber);
+              batchNumber: batchNumber,
+              type: type,
+              purchaseDate: purchaseDate);
 
       if (response.statusCode == 201) {
         Map<String, dynamic> data = response.data!["medicine"];
@@ -117,7 +127,21 @@ class MedicineProvider extends ChangeNotifier {
             id: data["_id"],
             userId: data["userId"],
             name: name,
-            expiryDate: DateTime.parse(data["expiryDate"]));
+            expiryDate: DateTime.parse(
+              data["expiryDate"],
+            ),
+            purchaseDate: DateTime.parse(data["purchaseDate"]),
+            addedDate: DateTime.parse(data["addedDate"]),
+            type: data["type"],
+            dosage: data["dosage"],
+            status: medicineStatus == "active"
+                ? MedicineStatus.active
+                : medicineStatus == "expired"
+                    ? MedicineStatus.expired
+                    : MedicineStatus.expiringSoon,
+            batchNumber: data['batchNumber'],
+            manufacturer: data["manufacturer"],
+            notes: notes);
 
         if (medicineStatus == "active") {
           _activeMedicinesInventory.add(newMedicine);
@@ -126,6 +150,11 @@ class MedicineProvider extends ChangeNotifier {
         } else {
           _expiredMedicinesInventory.add(newMedicine);
         }
+
+        UserProvider? user = context.read<UserProvider>();
+        userClass.UserModel? userModel = user.user;
+
+        userModel?.stats.totalMedicinesTracked += 1;
         notifyListeners();
 
         CustomSnackBar.show(
@@ -159,6 +188,9 @@ class MedicineProvider extends ChangeNotifier {
   //* get Inventory
   Future<String> getInventory({required BuildContext context}) async {
     try {
+      _isFetching = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _medicineServices.getInventory();
 
@@ -187,16 +219,29 @@ class MedicineProvider extends ChangeNotifier {
 
         setExpiredInventory(expiredMedicines);
 
+        _isFetching = false;
+
+        UserProvider? user = context.read<UserProvider>();
+        userClass.UserModel? userModel = user.user;
+
+        userModel?.stats.expiringSoonCount =
+            _expiringSoonMedicinesInventory.length;
         notifyListeners();
 
-        return 'error';
+        return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: "Error adding medicine !");
         return 'error';
       } else {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
@@ -204,6 +249,9 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isFetching = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.medical_information,
@@ -213,16 +261,17 @@ class MedicineProvider extends ChangeNotifier {
   }
 
   //* update medicine
-  Future<String> updateMedicine({
-    required BuildContext context,
-    required String medicineId,
-    required String name,
-    required String expiryDate,
-    required String notes,
-    required String dosage,
-    required String manufacturer,
-    required String batchNumber,
-  }) async {
+  Future<String> updateMedicine(
+      {required BuildContext context,
+      required String medicineId,
+      required String name,
+      required String expiryDate,
+      required String notes,
+      required String dosage,
+      required String manufacturer,
+      required String batchNumber,
+      required String type,
+      required String purchaseDate}) async {
     try {
       ApiResponse<Map<String, dynamic>> response =
           await _medicineServices.updateMedicine(
@@ -232,7 +281,9 @@ class MedicineProvider extends ChangeNotifier {
               notes: notes,
               dosage: dosage,
               manufacturer: manufacturer,
-              batchNumber: batchNumber);
+              batchNumber: batchNumber,
+              type: type,
+              purchaseDate: purchaseDate);
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!["medicine"];
@@ -243,7 +294,15 @@ class MedicineProvider extends ChangeNotifier {
             id: data["_id"],
             userId: data["userId"],
             name: name,
-            expiryDate: DateTime.parse(data["expiryDate"]));
+            expiryDate: DateTime.parse(
+              data["expiryDate"],
+            ),
+            purchaseDate: DateTime.parse(data["purchaseDate"]),
+            addedDate: data["addedDate"],
+            type: data["type"],
+            dosage: data["dosage"],
+            batchNumber: data['batchNumber'],
+            manufacturer: data["manufacturer"]);
 
         updateInventory(medicineStatus, medicineId, updatedMedicine);
 
@@ -295,6 +354,12 @@ class MedicineProvider extends ChangeNotifier {
         Logger().d(data);
 
         deleteInventory(data["status"], medicineId);
+
+        UserProvider? user = context.read<UserProvider>();
+        userClass.UserModel? userModel = user.user;
+
+        userModel?.stats.totalMedicinesTracked -= 1;
+        notifyListeners();
 
         CustomSnackBar.show(
             context: context,

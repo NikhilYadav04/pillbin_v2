@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/inventoryShimmerCard.dart';
+import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_detail_display.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_inventory_widgets.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_item.dart';
+import 'package:pillbin/network/models/medicine_model.dart';
+import 'package:provider/provider.dart';
 
 class MyInventoryScreen extends StatefulWidget {
   const MyInventoryScreen({Key? key}) : super(key: key);
@@ -21,10 +25,6 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedDateFilter = 'All Time';
-  List<Medicine> _allMedicines = [];
-  List<Medicine> _activeMedicines = [];
-  List<Medicine> _expiringSoonMedicines = [];
-  List<Medicine> _expiredMedicines = [];
 
   final List<String> _dateFilters = [
     'All Time',
@@ -45,7 +45,14 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
-    _loadMedicines();
+    //_loadMedicines();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<MedicineProvider>(context, listen: false);
+      if (provider.activeMedicinesInventory.isEmpty) {
+        provider.getInventory(context: context);
+      }
+    });
   }
 
   @override
@@ -56,119 +63,11 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     super.dispose();
   }
 
-  void _loadMedicines() {
-    // Sample data - replace with actual data loading
-    _allMedicines = [
-      Medicine(
-        name: 'Paracetamol',
-        quantity: '20 tablets',
-        expiryDate: DateTime.now().add(const Duration(days: 145)),
-        status: 'Active',
-        notes: 'For fever and pain relief',
-        addedDate: DateTime.now().subtract(const Duration(days: 30)),
-      ),
-      Medicine(
-        name: 'Vitamin D3',
-        quantity: '30 capsules',
-        expiryDate: DateTime.now().add(const Duration(days: 200)),
-        status: 'Active',
-        notes: 'Daily supplement',
-        addedDate: DateTime.now().subtract(const Duration(days: 10)),
-      ),
-      Medicine(
-        name: 'Crocin',
-        quantity: '10 tablets',
-        expiryDate: DateTime.now().add(const Duration(days: 38)),
-        status: 'Expiring Soon',
-        notes: 'Pain reliever',
-        addedDate: DateTime.now().subtract(const Duration(days: 15)),
-      ),
-      Medicine(
-        name: 'Aspirin',
-        quantity: '25 tablets',
-        expiryDate: DateTime.now().add(const Duration(days: 45)),
-        status: 'Expiring Soon',
-        notes: 'Blood thinner',
-        addedDate: DateTime.now().subtract(const Duration(days: 20)),
-      ),
-      Medicine(
-        name: 'Amoxicillin',
-        quantity: '14 capsules',
-        expiryDate: DateTime.now().add(const Duration(days: 25)),
-        status: 'Expiring Soon',
-        notes: 'Antibiotic course',
-        addedDate: DateTime.now().subtract(const Duration(days: 5)),
-      ),
-      Medicine(
-        name: 'Ibuprofen',
-        quantity: '15 tablets',
-        expiryDate: DateTime.now().subtract(const Duration(days: 3)),
-        status: 'Expired',
-        notes: 'Anti-inflammatory',
-        addedDate: DateTime.now().subtract(const Duration(days: 60)),
-      ),
-      Medicine(
-        name: 'Cough Syrup',
-        quantity: '100ml',
-        expiryDate: DateTime.now().subtract(const Duration(days: 13)),
-        status: 'Expired',
-        notes: 'Opened 2 months ago',
-        addedDate: DateTime.now().subtract(const Duration(days: 90)),
-      ),
-    ];
-    _applyFilters();
-  }
+  void _applyFilters() {}
 
-  void _applyFilters() {
-    setState(() {
-      List<Medicine> filteredByDate = _allMedicines.where((medicine) {
-        // Search filter
-        bool matchesSearch = _searchController.text.isEmpty ||
-            medicine.name
-                .toLowerCase()
-                .contains(_searchController.text.toLowerCase()) ||
-            medicine.notes
-                .toLowerCase()
-                .contains(_searchController.text.toLowerCase());
-
-        // Date filter
-        bool matchesDate = true;
-        if (_selectedDateFilter != 'All Time') {
-          DateTime now = DateTime.now();
-          switch (_selectedDateFilter) {
-            case 'This Week':
-              matchesDate = medicine.addedDate
-                  .isAfter(now.subtract(const Duration(days: 7)));
-              break;
-            case 'This Month':
-              matchesDate = medicine.addedDate
-                  .isAfter(now.subtract(const Duration(days: 30)));
-              break;
-            case 'This Year':
-              matchesDate = medicine.addedDate
-                  .isAfter(now.subtract(const Duration(days: 365)));
-              break;
-          }
-        }
-
-        return matchesSearch && matchesDate;
-      }).toList();
-
-      // Separate by status
-      _activeMedicines =
-          filteredByDate.where((m) => m.status == 'Active').toList();
-      _expiringSoonMedicines =
-          filteredByDate.where((m) => m.status == 'Expiring Soon').toList();
-      _expiredMedicines =
-          filteredByDate.where((m) => m.status == 'Expired').toList();
-
-      // Sort each list by expiry date
-      _activeMedicines.sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-      _expiringSoonMedicines
-          .sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
-      _expiredMedicines.sort((a, b) =>
-          b.expiryDate.compareTo(a.expiryDate)); // Most recently expired first
-    });
+  void _refresh() {
+    final provider = Provider.of<MedicineProvider>(context, listen: false);
+    provider.getInventory(context: context);
   }
 
   @override
@@ -182,24 +81,28 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Column(
-            children: [
-              buildInventoryHeader(sw, sh, isTablet,context),
-              SizedBox(height: sh * 0.00),
-              _buildFilters(sw, sh, isTablet),
-              SizedBox(height: sh * 0.015),
-              buildInventoryTabBar(
-                  sw,
-                  sh,
-                  isTablet,
-                  _tabController,
-                  _activeMedicines.length,
-                  _expiringSoonMedicines.length,
-                  _expiredMedicines.length),
-              Expanded(
-                child: _buildTabBarView(sw, sh, isTablet),
-              ),
-            ],
+          child: Consumer<MedicineProvider>(
+            builder: (context, provider, _) {
+              return Column(
+                children: [
+                  buildInventoryHeader(sw, sh, isTablet, context),
+                  SizedBox(height: sh * 0.00),
+                  _buildFilters(sw, sh, isTablet),
+                  SizedBox(height: sh * 0.015),
+                  buildInventoryTabBar(
+                      sw,
+                      sh,
+                      isTablet,
+                      _tabController,
+                      provider.activeMedicinesInventory.length,
+                      provider.expiringSoonMedicinesInventory.length,
+                      provider.expiredMedicinesInventory.length),
+                  Expanded(
+                    child: _buildTabBarView(sw, sh, isTablet, provider),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -358,16 +261,54 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     );
   }
 
-  Widget _buildTabBarView(double sw, double sh, bool isTablet) {
+  Widget _buildTabBarView(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
     return TabBarView(
       controller: _tabController,
       children: [
-        _buildMedicinesList(
-            _activeMedicines, sw, sh, isTablet, 'No active medicines found'),
-        _buildMedicinesList(_expiringSoonMedicines, sw, sh, isTablet,
-            'No medicines expiring soon'),
-        _buildMedicinesList(
-            _expiredMedicines, sw, sh, isTablet, 'No expired medicines found'),
+        provider.isFetching
+            ? InventoryListShimmer(
+                shimmerColor: PillBinColors.success,
+              )
+            : RefreshIndicator(
+                color: PillBinColors.primary,
+                backgroundColor: Colors.white,
+                onRefresh: () async {
+                  _refresh();
+                },
+                child: _buildMedicinesList(provider.activeMedicinesInventory,
+                    sw, sh, isTablet, 'No active medicines found'),
+              ),
+        provider.isFetching
+            ? InventoryListShimmer(
+                shimmerColor: PillBinColors.warning,
+              )
+            : RefreshIndicator(
+                color: PillBinColors.primary,
+                backgroundColor: Colors.white,
+                onRefresh: () async {
+                  _refresh();
+                },
+                child: _buildMedicinesList(
+                    provider.expiringSoonMedicinesInventory,
+                    sw,
+                    sh,
+                    isTablet,
+                    'No medicines expiring soon'),
+              ),
+        provider.isFetching
+            ? InventoryListShimmer(
+                shimmerColor: PillBinColors.error,
+              )
+            : RefreshIndicator(
+                color: PillBinColors.primary,
+                backgroundColor: Colors.white,
+                onRefresh: () async {
+                  _refresh();
+                },
+                child: _buildMedicinesList(provider.expiredMedicinesInventory,
+                    sw, sh, isTablet, 'No expired medicines found'),
+              ),
       ],
     );
   }

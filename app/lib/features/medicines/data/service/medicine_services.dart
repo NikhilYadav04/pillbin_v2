@@ -4,14 +4,15 @@ import 'package:pillbin/network/utils/api_endpoint.dart';
 
 class MedicineServices extends ApiService {
   //* Add Medicine
-  Future<ApiResponse<Map<String, dynamic>>> addMedicine({
-    required String name,
-    required String expiryDate,
-    required String notes,
-    required String dosage,
-    required String manufacturer,
-    required String batchNumber,
-  }) async {
+  Future<ApiResponse<Map<String, dynamic>>> addMedicine(
+      {required String name,
+      required String expiryDate,
+      required String notes,
+      required String dosage,
+      required String manufacturer,
+      required String batchNumber,
+      required String type,
+      required String purchaseDate}) async {
     return post(ApiEndpoints.addMedicine,
         data: {
           "name": name,
@@ -19,7 +20,10 @@ class MedicineServices extends ApiService {
           "notes": notes,
           "dosage": dosage,
           "manufacturer": manufacturer,
-          "batchNumber": batchNumber
+          "batchNumber": batchNumber,
+          "purchaseDate": purchaseDate,
+          "type": type,
+          "note": notes
         },
         fromJson: (data) => data as Map<String, dynamic>);
   }
@@ -31,15 +35,16 @@ class MedicineServices extends ApiService {
   }
 
   //* Update Medicine
-  Future<ApiResponse<Map<String, dynamic>>> updateMedicine({
-    required String medicineId,
-    required String name,
-    required String expiryDate,
-    required String notes,
-    required String dosage,
-    required String manufacturer,
-    required String batchNumber,
-  }) async {
+  Future<ApiResponse<Map<String, dynamic>>> updateMedicine(
+      {required String medicineId,
+      required String name,
+      required String expiryDate,
+      required String notes,
+      required String dosage,
+      required String manufacturer,
+      required String batchNumber,
+      required String type,
+      required String purchaseDate}) async {
     return put(ApiEndpoints.updateMedicine(medicineId),
         data: {
           "name": name,
@@ -47,7 +52,9 @@ class MedicineServices extends ApiService {
           "notes": notes,
           "dosage": dosage,
           "manufacturer": manufacturer,
-          "batchNumber": batchNumber
+          "batchNumber": batchNumber,
+          "purchaseDate": purchaseDate,
+          "type": type
         },
         fromJson: (data) => data as Map<String, dynamic>);
   }

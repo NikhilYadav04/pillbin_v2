@@ -22,8 +22,16 @@ const updateUserStats = async (userId) => {
 //* Add medicine to inventory
 const addMedicine = async (req, res) => {
   try {
-    const { name, expiryDate, notes, dosage, manufacturer, batchNumber } =
-      req.body;
+    const {
+      name,
+      purchaseDate,
+      expiryDate,
+      notes,
+      type,
+      dosage,
+      manufacturer,
+      batchNumber,
+    } = req.body;
 
     if (!name || !expiryDate) {
       return res.status(400).json({
@@ -52,7 +60,10 @@ const addMedicine = async (req, res) => {
     const medicine = new Medicine({
       userId,
       name,
-      expiryDate: new Date(expiryDate),
+      addedDate: new Date(),
+      type,
+      purchaseDate,
+      expiryDate: expiryDate,
       notes,
       dosage,
       manufacturer,
@@ -66,6 +77,7 @@ const addMedicine = async (req, res) => {
     //* Update user stats
     // await updateUserStats(userId);
     user.medicineCount += 1;
+    user.stats.totalMedicinesTracked += 1;
     await user.save();
 
     res.status(201).json({
@@ -124,6 +136,9 @@ const getInventory = async (req, res) => {
       total: medicines.length,
     };
 
+    user.stats.expiringSoonCount = expiringSoonMedicines.length;
+    await user.save();
+
     res.status(200).json({
       statusCode: 200,
       data: {
@@ -178,6 +193,7 @@ const deleteMedicine = async (req, res) => {
     //* Update other stats
     //await updateUserStats(userId);
     user.medicineCount -= 1;
+    user.stats.totalMedicinesTracked -= 1;
     await user.save();
 
     res.status(200).json({
@@ -224,15 +240,15 @@ const deleteAllExpiredMedicines = async (req, res) => {
     //* Delete all expired medicines
     await Medicine.deleteMany({ userId, status: "expired" });
 
-    //* Update user stats
-    //await updateUserStats(userId);
-    if ((user.medicineCount -= expiredCount < 0)) {
-      user.medicineCount = 0;
-    } else {
-      user.medicineCount -= expiredCount;
-    }
+    // //* Update user stats
+    // //await updateUserStats(userId);
+    // if ((user.medicineCount -= expiredCount < 0)) {
+    //   user.medicineCount = 0;
+    // } else {
+    //   user.medicineCount -= expiredCount;
+    // }
 
-    await user.save();
+    //await user.save();
 
     res.status(200).json({
       statusCode: 200,
@@ -278,11 +294,13 @@ const updateMedicine = async (req, res) => {
     //* Update allowed fields
     const allowedFields = [
       "name",
-      "expiryDate",
+      "purchaseDate",
       "notes",
       "dosage",
       "manufacturer",
       "batchNumber",
+      "expiryDate",
+      "type",
     ];
     allowedFields.forEach((field) => {
       if (updateData[field] !== undefined) {

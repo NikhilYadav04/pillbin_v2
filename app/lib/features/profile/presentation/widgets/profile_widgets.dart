@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_achievements_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_campaign_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_settings_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_stats_card.dart';
+import 'package:pillbin/network/models/user_model.dart';
+import 'package:pillbin/network/utils/http_client.dart';
 
-Widget buildProfileAppBar(double sw, double sh, BuildContext context,GlobalKey<ScaffoldState> key) {
+Widget buildProfileAppBar(
+    double sw, double sh, BuildContext context, GlobalKey<ScaffoldState> key, void Function() onTap) {
   final bool isTablet = sw > 600;
 
   return Container(
@@ -21,28 +25,30 @@ Widget buildProfileAppBar(double sw, double sh, BuildContext context,GlobalKey<S
     padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.06),
     child: Row(
       children: [
-        // Drawer icon
-        isTablet
-            ? GestureDetector(
-                onTap: () {
-                  print("tapped");
-                   key.currentState?.openDrawer();
-                },
-                child: Container(
-                  padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    Icons.menu,
-                    color: Colors.white,
-                    size: isTablet ? sw * 0.03 : sw * 0.05,
-                  ),
-                ),
-              )
-            : SizedBox.shrink(),
-        isTablet ? SizedBox(width: sw * 0.04) : SizedBox.shrink(),
+        // Drawer icon (only for tablets)
+        if (isTablet) ...[
+          GestureDetector(
+            onTap: () {
+              print("drawer tapped");
+              key.currentState?.openDrawer();
+            },
+            child: Container(
+              padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.menu,
+                color: Colors.white,
+                size: isTablet ? sw * 0.03 : sw * 0.05,
+              ),
+            ),
+          ),
+          SizedBox(width: sw * 0.04),
+        ],
+
+        // Profile info section
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -65,12 +71,37 @@ Widget buildProfileAppBar(double sw, double sh, BuildContext context,GlobalKey<S
             ],
           ),
         ),
+
+        //* Refresh icon on the right
+        GestureDetector(
+          onTap:onTap,
+          child: Container(
+            padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.refresh,
+              color: Colors.white,
+              size: isTablet ? sw * 0.03 : sw * 0.05,
+            ),
+          ),
+        ),
       ],
     ),
   );
 }
 
-Widget buildProfileHeader(double sw, double sh, bool isTablet) {
+Widget buildProfileHeader(
+  double sw,
+  double sh,
+  bool isTablet,
+  BuildContext context,
+  UserModel? user,
+) {
+  bool userIsNotCompletedProfile = user?.profileCompleted == false;
+
   return Container(
     width: double.infinity,
     padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.06),
@@ -78,6 +109,12 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
     decoration: BoxDecoration(
       color: PillBinColors.surface,
       borderRadius: BorderRadius.circular(isTablet ? 24 : 16),
+      border: userIsNotCompletedProfile
+          ? Border.all(
+              color: Colors.red,
+              width: 2.0,
+            )
+          : null,
       boxShadow: [
         BoxShadow(
           color: Colors.black.withOpacity(0.05),
@@ -98,7 +135,7 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
           ),
           child: Center(
             child: Text(
-              'RK',
+              user?.fullName == "" ? "X" : user?.fullName?.split("")[0] ?? "X",
               style: PillBinBold.style(
                 fontSize: isTablet ? sw * 0.04 : sw * 0.06,
                 color: PillBinColors.primary,
@@ -114,17 +151,46 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
               Row(
                 children: [
                   Text(
-                    'Raj Kumar',
+                    user?.fullName == ""
+                        ? "John Doe"
+                        : user?.fullName ?? "Mr. K",
                     style: PillBinBold.style(
                       fontSize: isTablet ? sw * 0.03 : sw * 0.05,
                       color: PillBinColors.textPrimary,
                     ),
                   ),
                   SizedBox(width: sw * 0.02),
-                  Icon(
-                    Icons.edit,
-                    size: isTablet ? sw * 0.025 : sw * 0.04,
-                    color: PillBinColors.textSecondary,
+                  GestureDetector(
+                    onTap: () => {
+                      Navigator.pushNamed(
+                        context,
+                        '/edit-profile-screen',
+                        arguments: {
+                          'fullName': user?.fullName ?? "",
+                          'phone': user?.phoneNumber ?? "",
+                          'locationName': user?.location?.name ?? "",
+                          'latitude':
+                              user?.location?.coordinates?.latitude ?? 0.0,
+                          'longitude':
+                              user?.location?.coordinates?.longitude ?? 0.0,
+                          'currentMedicines': user?.currentMedicines
+                                  .map((e) => e.toJson())
+                                  .toList() ??
+                              [],
+                          'medicalConditions': user?.medicalConditions
+                                  .map((e) => e.toJson())
+                                  .toList() ??
+                              [],
+                          'transition': TransitionType.rightToLeft,
+                          'duration': 300,
+                        },
+                      )
+                    },
+                    child: Icon(
+                      Icons.edit,
+                      size: isTablet ? sw * 0.025 : sw * 0.04,
+                      color: PillBinColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -138,7 +204,7 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
                   ),
                   SizedBox(width: sw * 0.01),
                   Text(
-                    '+91 98765 43210',
+                    user?.email ?? "xyz@mail.com",
                     style: PillBinRegular.style(
                       fontSize: isTablet ? sw * 0.022 : sw * 0.035,
                       color: PillBinColors.textSecondary,
@@ -156,7 +222,7 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
                   ),
                   SizedBox(width: sw * 0.01),
                   Text(
-                    'Mumbai, Maharashtra',
+                    user?.location?.name ?? "London, England",
                     style: PillBinRegular.style(
                       fontSize: isTablet ? sw * 0.022 : sw * 0.035,
                       color: PillBinColors.textSecondary,
@@ -164,6 +230,38 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
                   ),
                 ],
               ),
+              // Optional: Add a warning message when profile is incomplete
+              if (userIsNotCompletedProfile) ...[
+                SizedBox(height: sh * 0.01),
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: sw * 0.02,
+                    vertical: sh * 0.005,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.red.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.warning,
+                        size: isTablet ? sw * 0.02 : sw * 0.03,
+                        color: Colors.red,
+                      ),
+                      SizedBox(width: sw * 0.01),
+                      Text(
+                        "Complete your profile",
+                        style: PillBinRegular.style(
+                          fontSize: isTablet ? sw * 0.02 : sw * 0.03,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -172,14 +270,15 @@ Widget buildProfileHeader(double sw, double sh, bool isTablet) {
   );
 }
 
-Widget buildProfileStatsCards(double sw, double sh, bool isTablet) {
+Widget buildProfileStatsCards(
+    double sw, double sh, bool isTablet, String medicinesTrackedCount) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Row(
       children: [
         Expanded(
           child: ProfileStatCard(
-            count: '12',
+            count: '${medicinesTrackedCount}',
             label: 'Medicines Tracked',
             color: PillBinColors.primary,
             sw: sw,
@@ -189,7 +288,7 @@ Widget buildProfileStatsCards(double sw, double sh, bool isTablet) {
         SizedBox(width: sw * 0.03),
         Expanded(
           child: ProfileStatCard(
-            count: '8',
+            count: '0',
             label: 'Safely Disposed',
             color: PillBinColors.success,
             sw: sw,
@@ -199,7 +298,7 @@ Widget buildProfileStatsCards(double sw, double sh, bool isTablet) {
         SizedBox(width: sw * 0.03),
         Expanded(
           child: ProfileStatCard(
-            count: '3',
+            count: '0',
             label: 'Campaigns Joined',
             color: PillBinColors.info,
             sw: sw,
@@ -211,7 +310,8 @@ Widget buildProfileStatsCards(double sw, double sh, bool isTablet) {
   );
 }
 
-Widget buildProfileAchievements(double sw, double sh, bool isTablet) {
+Widget buildProfileAchievements(
+    double sw, double sh, bool isTablet, UserModel? user) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Column(
@@ -239,7 +339,7 @@ Widget buildProfileAchievements(double sw, double sh, bool isTablet) {
           icon: Icons.track_changes,
           title: 'First Timer',
           description: 'Dispose 1st medicine',
-          isCompleted: true,
+          isCompleted: user?.badges.firstTimer.achieved ?? false,
           sw: sw,
           sh: sh,
         ),
@@ -248,7 +348,7 @@ Widget buildProfileAchievements(double sw, double sh, bool isTablet) {
           icon: Icons.eco,
           title: 'Eco Helper',
           description: 'Dispose 5 medicines',
-          isCompleted: true,
+          isCompleted: user?.badges.ecoHelper.achieved ?? false,
           sw: sw,
           sh: sh,
         ),
@@ -257,7 +357,7 @@ Widget buildProfileAchievements(double sw, double sh, bool isTablet) {
           icon: Icons.military_tech,
           title: 'Green Champion',
           description: 'Dispose 20 medicines',
-          isCompleted: false,
+          isCompleted: user?.badges.greenChampion.achieved ?? false,
           sw: sw,
           sh: sh,
         ),
@@ -418,7 +518,8 @@ Widget buildProfileSurveySection(double sw, double sh, bool isTablet) {
   );
 }
 
-Widget buildProfileSettings(double sw, double sh, bool isTablet) {
+Widget buildProfileSettings(
+    double sw, double sh, bool isTablet, BuildContext context) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Column(
@@ -474,6 +575,25 @@ Widget buildProfileSettings(double sw, double sh, bool isTablet) {
           title: 'About PillBin',
           icon: Icons.info_outline,
           onTap: () {},
+          sw: sw,
+          sh: sh,
+        ),
+        SettingsItem(
+          title: 'Logout',
+          icon: Icons.logout,
+          onTap: () {
+            final _httpClient = HttpClient();
+            _httpClient.logout();
+
+            Navigator.pushReplacementNamed(
+              context,
+              '/landing-screen',
+              arguments: {
+                'transition': TransitionType.topToBottom,
+                'duration': 300,
+              },
+            );
+          },
           sw: sw,
           sh: sh,
         ),

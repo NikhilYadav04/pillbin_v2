@@ -4,6 +4,8 @@ const MedicalCenter = require("../models/MedicalCenter");
 //* test route to check if jwt is valid
 const test = async (req, res) => {
   try {
+
+    console.log(req.body)
     res.status(200).json({
       success: true,
       statusCode: 200,

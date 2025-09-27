@@ -12,6 +12,10 @@ const medicineSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    purchaseDate: {
+      type: Date,
+      required: true,
+    },
     expiryDate: {
       type: Date,
       required: true,
@@ -34,6 +38,10 @@ const medicineSchema = new mongoose.Schema(
       trim: true,
     },
     manufacturer: {
+      type: String,
+      trim: true,
+    },
+    type: {
       type: String,
       trim: true,
     },

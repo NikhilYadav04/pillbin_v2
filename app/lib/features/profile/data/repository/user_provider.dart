@@ -22,6 +22,19 @@ class UserProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void resetUser() {
+    _user = null;
+    notifyListeners();
+  }
+
+  void refresh() {
+    notifyListeners();
+  }
+
+  //* getters and setters for loaders
+  bool _isFetching = false;
+  bool get isFetching => _isFetching;
+
   //* Medical center methods
 
   List<MedicalCenter>? _medicalCenter;
@@ -196,7 +209,7 @@ class UserProvider extends ChangeNotifier {
 
         Logger().d("profile eidted");
 
-        userClass.UserModel updatedModel = user!.copyWith(
+        userClass.UserModel? updatedModel = user?.copyWith(
           fullName: fullName,
           phone: phone,
           currentMedicines: medicines,
@@ -240,6 +253,9 @@ class UserProvider extends ChangeNotifier {
   //* get profile
   Future<String> getProfile({required BuildContext context}) async {
     try {
+      _isFetching = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _userServices.getProfile();
 
@@ -251,15 +267,24 @@ class UserProvider extends ChangeNotifier {
         userClass.UserModel userData =
             userClass.UserModel.fromJson(responseData["user"]);
 
+        _isFetching = false;
+
         setUser(userData);
+
         notifyListeners();
 
         return 'success';
       } else if (response.statusCode == 404) {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context, icon: Icons.person, title: response.message);
         return 'error';
       } else {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.person,
@@ -268,6 +293,9 @@ class UserProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isFetching = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.person,

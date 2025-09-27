@@ -3,6 +3,8 @@ import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_widgets.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -54,54 +56,74 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   Widget _buildMobileLayout(double sw, double sh) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          buildHomeHeader(sw, sh),
-          SizedBox(height: sh * 0.03),
-          _buildStatsCards(sw, sh),
-          SizedBox(height: sh * 0.04),
-          _buildQuickActions(sw, sh),
-          SizedBox(height: sh * 0.04),
-          buildRecentActivity(sw, sh),
-          SizedBox(height: sh * 0.03),
-        ],
-      ),
-    );
-  }
+    return RefreshIndicator(
+      color: PillBinColors.primary,
+      backgroundColor: Colors.white,
+      onRefresh: () async {
+        UserProvider _userProvider = context.read<UserProvider>();
+        _userProvider.refresh();
 
-  Widget _buildTabletLayout(double sw, double sh) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
+        return;
+      },
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             buildHomeHeader(sw, sh),
             SizedBox(height: sh * 0.03),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      _buildStatsCards(sw, sh),
-                      SizedBox(height: sh * 0.04),
-                      _buildQuickActions(sw, sh),
-                    ],
-                  ),
-                ),
-                SizedBox(width: sw * 0.03),
-                Expanded(
-                  flex: 1,
-                  child: buildRecentActivity(sw, sh),
-                ),
-              ],
-            ),
+            _buildStatsCards(sw, sh),
+            SizedBox(height: sh * 0.04),
+            _buildQuickActions(sw, sh),
+            SizedBox(height: sh * 0.04),
+            buildRecentActivity(sw, sh),
             SizedBox(height: sh * 0.03),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTabletLayout(double sw, double sh) {
+    return RefreshIndicator(
+      color: PillBinColors.primary,
+      backgroundColor: Colors.white,
+      onRefresh: () async {
+        UserProvider _userProvider = context.read<UserProvider>();
+        _userProvider.refresh();
+
+        return;
+      },
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              buildHomeHeader(sw, sh),
+              SizedBox(height: sh * 0.03),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: Column(
+                      children: [
+                        _buildStatsCards(sw, sh),
+                        SizedBox(height: sh * 0.04),
+                        _buildQuickActions(sw, sh),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: sw * 0.03),
+                  Expanded(
+                    flex: 1,
+                    child: buildRecentActivity(sw, sh),
+                  ),
+                ],
+              ),
+              SizedBox(height: sh * 0.03),
+            ],
+          ),
         ),
       ),
     );

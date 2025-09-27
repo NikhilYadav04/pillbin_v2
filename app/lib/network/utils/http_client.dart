@@ -1,3 +1,4 @@
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -176,44 +177,52 @@ class HttpClient {
 
   //* Method 4: Check if user is authenticated
   Future<bool> isAuthenticated() async {
-    final token = await getAuthToken();
-    final tokenRefresh = await getRefreshToken();
+    try {
+      final token = await getAuthToken();
+      final tokenRefresh = await getRefreshToken();
 
-    Logger().d("Token is Valid ${token}");
-    Logger().d("Token is Valid ${tokenRefresh}");
+      Logger().d("Token is Valid ${token}");
+      Logger().d("Token is Valid ${tokenRefresh}");
 
-    if (token == null || token.isEmpty) {
-      return false;
-    } else {
-      final response = await _dio.get(
-        '${ApiConfig.baseUrl}/api/user/test',
-        options: Options(
-          headers: {
-            'Authorization': 'Bearer $token',
-          },
-        ),
-      );
-
-      if (response.statusCode == 401) {
-        //* Retry with refresh token
-        final retryResponse = await _dio.get(
+      if (token == null || token.isEmpty) {
+        return false;
+      } else {
+        final response = await _dio.get(
           '${ApiConfig.baseUrl}/api/user/test',
           options: Options(
             headers: {
-              'Authorization': 'Bearer $tokenRefresh',
+              'Authorization': 'Bearer $token',
             },
           ),
         );
 
-        if (retryResponse.statusCode == 200) {
+        if (response.statusCode == 401 || response.statusCode == 403) {
+          //* Retry with refresh token
+          final retryResponse = await _dio.get(
+            '${ApiConfig.baseUrl}/api/user/test',
+            options: Options(
+              headers: {
+                'Authorization': 'Bearer $tokenRefresh',
+              },
+            ),
+          );
+
+          if (retryResponse.statusCode == 200) {
+            return true;
+          } else {
+            logout();
+            return false;
+          }
+        } else if (response.statusCode == 200) {
           return true;
         } else {
           logout();
           return false;
         }
-      } else {
-        return true;
       }
+    } catch (e) {
+      logout();
+      return false;
     }
   }
 

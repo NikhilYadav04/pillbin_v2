@@ -139,8 +139,8 @@ class Location {
 }
 
 class Stats {
-  final int totalMedicinesTracked;
-  final int expiringSoonCount;
+  int totalMedicinesTracked;
+  int expiringSoonCount;
   final int medicinesDisposedCount;
   final int campaignsJoinedCount;
 
@@ -208,10 +208,10 @@ class UserModel {
   factory UserModel.fromJson(Map<String, dynamic> json) {
     return UserModel(
       id: json['id'],
-      phoneNumber: json['phoneNumber'],
+      phoneNumber: json['phoneNumber'] ?? "",
       isVerified: json['isVerified'] ?? false,
-      fullName: json['fullName'],
-      email: json['email'],
+      fullName: json['fullName'] ?? "",
+      email: json['email'] ?? "",
       currentMedicines: (json['currentMedicines'] as List<dynamic>? ?? [])
           .map((e) => Medicine.fromJson(e))
           .toList(),
