@@ -4,20 +4,13 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/dateFormatter.dart';
 import 'package:pillbin/network/models/medicine_model.dart';
 
-// case 'Active':
-//       return PillBinColors.success;
-//     case 'Expiring Soon':
-//       return PillBinColors.warning;
-//     case 'Expired':
-//       return PillBinColors.error;
-//     default:
-//       return PillBinColors.textSecondary;
-
 class MedicineListItem extends StatefulWidget {
   final Medicine medicine;
   final double sw;
   final double sh;
   final VoidCallback onTap;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
   const MedicineListItem({
     Key? key,
@@ -25,6 +18,8 @@ class MedicineListItem extends StatefulWidget {
     required this.sw,
     required this.sh,
     required this.onTap,
+    this.onEdit,
+    this.onDelete,
   }) : super(key: key);
 
   @override
@@ -34,9 +29,28 @@ class MedicineListItem extends StatefulWidget {
 class _MedicineListItemState extends State<MedicineListItem> {
   bool _isPressed = false;
 
+  Color _getStatusColor() {
+    switch (widget.medicine.status.toString()) {
+      case 'MedicineStatus.active':
+        return PillBinColors.success;
+      case 'MedicineStatus.expired':
+        return PillBinColors.error;
+      default:
+        return PillBinColors.warning;
+    }
+  }
+
+  String _getStatusText() {
+    if (widget.medicine.status.toString() == 'MedicineStatus.expired') {
+      return 'Expired ${Dateformatter.customDateDifference(DateTime.now(), widget.medicine.expiryDate)} ago';
+    }
+    return 'Expires in ${Dateformatter.customDateDifference(DateTime.now(), widget.medicine.expiryDate)}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isTablet = widget.sw > 600;
+    final statusColor = _getStatusColor();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 150),
@@ -46,19 +60,16 @@ class _MedicineListItemState extends State<MedicineListItem> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
           boxShadow: [
-            // Main shadow
             BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 20,
+              color: statusColor.withOpacity(0.15),
+              blurRadius: 24,
               offset: const Offset(0, 8),
-              spreadRadius: 0,
+              spreadRadius: -4,
             ),
-            // Secondary shadow for depth
             BoxShadow(
               color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
+              blurRadius: 8,
               offset: const Offset(0, 2),
-              spreadRadius: 0,
             ),
           ],
         ),
@@ -68,48 +79,46 @@ class _MedicineListItemState extends State<MedicineListItem> {
             decoration: BoxDecoration(
               color: PillBinColors.surface,
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
-                width: 1,
+                color: statusColor.withOpacity(0.3),
+                width: 1.5,
               ),
             ),
             child: Stack(
               children: [
-                // Subtle gradient overlay
+                // Gradient overlay
                 Container(
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                       colors: [
-                        Colors.white.withOpacity(0.05),
+                        statusColor.withOpacity(0.03),
                         Colors.transparent,
                       ],
                     ),
                   ),
                 ),
-                // Status accent border
+
+                // Status indicator bar
                 Positioned(
                   left: 0,
                   top: 0,
                   bottom: 0,
                   child: Container(
-                    width: 4,
+                    width: 5,
                     decoration: BoxDecoration(
-                      color: widget.medicine.status.toString() ==
-                              'MedicineStatus.active'
-                          ? PillBinColors.success
-                          : widget.medicine.status.toString() ==
-                                  'MedicineStatus.expired'
-                              ? PillBinColors.error
-                              : PillBinColors.warning,
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(16),
-                        bottomLeft: Radius.circular(16),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          statusColor,
+                          statusColor.withOpacity(0.6),
+                        ],
                       ),
                     ),
                   ),
                 ),
-                // Main content
+
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -121,154 +130,280 @@ class _MedicineListItemState extends State<MedicineListItem> {
                     child: Padding(
                       padding: EdgeInsets.all(
                           isTablet ? widget.sw * 0.03 : widget.sw * 0.045),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Icon container with enhanced design
+                          // Header section
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Icon container
+                              Container(
+                                padding: EdgeInsets.all(isTablet
+                                    ? widget.sw * 0.025
+                                    : widget.sw * 0.035),
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      statusColor.withOpacity(0.15),
+                                      statusColor.withOpacity(0.08),
+                                    ],
+                                  ),
+                                  borderRadius:
+                                      BorderRadius.circular(isTablet ? 16 : 12),
+                                  border: Border.all(
+                                    color: statusColor.withOpacity(0.3),
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: statusColor.withOpacity(0.25),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.medication_rounded,
+                                  color: statusColor,
+                                  size: isTablet
+                                      ? widget.sw * 0.032
+                                      : widget.sw * 0.06,
+                                ),
+                              ),
+                              SizedBox(width: widget.sw * 0.04),
+
+                              // Medicine info
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.medicine.name,
+                                      style: PillBinMedium.style(
+                                        fontSize: isTablet
+                                            ? widget.sw * 0.026
+                                            : widget.sw * 0.044,
+                                        color: PillBinColors.textPrimary,
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    SizedBox(height: widget.sh * 0.006),
+
+                                    // Dosage with icon
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.medical_information_outlined,
+                                          size: isTablet
+                                              ? widget.sw * 0.018
+                                              : widget.sw * 0.032,
+                                          color: PillBinColors.textSecondary,
+                                        ),
+                                        SizedBox(width: widget.sw * 0.015),
+                                        Expanded(
+                                          child: Text(
+                                            (widget.medicine.dosage == null ||
+                                                    widget.medicine.dosage!
+                                                        .isEmpty)
+                                                ? "Dosage not specified"
+                                                : widget.medicine.dosage!,
+                                            style: PillBinRegular.style(
+                                              fontSize: isTablet
+                                                  ? widget.sw * 0.019
+                                                  : widget.sw * 0.034,
+                                              color:
+                                                  PillBinColors.textSecondary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+
+                          SizedBox(height: widget.sh * 0.018),
+
+                          // Status badge
                           Container(
-                            padding: EdgeInsets.all(isTablet
-                                ? widget.sw * 0.025
-                                : widget.sw * 0.035),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isTablet
+                                  ? widget.sw * 0.02
+                                  : widget.sw * 0.025,
+                              vertical: isTablet
+                                  ? widget.sh * 0.006
+                                  : widget.sh * 0.008,
+                            ),
                             decoration: BoxDecoration(
-                              color: widget.medicine.status.toString() ==
-                                      'MedicineStatus.active'
-                                  ? PillBinColors.success.withOpacity(0.1)
-                                  : widget.medicine.status.toString() ==
-                                          'MedicineStatus.expired'
-                                      ? PillBinColors.error.withOpacity(0.1)
-                                      : PillBinColors.warning.withOpacity(0.1),
-                              borderRadius:
-                                  BorderRadius.circular(isTablet ? 16 : 12),
+                              gradient: LinearGradient(
+                                colors: [
+                                  statusColor.withOpacity(0.15),
+                                  statusColor.withOpacity(0.08),
+                                ],
+                              ),
+                              borderRadius: BorderRadius.circular(10),
                               border: Border.all(
-                                color: widget.medicine.status.toString() ==
-                                        'MedicineStatus.active'
-                                    ? PillBinColors.success.withOpacity(0.2)
-                                    : widget.medicine.status.toString() ==
-                                            'MedicineStatus.expired'
-                                        ? PillBinColors.error.withOpacity(0.2)
-                                        : PillBinColors.warning
-                                            .withOpacity(0.2),
+                                color: statusColor.withOpacity(0.3),
                                 width: 1,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: widget.medicine.status.toString() ==
-                                          'MedicineStatus.active'
-                                      ? PillBinColors.success.withOpacity(0.2)
-                                      : widget.medicine.status.toString() ==
-                                              'MedicineStatus.expired'
-                                          ? PillBinColors.error.withOpacity(0.2)
-                                          : PillBinColors.warning
-                                              .withOpacity(0.2),
-                                  blurRadius: 8,
-                                  offset: const Offset(0, 2),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: isTablet
+                                      ? widget.sw * 0.018
+                                      : widget.sw * 0.032,
+                                  color: statusColor,
+                                ),
+                                SizedBox(width: widget.sw * 0.015),
+                                Text(
+                                  _getStatusText(),
+                                  style: PillBinMedium.style(
+                                    fontSize: isTablet
+                                        ? widget.sw * 0.019
+                                        : widget.sw * 0.032,
+                                    color: statusColor,
+                                  ),
                                 ),
                               ],
                             ),
-                            child: Icon(
-                              Icons.medication,
-                              color: widget.medicine.status.toString() ==
-                                      'MedicineStatus.active'
-                                  ? PillBinColors.success
-                                  : widget.medicine.status.toString() ==
-                                          'MedicineStatus.expired'
-                                      ? PillBinColors.error
-                                      : PillBinColors.warning,
-                              size: isTablet
-                                  ? widget.sw * 0.03
-                                  : widget.sw * 0.055,
+                          ),
+
+                          SizedBox(height: widget.sh * 0.018),
+
+                          // Divider
+                          Container(
+                            height: 1,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  Colors.transparent,
+                                  PillBinColors.greyLight.withOpacity(0.3),
+                                  Colors.transparent,
+                                ],
+                              ),
                             ),
                           ),
-                          SizedBox(width: widget.sw * 0.04),
-                          // Content
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  widget.medicine.name,
-                                  style: PillBinMedium.style(
-                                    fontSize: isTablet
-                                        ? widget.sw * 0.025
-                                        : widget.sw * 0.042,
-                                    color: PillBinColors.textPrimary,
-                                  ),
-                                ),
-                                SizedBox(height: widget.sh * 0.008),
-                                Text(
-                                  (widget.medicine.dosage == null ||
-                                          widget.medicine.dosage!.isEmpty)
-                                      ? "Not Mentioned"
-                                      : widget.medicine.dosage!,
-                                  style: PillBinRegular.style(
-                                    fontSize: isTablet
-                                        ? widget.sw * 0.02
-                                        : widget.sw * 0.036,
-                                    color: PillBinColors.textSecondary,
-                                  ),
-                                ),
-                                SizedBox(height: widget.sh * 0.006),
-                                Container(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: isTablet
-                                        ? widget.sw * 0.015
-                                        : widget.sw * 0.02,
-                                    vertical: isTablet
-                                        ? widget.sh * 0.003
-                                        : widget.sh * 0.005,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: widget.medicine.status.toString() ==
-                                            'MedicineStatus.active'
-                                        ? PillBinColors.success.withOpacity(0.1)
-                                        : widget.medicine.status.toString() ==
-                                                'MedicineStatus.expired'
-                                            ? PillBinColors.error
-                                                .withOpacity(0.1)
-                                            : PillBinColors.warning
-                                                .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    widget.medicine.status ==
-                                            'MedicineStatus.expired'
-                                        ? 'Expired'
-                                        : 'Expires' +
-                                            "in ${Dateformatter.customDateDifference(DateTime.now(), widget.medicine.expiryDate)}",
-                                    style: PillBinMedium.style(
-                                      fontSize: isTablet
-                                          ? widget.sw * 0.018
-                                          : widget.sw * 0.03,
-                                      color: widget.medicine.status
-                                                  .toString() ==
-                                              'MedicineStatus.active'
-                                          ? PillBinColors.success
-                                          : widget.medicine.status.toString() ==
-                                                  'MedicineStatus.expired'
-                                              ? PillBinColors.error
-                                              : PillBinColors.warning,
+
+                          SizedBox(height: widget.sh * 0.018),
+
+                          // Action buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: widget.onEdit,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: isTablet
+                                          ? widget.sh * 0.013
+                                          : widget.sh * 0.014,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          PillBinColors.primary
+                                              .withOpacity(0.12),
+                                          PillBinColors.primary
+                                              .withOpacity(0.06),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: PillBinColors.primary
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.edit_rounded,
+                                          size: isTablet
+                                              ? widget.sw * 0.022
+                                              : widget.sw * 0.042,
+                                          color: PillBinColors.primary,
+                                        ),
+                                        SizedBox(width: widget.sw * 0.02),
+                                        Text(
+                                          'Edit',
+                                          style: PillBinMedium.style(
+                                            fontSize: isTablet
+                                                ? widget.sw * 0.02
+                                                : widget.sw * 0.036,
+                                            color: PillBinColors.primary,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(width: widget.sw * 0.02),
-                          // Enhanced arrow with container
-                          Container(
-                            padding: EdgeInsets.all(isTablet
-                                ? widget.sw * 0.012
-                                : widget.sw * 0.02),
-                            decoration: BoxDecoration(
-                              color: PillBinColors.greyLight.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.arrow_forward_ios,
-                              size: isTablet
-                                  ? widget.sw * 0.02
-                                  : widget.sw * 0.035,
-                              color: PillBinColors.textLight,
-                            ),
+                              ),
+                              SizedBox(width: widget.sw * 0.03),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: widget.onDelete,
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Container(
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: isTablet
+                                          ? widget.sh * 0.013
+                                          : widget.sh * 0.014,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        colors: [
+                                          PillBinColors.error.withOpacity(0.12),
+                                          PillBinColors.error.withOpacity(0.06),
+                                        ],
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: PillBinColors.error
+                                            .withOpacity(0.3),
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.delete_rounded,
+                                          size: isTablet
+                                              ? widget.sw * 0.022
+                                              : widget.sw * 0.042,
+                                          color: PillBinColors.error,
+                                        ),
+                                        SizedBox(width: widget.sw * 0.02),
+                                        Text(
+                                          'Delete',
+                                          style: PillBinMedium.style(
+                                            fontSize: isTablet
+                                                ? widget.sw * 0.02
+                                                : widget.sw * 0.036,
+                                            color: PillBinColors.error,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

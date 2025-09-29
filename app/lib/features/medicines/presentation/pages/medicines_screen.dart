@@ -5,6 +5,7 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/dateFormatter.dart';
 import 'package:pillbin/core/utils/medicineDescriptionShimmer.dart';
 import 'package:pillbin/core/utils/medicineShimmerCard.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pillbin/network/models/medicine_model.dart' as medicine;
@@ -300,7 +301,16 @@ class _InventoryScreenState extends State<InventoryScreen>
           child: InkWell(
             borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
             onTap: () {
-              // TODO: Implement clear expired functionality
+              provider.deleteAllExpiredMedicines(context: context);
+
+              NotificationProvider _notificationProvider =
+                  context.read<NotificationProvider>();
+              _notificationProvider.addNotification(
+                  context: context,
+                  title: "Expired Medicines Cleared",
+                  description:
+                      "✅ All expired medicines have been successfully removed from your tracker. Your list is now up-to-date and clutter-free!",
+                  status: "important");
             },
             child: Padding(
               padding: EdgeInsets.symmetric(
@@ -927,8 +937,7 @@ class MedicineDetailsModal extends StatelessWidget {
                       isTablet),
                   _buildDetailRow(
                       'Notes',
-                      medicineItem.notes == null ||
-                              medicineItem.notes!.isEmpty
+                      medicineItem.notes == null || medicineItem.notes!.isEmpty
                           ? "Not Mentioned"
                           : medicineItem.notes!.trim(),
                       sw,

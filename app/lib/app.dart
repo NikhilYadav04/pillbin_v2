@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/core/constants/dummy.dart';
 import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
+import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
@@ -21,6 +23,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => MedicineProvider()),
         ChangeNotifierProvider(create: (_) => MedicalCenterProvider()),
+        ChangeNotifierProvider(create: (_) => ChatbotProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navKey,

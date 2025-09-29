@@ -5,7 +5,9 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/presentation/widgets/complete_profile_widgets.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
+import 'package:provider/provider.dart';
 
 class UserRegistrationForm extends StatefulWidget {
   final String phone;
@@ -21,7 +23,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _diseasesController = TextEditingController();
-  final _locationController = TextEditingController();
+final _locationController = TextEditingController();
   bool _isLoading = false;
 
   bool _isLocationLoading = false;
@@ -891,15 +893,26 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
         //* Navigate to next screen after a short delay
         await Future.delayed(const Duration(milliseconds: 500));
 
-        Navigator.pushReplacementNamed(
+        Navigator.pushNamedAndRemoveUntil(
           context,
           '/bottom-bar-screen',
+          (Route<dynamic> route) => false,
           arguments: {
             'transition': TransitionType.bottomToTop,
             'duration': 300,
           },
         );
-      } else {
+
+        NotificationProvider _notificationProvider =
+            context.read<NotificationProvider>();
+        _notificationProvider.addNotification(
+          context: context,
+          title: "Profile Completed",
+          description:
+              "🎉 Welcome to the PillBin app! Your profile is now complete and you can access all features like medicine tracking, dosage reminders, and expiry alerts.",
+          status: "important",
+        );
+
         return;
       }
     } catch (e) {

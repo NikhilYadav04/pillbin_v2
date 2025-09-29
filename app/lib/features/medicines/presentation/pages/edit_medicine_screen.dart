@@ -6,24 +6,43 @@ import 'package:pillbin/features/medicines/data/repository/medicine_provider.dar
 import 'package:pillbin/features/medicines/presentation/widgets/add_medicine_widgets.dart';
 import 'package:provider/provider.dart';
 
-class AddMedicineScreen extends StatefulWidget {
-  const AddMedicineScreen({Key? key}) : super(key: key);
+class EditMedicineScreen extends StatefulWidget {
+  final String medicineId;
+  final String medicineName;
+  final String? medicineType;
+  final DateTime expiryDate;
+  final DateTime purchaseDate;
+  final String? quantity;
+  final String? manufacturer;
+  final String? batchNumber;
+  final String? notes;
+
+  const EditMedicineScreen({
+    Key? key,
+    required this.medicineId,
+    required this.medicineName,
+    this.medicineType,
+    required this.expiryDate,
+    required this.purchaseDate,
+    this.quantity,
+    this.manufacturer,
+    this.batchNumber,
+    this.notes,
+  }) : super(key: key);
 
   @override
-  State<AddMedicineScreen> createState() => _AddMedicineScreenState();
+  State<EditMedicineScreen> createState() => _EditMedicineScreenState();
 }
 
-class _AddMedicineScreenState extends State<AddMedicineScreen>
+class _EditMedicineScreenState extends State<EditMedicineScreen>
     with TickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   // Animation controllers for buttons
   late AnimationController _saveAnimationController;
-  late AnimationController _scanAnimationController;
   late Animation<double> _saveScaleAnimation;
   late Animation<double> _saveOpacityAnimation;
-  late Animation<double> _scanPulseAnimation;
 
   final _formKey = GlobalKey<FormState>();
   final _medicineNameController = TextEditingController();
@@ -32,8 +51,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   final _manufacturerController = TextEditingController();
   final _batchNumberController = TextEditingController();
 
-  DateTime _expiryDate = DateTime.now().add(const Duration(days: 365));
-  DateTime _purchaseDate = DateTime.now();
+  late DateTime _expiryDate;
+  late DateTime _purchaseDate;
   String? _selectedMedicineType;
 
   // Common medicine types
@@ -56,11 +75,21 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   ];
 
   bool _isSaving = false;
-  bool _isScanning = false;
 
   @override
   void initState() {
     super.initState();
+
+    // Initialize with existing values
+    _medicineNameController.text = widget.medicineName;
+    _quantityController.text = widget.quantity ?? '';
+    _notesController.text = widget.notes ?? '';
+    _manufacturerController.text = widget.manufacturer ?? '';
+    _batchNumberController.text = widget.batchNumber ?? '';
+    _expiryDate = widget.expiryDate;
+    _purchaseDate = widget.purchaseDate;
+    _selectedMedicineType = widget.medicineType;
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -72,11 +101,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     // Initialize button animation controllers
     _saveAnimationController = AnimationController(
       duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _scanAnimationController = AnimationController(
-      duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
@@ -96,14 +120,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       curve: Curves.easeInOut,
     ));
 
-    _scanPulseAnimation = Tween<double>(
-      begin: 1.0,
-      end: 1.02,
-    ).animate(CurvedAnimation(
-      parent: _scanAnimationController,
-      curve: Curves.easeInOut,
-    ));
-
     _animationController.forward();
   }
 
@@ -111,7 +127,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   void dispose() {
     _animationController.dispose();
     _saveAnimationController.dispose();
-    _scanAnimationController.dispose();
     _medicineNameController.dispose();
     _quantityController.dispose();
     _notesController.dispose();
@@ -128,6 +143,26 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
 
     return Scaffold(
       backgroundColor: PillBinColors.background,
+      appBar: AppBar(
+        backgroundColor: PillBinColors.background,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back_ios,
+            color: PillBinColors.textPrimary,
+            size: isTablet ? sw * 0.025 : sw * 0.05,
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        title: Text(
+          'Edit Medicine',
+          style: PillBinBold.style(
+            fontSize: isTablet ? sw * 0.03 : sw * 0.05,
+            color: PillBinColors.textPrimary,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
@@ -136,11 +171,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(height: sh * 0.00),
-                buildAddMedsTitle(sw, sh, isTablet, context),
-                SizedBox(height: sh * 0.04),
-                _buildAnimatedScanOption(sw, sh, isTablet),
-                SizedBox(height: sh * 0.04),
+                _buildEditNotice(sw, sh, isTablet),
+                SizedBox(height: sh * 0.03),
                 _buildForm(sw, sh, isTablet),
                 SizedBox(height: sh * 0.04),
                 buildQuickTips(sw, sh, isTablet),
@@ -155,105 +187,66 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     );
   }
 
-  Widget _buildAnimatedScanOption(double sw, double sh, bool isTablet) {
-    return AnimatedBuilder(
-      animation: _scanAnimationController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _isScanning ? _scanPulseAnimation.value : 1.0,
-          child: Container(
-            width: double.infinity,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  PillBinColors.primary.withOpacity(_isScanning ? 0.1 : 0.15),
-                  PillBinColors.primaryLight
-                      .withOpacity(_isScanning ? 0.05 : 0.1),
+  Widget _buildEditNotice(double sw, double sh, bool isTablet) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            PillBinColors.primary.withOpacity(0.1),
+            PillBinColors.primaryLight.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+        border: Border.all(
+          color: PillBinColors.primary.withOpacity(0.2),
+          width: 1,
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.05),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
+              decoration: BoxDecoration(
+                color: PillBinColors.primary.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.edit_note,
+                color: PillBinColors.primary,
+                size: isTablet ? sw * 0.025 : sw * 0.04,
+              ),
+            ),
+            SizedBox(width: sw * 0.03),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Editing Medicine',
+                    style: PillBinMedium.style(
+                      fontSize: isTablet ? sw * 0.025 : sw * 0.04,
+                      color: PillBinColors.primary,
+                    ),
+                  ),
+                  SizedBox(height: sh * 0.005),
+                  Text(
+                    'Update the information below to modify this medicine',
+                    style: PillBinRegular.style(
+                      fontSize: isTablet ? sw * 0.02 : sw * 0.032,
+                      color: PillBinColors.textSecondary,
+                    ),
+                  ),
                 ],
               ),
-              borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-              border: Border.all(
-                color:
-                    PillBinColors.primary.withOpacity(_isScanning ? 0.3 : 0.2),
-                width: _isScanning ? 2 : 1,
-              ),
             ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-                onTap: _isScanning ? null : _scanMedicine,
-                child: Padding(
-                  padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.05),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: EdgeInsets.all(
-                                isTablet ? sw * 0.015 : sw * 0.02),
-                            decoration: BoxDecoration(
-                              color: PillBinColors.primary.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 300),
-                              child: _isScanning
-                                  ? SizedBox(
-                                      width: isTablet ? sw * 0.025 : sw * 0.04,
-                                      height: isTablet ? sw * 0.025 : sw * 0.04,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                          PillBinColors.primary,
-                                        ),
-                                      ),
-                                    )
-                                  : Icon(
-                                      Icons.qr_code_scanner,
-                                      color: PillBinColors.primary,
-                                      size: isTablet ? sw * 0.025 : sw * 0.04,
-                                    ),
-                            ),
-                          ),
-                          SizedBox(width: sw * 0.03),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _isScanning ? 'Scanning...' : 'Scan Medicine',
-                                  style: PillBinMedium.style(
-                                    fontSize: isTablet ? sw * 0.025 : sw * 0.04,
-                                    color: PillBinColors.primary,
-                                  ),
-                                ),
-                                SizedBox(height: sh * 0.005),
-                                Text(
-                                  _isScanning
-                                      ? 'Please wait while we scan'
-                                      : 'Use camera to auto-fill information',
-                                  style: PillBinRegular.style(
-                                    fontSize: isTablet ? sw * 0.02 : sw * 0.032,
-                                    color: PillBinColors.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-      },
+          ],
+        ),
+      ),
     );
   }
 
@@ -603,7 +596,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-                onTap: _isSaving ? null : _handleSaveMedicine,
+                onTap: _isSaving ? null : _handleUpdateMedicine,
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     vertical: isTablet ? sh * 0.025 : sh * 0.02,
@@ -627,7 +620,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
                           ),
                         ] else
                           Icon(
-                            Icons.add_circle_outline,
+                            Icons.check_circle_outline,
                             color: Colors.white,
                             size: isTablet ? sw * 0.025 : sw * 0.05,
                           ),
@@ -635,7 +628,9 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 300),
                           child: Text(
-                            _isSaving ? 'Adding Medicine...' : 'Add Medicine',
+                            _isSaving
+                                ? 'Updating Medicine...'
+                                : 'Update Medicine',
                             key: ValueKey(_isSaving),
                             style: PillBinMedium.style(
                               fontSize: isTablet ? sw * 0.025 : sw * 0.045,
@@ -653,74 +648,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         );
       },
     );
-  }
-
-  void _scanMedicine() async {
-    setState(() {
-      _isScanning = true;
-    });
-
-    // Start scanning animation
-    _scanAnimationController.repeat(reverse: true);
-
-    try {
-      // Simulate scanning process
-      await Future.delayed(const Duration(seconds: 2));
-
-      // Stop animation
-      _scanAnimationController.stop();
-      _scanAnimationController.reset();
-
-      setState(() {
-        _isScanning = false;
-      });
-
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text(
-            'Scan Complete',
-            style: PillBinMedium.style(
-              fontSize: 18,
-              color: PillBinColors.textPrimary,
-            ),
-          ),
-          content: Text(
-            'Camera scanner will be implemented here to automatically fill medicine information.',
-            style: PillBinRegular.style(
-              fontSize: 14,
-              color: PillBinColors.textSecondary,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(
-                'OK',
-                style: PillBinMedium.style(
-                  fontSize: 14,
-                  color: PillBinColors.primary,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    } catch (e) {
-      _scanAnimationController.stop();
-      _scanAnimationController.reset();
-
-      setState(() {
-        _isScanning = false;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Scanning failed. Please try again.'),
-          backgroundColor: PillBinColors.error,
-        ),
-      );
-    }
   }
 
   //* validate dates
@@ -742,7 +669,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     return DateTime(date.year, date.month, date.day, 12, 0, 0);
   }
 
-  void _handleSaveMedicine() async {
+  void _handleUpdateMedicine() async {
     //* Validate form
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -765,7 +692,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       return;
     }
 
-    // Validate dates - ADD THIS CHECK
+    // *Validate dates
     if (!_validateDates()) {
       return;
     }
@@ -780,13 +707,15 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     try {
       //* API Call
       MedicineProvider _provider = context.read<MedicineProvider>();
-      NotificationProvider _notificationProvider = NotificationProvider();
+      NotificationProvider _notificationProvider =
+          context.read<NotificationProvider>();
 
       DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
       DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);
 
-      String response = await _provider.addMedicine(
+      String response = await _provider.updateMedicine(
         context: context,
+        medicineId: widget.medicineId,
         name: _medicineNameController.text.trim(),
         expiryDate: safeExpiryDate.toIso8601String(),
         notes: _notesController.text.trim(),
@@ -797,16 +726,15 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         purchaseDate: safePurchaseDate.toIso8601String(),
       );
 
-      //* Add Notification
       _notificationProvider.addNotification(
         context: context,
-        title: "${_medicineNameController.text.trim()} added",
+        title: "${_medicineNameController.text.trim()} updated",
         description:
-            "Your medicine has been added successfully and will now be tracked for dosage reminders and expiry alerts.",
+            "The details for ${_medicineNameController.text.trim()} have been updated. All reminders will reflect the new information.",
         status: 'normal',
       );
 
-      // Stop animation
+      //* Stop animation
       _saveAnimationController.reverse();
 
       setState(() {
@@ -814,17 +742,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       });
 
       if (response == 'success') {
-        //* Clear form after success
-        _medicineNameController.clear();
-        _quantityController.clear();
-        _notesController.clear();
-        _manufacturerController.clear();
-        _batchNumberController.clear();
-        setState(() {
-          _expiryDate = DateTime.now().add(const Duration(days: 365));
-          _purchaseDate = DateTime.now();
-          _selectedMedicineType = null;
-        });
+        // Show success message
+
+        //* Go back to previous screen
+        Navigator.of(context).pop(true);
       } else {
         return;
       }

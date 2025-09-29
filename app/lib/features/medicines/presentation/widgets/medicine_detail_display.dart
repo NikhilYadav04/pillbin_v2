@@ -3,6 +3,7 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/dateFormatter.dart';
 import 'package:pillbin/network/models/medicine_model.dart';
+import 'package:intl/intl.dart';
 
 class MedicineDetailsModal extends StatelessWidget {
   final Medicine medicine;
@@ -59,9 +60,11 @@ class MedicineDetailsModal extends StatelessWidget {
                           vertical: isTablet ? sh * 0.005 : sh * 0.008,
                         ),
                         decoration: BoxDecoration(
-                          color: medicine.status.toString() == 'MedicineStatus.active'
+                          color: medicine.status.toString() ==
+                                  'MedicineStatus.active'
                               ? PillBinColors.success.withOpacity(0.1)
-                              : medicine.status.toString() == 'MedicineStatus.expired'
+                              : medicine.status.toString() ==
+                                      'MedicineStatus.expired'
                                   ? PillBinColors.error.withOpacity(0.1)
                                   : PillBinColors.warning.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
@@ -69,14 +72,17 @@ class MedicineDetailsModal extends StatelessWidget {
                         child: Text(
                           medicine.status.toString() == 'MedicineStatus.active'
                               ? 'Active'
-                              : medicine.status.toString() == 'MedicineStatus.expired'
-                                  ? 'Expiring Soon'
-                                  : 'Expired',
+                              : medicine.status.toString() ==
+                                      'MedicineStatus.expired'
+                                  ? 'Expired'
+                                  : 'Expiring Soon',
                           style: PillBinMedium.style(
                             fontSize: isTablet ? sw * 0.02 : sw * 0.03,
-                            color: medicine.status.toString() == 'MedicineStatus.active'
+                            color: medicine.status.toString() ==
+                                    'MedicineStatus.active'
                                 ? PillBinColors.success
-                                : medicine.status.toString() == 'MedicineStatus.expired'
+                                : medicine.status.toString() ==
+                                        'MedicineStatus.expired'
                                     ? PillBinColors.error
                                     : PillBinColors.warning,
                           ),
@@ -86,6 +92,14 @@ class MedicineDetailsModal extends StatelessWidget {
                   ),
                   SizedBox(height: sh * 0.03),
                   _buildDetailRow(
+                      'Type',
+                      (medicine.type == null || medicine.type!.isEmpty)
+                          ? "Not Mentioned"
+                          : medicine.type!,
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
                       'Quantity',
                       (medicine.dosage == null || medicine.dosage!.isEmpty)
                           ? "Not Mentioned"
@@ -93,8 +107,12 @@ class MedicineDetailsModal extends StatelessWidget {
                       sw,
                       sh,
                       isTablet),
-                  _buildDetailRow('Expiry Date', "${medicine.expiryDate}", sw,
-                      sh, isTablet),
+                  _buildDetailRow(
+                      'Expiry Date',
+                      "${DateFormat('d MMMM yyyy').format(medicine.expiryDate)}",
+                      sw,
+                      sh,
+                      isTablet),
                   _buildDetailRow(
                       'Status',
                       medicine.status.toString() == 'MedicineStatus.expired'
@@ -105,9 +123,17 @@ class MedicineDetailsModal extends StatelessWidget {
                       sh,
                       isTablet),
                   _buildDetailRow(
-                      'Added Date', '${medicine.addedDate}', sw, sh, isTablet),
-                  _buildDetailRow('Purchase Date', '${medicine.purchaseDate}',
-                      sw, sh, isTablet),
+                      'Added Date',
+                      "${DateFormat('d MMMM yyyy').format(medicine.addedDate)}",
+                      sw,
+                      sh,
+                      isTablet),
+                  _buildDetailRow(
+                      'Purchase Date',
+                      "${DateFormat('d MMMM yyyy').format(medicine.purchaseDate)}",
+                      sw,
+                      sh,
+                      isTablet),
                   _buildDetailRow(
                       'Notes',
                       (medicine.notes == null || medicine.notes!.isEmpty)

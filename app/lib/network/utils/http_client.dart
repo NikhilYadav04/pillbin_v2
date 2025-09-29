@@ -1,4 +1,3 @@
-
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -249,5 +248,14 @@ class HttpClient {
     await _secureStorage.delete(key: _nameKey);
     await _secureStorage.delete(key: _emailKey);
     await _secureStorage.delete(key: _phoneKey);
+  }
+
+  //* Get data
+  Future<Map<String, String>> getUserData() async {
+    return {
+      'name': await _secureStorage.read(key: _nameKey) ?? "",
+      'email': await _secureStorage.read(key: _emailKey) ?? "",
+      'phone': await _secureStorage.read(key: _phoneKey) ?? "",
+    };
   }
 }

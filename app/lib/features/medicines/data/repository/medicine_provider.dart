@@ -17,14 +17,28 @@ class MedicineProvider extends ChangeNotifier {
   //* medicines list
 
   List<Medicine> _activeMedicinesInventory = [];
-  List<Medicine> get activeMedicinesInventory => _activeMedicinesInventory;
-
   List<Medicine> _expiringSoonMedicinesInventory = [];
-  List<Medicine> get expiringSoonMedicinesInventory =>
-      _expiringSoonMedicinesInventory;
-
   List<Medicine> _expiredMedicinesInventory = [];
-  List<Medicine> get expiredMedicinesInventory => _expiredMedicinesInventory;
+
+  List<Medicine> _filteredActiveMedicinesInventory = [];
+  List<Medicine> _filteredExpiringSoonMedicinesInventory = [];
+  List<Medicine> _filteredExpiredMedicinesInventory = [];
+
+  List<Medicine> _deletedMedicinesInventory = [];
+
+  List<Medicine> get activeMedicinesInventory => _isSearchActive
+      ? _filteredActiveMedicinesInventory
+      : _activeMedicinesInventory;
+
+  List<Medicine> get expiringSoonMedicinesInventory => _isSearchActive
+      ? _filteredExpiringSoonMedicinesInventory
+      : _expiringSoonMedicinesInventory;
+
+  List<Medicine> get expiredMedicinesInventory => _isSearchActive
+      ? _filteredExpiredMedicinesInventory
+      : _expiredMedicinesInventory;
+
+  List<Medicine> get deletedMedicinesInventory => _deletedMedicinesInventory;
 
   void setActiveInventory(List<Medicine> inventory) {
     _activeMedicinesInventory = inventory;
@@ -38,6 +52,11 @@ class MedicineProvider extends ChangeNotifier {
 
   void setExpiredInventory(List<Medicine> inventory) {
     _expiredMedicinesInventory = inventory;
+    notifyListeners();
+  }
+
+  void setDeletedMedicineInventory(List<Medicine> inventory) {
+    _deletedMedicinesInventory = inventory;
     notifyListeners();
   }
 
@@ -73,6 +92,13 @@ class MedicineProvider extends ChangeNotifier {
   bool _isFetching = false;
   bool get isFetching => _isFetching;
 
+  bool _isFetchingDelete = false;
+  bool get isFetchingDelete => _isFetchingDelete;
+
+  //* Flag to track if search is active
+  bool _isSearchActive = false;
+  bool get isSearchActive => _isSearchActive;
+
   void deleteInventory(String status, String medicineId) {
     if (status == 'active') {
       _activeMedicinesInventory.removeWhere((m) => m.id == medicineId);
@@ -84,10 +110,53 @@ class MedicineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  void deleteInventoryHard(String medicineId) {
+    _deletedMedicinesInventory.removeWhere((m) => m.id == medicineId);
+    notifyListeners();
+  }
+
+  Medicine? findMedicine(String status, String medicineId) {
+    if (status == 'active') {
+      return _activeMedicinesInventory.firstWhere(
+        (m) => m.id == medicineId,
+      );
+    } else if (status == 'expiring_soon') {
+      return _expiringSoonMedicinesInventory.firstWhere(
+        (m) => m.id == medicineId,
+      );
+    } else {
+      return _expiredMedicinesInventory.firstWhere(
+        (m) => m.id == medicineId,
+      );
+    }
+  }
+
   int countInventory() {
     return _activeMedicinesInventory.length +
         _expiringSoonMedicinesInventory.length +
         _expiredMedicinesInventory.length;
+  }
+
+  //* Method to update filtered inventory
+  void updateFilteredInventory({
+    required List<Medicine> activeMedicines,
+    required List<Medicine> expiringSoonMedicines,
+    required List<Medicine> expiredMedicines,
+  }) {
+    _filteredActiveMedicinesInventory = activeMedicines;
+    _filteredExpiringSoonMedicinesInventory = expiringSoonMedicines;
+    _filteredExpiredMedicinesInventory = expiredMedicines;
+    _isSearchActive = true;
+    notifyListeners();
+  }
+
+//* Method to clear search filter
+  void clearSearchFilter() {
+    _isSearchActive = false;
+    _filteredActiveMedicinesInventory.clear();
+    _filteredExpiringSoonMedicinesInventory.clear();
+    _filteredExpiredMedicinesInventory.clear();
+    notifyListeners();
   }
 
   //* function
@@ -236,7 +305,7 @@ class MedicineProvider extends ChangeNotifier {
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
-            title: "Error adding medicine !");
+            title: "Error fetching inventory !");
         return 'error';
       } else {
         _isFetching = false;
@@ -250,6 +319,64 @@ class MedicineProvider extends ChangeNotifier {
       }
     } catch (e) {
       _isFetching = false;
+      notifyListeners();
+
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.medical_information,
+          title: "Error fetching inventory !");
+      return 'error';
+    }
+  }
+
+  //* get deleted medicines inventory
+  Future<String> getDeletedMedicinesInventory(
+      {required BuildContext context}) async {
+    try {
+      _isFetchingDelete = true;
+      notifyListeners();
+
+      ApiResponse<Map<String, dynamic>> response =
+          await _medicineServices.getInventoryDeleted();
+
+      if (response.statusCode == 200) {
+        Map<String, dynamic> inventory = response.data!;
+
+        //* separate each type of medicines in the list
+        List<Medicine> list = (inventory["medicines"] as List<dynamic>? ?? [])
+            .map((item) => Medicine.fromJson(item))
+            .toList();
+
+        Logger().d(inventory["medicines"]);
+
+        setDeletedMedicineInventory(list);
+
+        _isFetchingDelete = false;
+
+        notifyListeners();
+
+        return 'success';
+      } else if (response.statusCode == 400 || response.statusCode == 404) {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "Error fetching inventory !");
+        return 'error';
+      } else {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "Error fetching inventory !");
+        return 'error';
+      }
+    } catch (e) {
+      _isFetchingDelete = false;
       notifyListeners();
 
       CustomSnackBar.show(
@@ -291,18 +418,25 @@ class MedicineProvider extends ChangeNotifier {
         String medicineStatus = data["status"];
 
         Medicine updatedMedicine = Medicine(
-            id: data["_id"],
-            userId: data["userId"],
-            name: name,
-            expiryDate: DateTime.parse(
-              data["expiryDate"],
-            ),
-            purchaseDate: DateTime.parse(data["purchaseDate"]),
-            addedDate: data["addedDate"],
-            type: data["type"],
-            dosage: data["dosage"],
-            batchNumber: data['batchNumber'],
-            manufacturer: data["manufacturer"]);
+          id: data["_id"],
+          userId: data["userId"],
+          name: name,
+          expiryDate: DateTime.parse(
+            data["expiryDate"],
+          ),
+          purchaseDate: DateTime.parse(data["purchaseDate"]),
+          addedDate: DateTime.parse(data["addedDate"]),
+          type: data["type"],
+          dosage: data["dosage"],
+          batchNumber: data['batchNumber'],
+          manufacturer: data["manufacturer"],
+          notes: data["notes"],
+          status: medicineStatus == "active"
+              ? MedicineStatus.active
+              : medicineStatus == "expired"
+                  ? MedicineStatus.expired
+                  : MedicineStatus.expiringSoon,
+        );
 
         updateInventory(medicineStatus, medicineId, updatedMedicine);
 
@@ -310,14 +444,17 @@ class MedicineProvider extends ChangeNotifier {
             context: context,
             icon: Icons.medical_information,
             title: response.message);
-        return 'error';
+
+        return 'success';
       } else if (response.statusCode == 403 || response.statusCode == 404) {
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: response.message);
+        print(response.message);
         return 'error';
       } else {
+        print(response.message);
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
@@ -325,6 +462,7 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      print(e.toString());
       CustomSnackBar.show(
           context: context,
           icon: Icons.medical_information,
@@ -345,6 +483,9 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
 
+      _isFetching = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _medicineServices.deleteMedicine(medicineId: medicineId);
 
@@ -353,12 +494,22 @@ class MedicineProvider extends ChangeNotifier {
 
         Logger().d(data);
 
+        //* Get the medicine to add to history medicines list
+        Medicine? med = findMedicine(data["status"], medicineId);
+
+        //* delete from inventory locally also
         deleteInventory(data["status"], medicineId);
 
+        //* Update user stats
         UserProvider? user = context.read<UserProvider>();
         userClass.UserModel? userModel = user.user;
 
         userModel?.stats.totalMedicinesTracked -= 1;
+
+        //* add medicine in history list
+        _deletedMedicinesInventory.add(med!);
+
+        _isFetching = false;
         notifyListeners();
 
         CustomSnackBar.show(
@@ -367,12 +518,18 @@ class MedicineProvider extends ChangeNotifier {
             title: response.message);
         return 'success';
       } else if (response.statusCode == 403 || response.statusCode == 404) {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: response.message);
         return 'error';
       } else {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
@@ -380,6 +537,9 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isFetching = false;
+      notifyListeners();
+
       Logger().d(e.toString());
       CustomSnackBar.show(
           context: context,
@@ -393,22 +553,48 @@ class MedicineProvider extends ChangeNotifier {
   Future<String> deleteAllExpiredMedicines(
       {required BuildContext context}) async {
     try {
+      if (expiredMedicinesInventory.isEmpty) {
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "No Expired Medicines Found");
+        return 'error';
+      }
+
+      _isFetching = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _medicineServices.deleteAllExpiredMedicines();
 
       if (response.statusCode == 200) {
+        //* add meds in history list
+        _deletedMedicinesInventory.addAll(_expiredMedicinesInventory);
+
+        //* empty expiry medicines list
+        _expiredMedicinesInventory = [];
+
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: response.message);
         return 'success';
       } else if (response.statusCode == 404 || response.statusCode == 400) {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: response.message);
         return 'error';
       } else {
+        _isFetching = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
@@ -416,10 +602,127 @@ class MedicineProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isFetching = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.medical_information,
           title: "Error deleting expired medicines!");
+      return 'error';
+    }
+  }
+
+  //* delete medicine ( hard )
+  Future<String> deleteMedicineHard(
+      {required BuildContext context, required String medicineId}) async {
+    try {
+      if (medicineId.length == 0) {
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "Medicine ID is required!");
+        return 'error';
+      }
+
+      _isFetchingDelete = true;
+      notifyListeners();
+
+      ApiResponse<Map<String, dynamic>> response =
+          await _medicineServices.deleteMedicineHard(medicineId: medicineId);
+
+      if (response.statusCode == 200) {
+        //* remove medicine from history list locally
+        deleteInventoryHard(medicineId);
+
+        _isFetching = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: response.message);
+        return 'success';
+      } else if (response.statusCode == 403 || response.statusCode == 404) {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: response.message);
+        return 'error';
+      } else {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "Error deleting medicine !");
+        return 'error';
+      }
+    } catch (e) {
+      _isFetchingDelete = false;
+      notifyListeners();
+
+      Logger().d(e.toString());
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.medical_information,
+          title: "Error deleting medicine !");
+      return 'error';
+    }
+  }
+
+  //* delete all medicines (hard )
+  Future<String> deleteAllHardMedicines({required BuildContext context}) async {
+    try {
+      _isFetchingDelete = true;
+      notifyListeners();
+
+      ApiResponse<Map<String, dynamic>> response =
+          await _medicineServices.deleteAllHardMedicines();
+
+      if (response.statusCode == 200) {
+        //* clear history list
+        _deletedMedicinesInventory = [];
+
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: response.message);
+        return 'success';
+      } else if (response.statusCode == 404 || response.statusCode == 400) {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: response.message);
+        return 'error';
+      } else {
+        _isFetchingDelete = false;
+        notifyListeners();
+
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.medical_information,
+            title: "Error deleting medicines!");
+        return 'error';
+      }
+    } catch (e) {
+      _isFetchingDelete = false;
+      notifyListeners();
+
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.medical_information,
+          title: "Error deleting medicines!");
       return 'error';
     }
   }

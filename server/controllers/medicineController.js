@@ -106,7 +106,10 @@ const getInventory = async (req, res) => {
     }
 
     //* Fetch all medicines of the user
-    const medicines = await Medicine.find({ userId }).sort({ expiryDate: 1 });
+    const medicines = await Medicine.find({
+      userId,
+      isDeleted: false,
+    }).sort({ expiryDate: 1 });
 
     //* Update status in memory (and save if changed)
     for (let medicine of medicines) {
@@ -156,8 +159,174 @@ const getInventory = async (req, res) => {
   }
 };
 
-//* Delete a specific medicine (mark as disposed)
+//* Get user's medicine inventory with counts and pagination which is deleted
+const getDeletedMedicines = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
+    }
+
+    // Fetch all soft-deleted medicines of the user
+    const deletedMedicines = await Medicine.find({
+      userId,
+      isDeleted: true,
+    }).sort({ expiryDate: 1 });
+
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        medicines: deletedMedicines,
+        totalDeleted: deletedMedicines.length,
+      },
+    });
+  } catch (error) {
+    console.error("Get deleted medicines error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Delete a specific medicine (soft delete )
 const deleteMedicine = async (req, res) => {
+  try {
+    const { medicineId } = req.params;
+
+    //* Get userId from JWT token for verification
+    const userId = req.user.id;
+
+    const medicine = await Medicine.findById(medicineId);
+    if (!medicine) {
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Medicine not found" });
+    }
+
+    console.log(userId);
+    console.log(medicine.userId.toString());
+
+    //* Verify medicine belongs to authenticated user
+    if (medicine.userId.toString() != userId) {
+      return res.status(403).json({
+        statusCode: 403,
+        message: "Not authorized to delete this medicine",
+      });
+    }
+
+    const status = medicine.status;
+
+    const checkDeletedMedicines = await Medicine.find({
+      userId: userId,
+      isDeleted: true,
+    });
+
+    //* Delete the medicine
+    if (checkDeletedMedicines.length > 100) {
+      await Medicine.findByIdAndDelete(medicineId);
+    } else {
+      medicine.isDeleted = true;
+      await medicine.save();
+    }
+
+    //* Update user stats - increment disposed count
+    const user = await User.findById(userId);
+
+    //* Update other stats
+    //await updateUserStats(userId);
+    user.medicineCount -= 1;
+    user.stats.totalMedicinesTracked -= 1;
+    await user.save();
+
+    res.status(200).json({
+      statusCode: 200,
+      message: "Medicine deleted successfully",
+      data: {
+        medicine: {
+          status: status,
+        },
+        disposedCount: user.stats.medicinesDisposedCount,
+      },
+    });
+  } catch (error) {
+    console.error("Delete medicine error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Delete all expired medicines for a user ( soft delete all)
+const deleteAllExpiredMedicines = async (req, res) => {
+  try {
+    //* Get userId from JWT token
+    const userId = req.user.id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "User not found" });
+    }
+
+    //* Count expired medicines before deletion
+    const expiredCount = await Medicine.countDocuments({
+      userId,
+      status: "expired",
+    });
+
+    if (expiredCount === 0) {
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "No expired medicines found" });
+    }
+
+    const checkDeletedMedicines = await Medicine.find({
+      userId: userId,
+      isDeleted: true,
+    });
+
+    if (checkDeletedMedicines.length > 100) {
+      //* Hard delete all expired medicines that are NOT already soft-deleted
+      await Medicine.deleteMany({
+        userId,
+        status: "expired",
+        isDeleted: false,
+      });
+    } else {
+      //* Soft delete all expired medicines that are NOT already soft-deleted
+      await Medicine.updateMany(
+        { userId, status: "expired", isDeleted: false },
+        { $set: { isDeleted: true } }
+      );
+    }
+
+    // //* Update user stats
+    // //await updateUserStats(userId);
+    // if ((user.medicineCount -= expiredCount < 0)) {
+    //   user.medicineCount = 0;
+    // } else {
+    //   user.medicineCount -= expiredCount;
+    // }
+
+    //await user.save();
+
+    res.status(200).json({
+      statusCode: 200,
+      message: `${expiredCount} expired medicines successfully deleted`,
+      data: {
+        disposedCount: expiredCount,
+        totalDisposedCount: user.stats.medicinesDisposedCount,
+      },
+    });
+  } catch (error) {
+    console.error("Delete all expired medicines error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Delete a specific medicine (hard delete )
+const deleteMedicineHard = async (req, res) => {
   try {
     const { medicineId } = req.params;
 
@@ -187,15 +356,6 @@ const deleteMedicine = async (req, res) => {
     //* Delete the medicine
     await Medicine.findByIdAndDelete(medicineId);
 
-    //* Update user stats - increment disposed count
-    const user = await User.findById(userId);
-
-    //* Update other stats
-    //await updateUserStats(userId);
-    user.medicineCount -= 1;
-    user.stats.totalMedicinesTracked -= 1;
-    await user.save();
-
     res.status(200).json({
       statusCode: 200,
       message: "Medicine deleted successfully",
@@ -212,55 +372,45 @@ const deleteMedicine = async (req, res) => {
   }
 };
 
-//* Delete all expired medicines for a user
-const deleteAllExpiredMedicines = async (req, res) => {
+//* Delete all expired medicines for a user ( hard delete all)
+const hardDeleteAllDeletedMedicines = async (req, res) => {
   try {
-    //* Get userId from JWT token
     const userId = req.user.id;
 
     const user = await User.findById(userId);
     if (!user) {
-      return res
-        .status(404)
-        .json({ statusCode: 404, message: "User not found" });
+      return res.status(404).json({
+        statusCode: 404,
+        message: "User not found",
+      });
     }
 
-    //* Count expired medicines before deletion
-    const expiredCount = await Medicine.countDocuments({
-      userId,
-      status: "expired",
-    });
+    const filter = { userId, isDeleted: true };
+    const expiredCount = await Medicine.countDocuments(filter);
 
     if (expiredCount === 0) {
-      return res
-        .status(400)
-        .json({ statusCode: 400, message: "No expired medicines found" });
+      return res.status(400).json({
+        statusCode: 400,
+        message: "No expired medicines found",
+      });
     }
 
-    //* Delete all expired medicines
-    await Medicine.deleteMany({ userId, status: "expired" });
-
-    // //* Update user stats
-    // //await updateUserStats(userId);
-    // if ((user.medicineCount -= expiredCount < 0)) {
-    //   user.medicineCount = 0;
-    // } else {
-    //   user.medicineCount -= expiredCount;
-    // }
-
-    //await user.save();
+    await Medicine.deleteMany(filter);
 
     res.status(200).json({
       statusCode: 200,
-      message: `${expiredCount} expired medicines successfully deleted`,
+      message: `${expiredCount} expired medicines permanently deleted`,
       data: {
         disposedCount: expiredCount,
-        totalDisposedCount: user.stats.medicinesDisposedCount,
+        totalDisposedCount: user.stats?.medicinesDisposedCount || 0,
       },
     });
   } catch (error) {
-    console.error("Delete all expired medicines error:", error);
-    res.status(500).json({ statusCode: 500, message: "Server error" });
+    console.error("Hard delete expired medicines error:", error);
+    res.status(500).json({
+      statusCode: 500,
+      message: "Server error",
+    });
   }
 };
 
@@ -367,8 +517,11 @@ const cleanupExpiredMedicines = async (req, res) => {
 module.exports = {
   addMedicine,
   getInventory,
+  getDeletedMedicines,
   deleteMedicine,
   deleteAllExpiredMedicines,
+  deleteMedicineHard,
+  hardDeleteAllDeletedMedicines,
   updateMedicine,
   updateAllStatuses,
   cleanupExpiredMedicines,

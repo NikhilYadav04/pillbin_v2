@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/homeShimmer.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_action_button.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_stat_card.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_tablet_action_card.dart';
@@ -135,8 +136,14 @@ Widget buildTabletStatsGrid(double sw, double sh) {
   });
 }
 
-Widget buildMobileActions(double sw, double sh, void Function() onTap1,
-    void Function() onTap2, void Function() onTap3, void Function() onTap4) {
+Widget buildMobileActions(
+    double sw,
+    double sh,
+    void Function() onTap1,
+    void Function() onTap2,
+    void Function() onTap3,
+    void Function() onTap4,
+    void Function() onTap5) {
   return Column(
     children: [
       ActionButton(
@@ -174,12 +181,27 @@ Widget buildMobileActions(double sw, double sh, void Function() onTap1,
         sw: sw,
         sh: sh,
       ),
+      SizedBox(height: sh * 0.015),
+      ActionButton(
+        icon: Icons.history,
+        text: 'Medicines History',
+        isOutlined: true,
+        onTap: onTap5,
+        sw: sw,
+        sh: sh,
+      ),
     ],
   );
 }
 
-Widget buildTabletActions(double sw, double sh, void Function() onTap1,
-    void Function() onTap2, void Function() onTap3, void Function() onTap4) {
+Widget buildTabletActions(
+    double sw,
+    double sh,
+    void Function() onTap1,
+    void Function() onTap2,
+    void Function() onTap3,
+    void Function() onTap4,
+    void Function() onTap5) {
   return Column(
     children: [
       Row(
@@ -225,6 +247,21 @@ Widget buildTabletActions(double sw, double sh, void Function() onTap1,
             child: TabletActionButton(
               icon: Icons.inventory,
               text: 'My Inventory',
+              isOutlined: true,
+              onTap: onTap4,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+        ],
+      ),
+      SizedBox(height: sh * 0.02),
+      Row(
+        children: [
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.history,
+              text: 'Medicines History',
               isOutlined: true,
               onTap: onTap4,
               sw: sw,
@@ -308,39 +345,43 @@ Widget buildRecentActivity(double sw, double sh) {
 
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Recent Activity',
-          style: PillBinMedium.style(
-            fontSize: isTablet ? sw * 0.035 : sw * 0.05,
-            color: PillBinColors.textPrimary,
-          ),
-        ),
-        SizedBox(height: sh * 0.02),
-        ActivityItem(
-          title: 'Paracetamol added',
-          subtitle: '2 hours ago',
-          statusColor: PillBinColors.success,
-          sw: sw,
-          sh: sh,
-        ),
-        ActivityItem(
-          title: 'Crocin expires soon',
-          subtitle: '1 day ago',
-          statusColor: PillBinColors.warning,
-          sw: sw,
-          sh: sh,
-        ),
-        ActivityItem(
-          title: 'Dolo disposed safely',
-          subtitle: '3 days ago',
-          statusColor: PillBinColors.primary,
-          sw: sw,
-          sh: sh,
-        ),
-      ],
+    child: Consumer<NotificationProvider>(
+      builder: (context, provider, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Recent Activity',
+              style: PillBinMedium.style(
+                fontSize: isTablet ? sw * 0.035 : sw * 0.05,
+                color: PillBinColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: sh * 0.02),
+            ActivityItem(
+              title: 'Paracetamol added',
+              subtitle: '2 hours ago',
+              statusColor: PillBinColors.success,
+              sw: sw,
+              sh: sh,
+            ),
+            ActivityItem(
+              title: 'Crocin expires soon',
+              subtitle: '1 day ago',
+              statusColor: PillBinColors.warning,
+              sw: sw,
+              sh: sh,
+            ),
+            ActivityItem(
+              title: 'Dolo disposed safely',
+              subtitle: '3 days ago',
+              statusColor: PillBinColors.primary,
+              sw: sw,
+              sh: sh,
+            ),
+          ],
+        );
+      },
     ),
   );
 }

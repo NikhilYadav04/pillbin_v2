@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/chatbot/data/services/chatbot_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
 
@@ -23,6 +24,20 @@ class ChatbotProvider extends ChangeNotifier {
 
   //* Functions
 
+  //* clean gemini response
+  String cleanGeminiResponse(String input) {
+    //* Remove markdown headings like **MEDIUM**, **HIGH**, etc.
+    String cleaned = input.replaceAll(RegExp(r'\*\*.*?\*\*'), '');
+
+    //* Replace escaped newlines (\n) with actual space or line breaks
+    cleaned = cleaned.replaceAll(r'\n', ' ');
+
+    //* Trim extra spaces
+    cleaned = cleaned.trim();
+
+    return cleaned;
+  }
+
   //* Call chatbot to send query
   Future<String> sendQueryToChatbot(
       {required BuildContext context, required String prompt}) async {
@@ -41,11 +56,21 @@ class ChatbotProvider extends ChangeNotifier {
 
         addInList(responseText);
 
-        return 'success';
+        String cleanResponse = cleanGeminiResponse(responseText);
+
+        return cleanResponse;
       } else {
+        CustomSnackBar.show(
+            context: context,
+            icon: Icons.chat,
+            title: 'Cannot reach server, please try again');
         return 'Cannot reach server, please try again';
       }
     } catch (e) {
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.chat,
+          title: 'Cannot reach server, please try again');
       print(e.toString());
       return 'Cannot reach server, please try again';
     }

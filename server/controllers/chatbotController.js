@@ -20,7 +20,7 @@ const query = async (req, res) => {
     ];
 
     const response = await API.models.generateContent({
-      model: "gemini-1.5-flash",
+      model: "gemini-2.0-flash-lite",
       contents,
       generationConfig: {
         maxOutputTokens: 80, // strict token cap (experiment: 50-300)

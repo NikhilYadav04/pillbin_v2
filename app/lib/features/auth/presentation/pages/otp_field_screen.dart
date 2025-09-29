@@ -500,9 +500,10 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
       if (response == "success") {
         // Navigate based on login status
         if (widget.isLogin) {
-          Navigator.pushNamed(
+          Navigator.pushNamedAndRemoveUntil(
             context,
             '/bottom-bar-screen',
+            (Route<dynamic> route) => false,
             arguments: {
               'transition': TransitionType.rightToLeft,
               'duration': 300,

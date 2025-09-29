@@ -3,6 +3,7 @@ import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/inventoryShimmerCard.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_detail_display.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_inventory_widgets.dart';
@@ -63,10 +64,107 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     super.dispose();
   }
 
-  void _applyFilters() {}
+  void _applyFiltersSearch() {
+    final provider = Provider.of<MedicineProvider>(context, listen: false);
+    final searchQuery = _searchController.text.toLowerCase().trim();
+
+    if (searchQuery.isEmpty) {
+      provider.clearSearchFilter();
+      return;
+    }
+
+    //* Filter active medicines
+    final filteredActive = provider.activeMedicinesInventory.where((medicine) {
+      return medicine.name.toLowerCase().contains(searchQuery) ||
+          (medicine.batchNumber?.toLowerCase().contains(searchQuery) ??
+              false) ||
+          (medicine.manufacturer?.toLowerCase().contains(searchQuery) ?? false);
+    }).toList();
+
+    //* Filter expiring soon medicines
+    final filteredExpiringSoon =
+        provider.expiringSoonMedicinesInventory.where((medicine) {
+      return medicine.name.toLowerCase().contains(searchQuery) ||
+          (medicine.batchNumber?.toLowerCase().contains(searchQuery) ??
+              false) ||
+          (medicine.manufacturer?.toLowerCase().contains(searchQuery) ?? false);
+    }).toList();
+
+    //* Filter expired medicines
+    final filteredExpired =
+        provider.expiredMedicinesInventory.where((medicine) {
+      return medicine.name.toLowerCase().contains(searchQuery) ||
+          (medicine.batchNumber?.toLowerCase().contains(searchQuery) ??
+              false) ||
+          (medicine.manufacturer?.toLowerCase().contains(searchQuery) ?? false);
+    }).toList();
+
+    //* Update provider with filtered results
+    provider.updateFilteredInventory(
+      activeMedicines: filteredActive,
+      expiringSoonMedicines: filteredExpiringSoon,
+      expiredMedicines: filteredExpired,
+    );
+  }
+
+  void _applyFilterDropDown(String selectedDateFilter) {
+    final provider = Provider.of<MedicineProvider>(context, listen: false);
+
+    if (selectedDateFilter == 'All Time') {
+      print('All time applied');
+      provider.clearSearchFilter();
+      return;
+    }
+
+    int days = 0;
+    switch (selectedDateFilter) {
+      case 'This Week':
+        days = 7;
+        break;
+      case 'This Month':
+        days = 30;
+        break;
+      case 'This Year':
+        days = 365;
+        break;
+      default:
+        print("No filters applied");
+        provider.clearSearchFilter();
+        return;
+    }
+
+    //* Get the cutoff date (medicines added after this date)
+    final cutoffDate = DateTime.now().subtract(Duration(days: days));
+
+    final filteredActive = provider.activeMedicinesInventory.where((medicine) {
+      return medicine.addedDate.isAfter(cutoffDate) ||
+          medicine.addedDate.isAtSameMomentAs(cutoffDate);
+    }).toList();
+
+    final filteredExpiringSoon =
+        provider.expiringSoonMedicinesInventory.where((medicine) {
+      return medicine.addedDate.isAfter(cutoffDate) ||
+          medicine.addedDate.isAtSameMomentAs(cutoffDate);
+    }).toList();
+
+    final filteredExpired =
+        provider.expiredMedicinesInventory.where((medicine) {
+      return medicine.addedDate.isAfter(cutoffDate) ||
+          medicine.addedDate.isAtSameMomentAs(cutoffDate);
+    }).toList();
+
+    // * Update provider with filtered results
+    provider.updateFilteredInventory(
+      activeMedicines: filteredActive,
+      expiringSoonMedicines: filteredExpiringSoon,
+      expiredMedicines: filteredExpired,
+    );
+  }
 
   void _refresh() {
     final provider = Provider.of<MedicineProvider>(context, listen: false);
+    _searchController.clear();
+    provider.clearSearchFilter();
     provider.getInventory(context: context);
   }
 
@@ -87,7 +185,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 children: [
                   buildInventoryHeader(sw, sh, isTablet, context),
                   SizedBox(height: sh * 0.00),
-                  _buildFilters(sw, sh, isTablet),
+                  _buildFilters(sw, sh, isTablet, provider),
                   SizedBox(height: sh * 0.015),
                   buildInventoryTabBar(
                       sw,
@@ -127,7 +225,8 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     );
   }
 
-  Widget _buildFilters(double sw, double sh, bool isTablet) {
+  Widget _buildFilters(
+      double sw, double sh, bool isTablet, MedicineProvider provider) {
     return Padding(
       padding:
           EdgeInsets.symmetric(horizontal: isTablet ? sw * 0.05 : sw * 0.04),
@@ -148,7 +247,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
             ),
             child: TextField(
               controller: _searchController,
-              onChanged: (value) => _applyFilters(),
+              onChanged: (value) => _applyFiltersSearch(),
               decoration: InputDecoration(
                 hintText: 'Search medicines...',
                 hintStyle: PillBinRegular.style(
@@ -164,7 +263,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                     ? GestureDetector(
                         onTap: () {
                           _searchController.clear();
-                          _applyFilters();
+                          _applyFiltersSearch();
                         },
                         child: Icon(
                           Icons.clear,
@@ -198,7 +297,8 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                     value: _selectedDateFilter,
                     onChanged: (value) {
                       setState(() => _selectedDateFilter = value!);
-                      _applyFilters();
+                      print(_selectedDateFilter);
+                      _applyFilterDropDown(_selectedDateFilter);
                     },
                     decoration: InputDecoration(
                       labelText: 'Added',
@@ -231,8 +331,10 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                     setState(() {
                       _selectedDateFilter = 'All Time';
                       _searchController.clear();
+                      provider.clearSearchFilter();
                     });
-                    _applyFilters();
+                    //
+                    //  _applyFilters();
                   },
                   child: Container(
                     padding: EdgeInsets.symmetric(
@@ -357,7 +459,112 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
           medicine: medicines[index],
           sw: sw,
           sh: sh,
-          onTap: () => _showMedicineDetails(medicines[index]),
+          onTap: () => _showMedicineDetails(
+            medicines[index],
+          ),
+
+          ///* Edit
+          onEdit: () {
+            Navigator.pushNamed(
+              context,
+              '/edit-medicine-screen',
+              arguments: {
+                'transition': TransitionType.rightToLeft,
+                'duration': 300,
+                'medicineId': medicines[index].id,
+                'medicineName': medicines[index].name,
+                'medicineType': medicines[index].type,
+                'expiryDate': medicines[index].expiryDate,
+                'purchaseDate': medicines[index].purchaseDate,
+                'quantity': medicines[index].dosage,
+                'manufacturer': medicines[index].manufacturer,
+                'batchNumber': medicines[index].batchNumber,
+                'notes': medicines[index].notes
+              },
+            );
+          },
+
+          //* Delete
+          onDelete: () {
+            showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                final double sw = MediaQuery.of(context).size.width;
+                final bool isTablet = sw > 600;
+
+                return AlertDialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+                  ),
+                  title: Row(
+                    children: [
+                      Icon(
+                        Icons.delete,
+                        color: PillBinColors.error,
+                        size: isTablet ? sw * 0.03 : sw * 0.05,
+                      ),
+                      SizedBox(width: sw * 0.02),
+                      Text(
+                        'Delete Medicine?',
+                        style: PillBinMedium.style(
+                          fontSize: isTablet ? sw * 0.025 : sw * 0.045,
+                          color: Colors.red,
+                        ),
+                      ),
+                    ],
+                  ),
+                  content: Text(
+                    'This action will permanently remove this medicine from your inventory.',
+                    style: PillBinRegular.style(
+                      fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                      color: PillBinColors.textSecondary,
+                    ),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(
+                        'Cancel',
+                        style: PillBinMedium.style(
+                          fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                          color: PillBinColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        MedicineProvider _provider =
+                            context.read<MedicineProvider>();
+                        NotificationProvider _notificationProvider =
+                            context.read<NotificationProvider>();
+
+                        await _provider.deleteMedicine(
+                            context: context, medicineId: medicines[index].id);
+
+                        _notificationProvider.addNotification(
+                          context: context,
+                          title:
+                              "${medicines[index].name.trim()} removed",
+                          description:
+                              "${medicines[index].name.trim()} has been removed from your tracker. No further reminders will be sent.",
+                          status: 'alert',
+                        );
+
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Delete',
+                        style: PillBinMedium.style(
+                          fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                          color: PillBinColors.error,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            );
+          },
         );
       },
     );

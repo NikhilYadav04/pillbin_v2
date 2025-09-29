@@ -8,6 +8,9 @@ router.post("/add", authenticateToken, medicineController.addMedicine);
 
 router.get("/inventory", authenticateToken, medicineController.getInventory);
 
+router.get("/deleted-inventory",authenticateToken,medicineController.getDeletedMedicines);
+
+//* soft-delete
 router.delete(
   "/delete/:medicineId",
   authenticateToken,
@@ -18,6 +21,19 @@ router.delete(
   authenticateToken,
   medicineController.deleteAllExpiredMedicines
 );
+
+//* hard delete
+router.delete(
+  "/delete/:medicineId/hard",
+  authenticateToken,
+  medicineController.deleteMedicineHard
+);
+router.delete(
+  "/delete-all-hard",
+  authenticateToken,
+  medicineController.hardDeleteAllDeletedMedicines
+);
+
 router.put(
   "/update/:medicineId",
   authenticateToken,

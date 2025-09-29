@@ -28,12 +28,20 @@ class ApiEndpoints {
   static String get addMedicine => '${ApiConfig.baseUrl}/api/medicine/add';
   static String get getInventory =>
       '${ApiConfig.baseUrl}/api/medicine/inventory';
+  static String get getInventoryDeleted =>
+      '${ApiConfig.baseUrl}/api/medicine/deleted-inventory';
+
   static String updateMedicine(String medicineId) =>
       '${ApiConfig.baseUrl}/api/medicine/update/${medicineId}';
   static String deleteMedicine(String medicineId) =>
       '${ApiConfig.baseUrl}/api/medicine/delete/${medicineId}';
   static String get deleteAllExpired =>
       '${ApiConfig.baseUrl}/api/medicine/delete-all-expired';
+
+  static String deleteMedicineHard(String medicineId) =>
+      '${ApiConfig.baseUrl}/api/medicine/delete/${medicineId}/hard';
+  static String get deleteAllHard =>
+      '${ApiConfig.baseUrl}/api/medicine/delete-all-hard';
 
   //* Medical Center (****)
   static String getAllMedicalCenters(int page, int limit) =>
@@ -54,6 +62,13 @@ class ApiEndpoints {
   static String deleteMedicalCenter(String medicalCenterId) =>
       '${ApiConfig.baseUrl}/api/medical-center/delete/${medicalCenterId}';
 
-  //* Chatnot
+  //* Chatbot
   static String get sendQueryToChatbot => '${ApiConfig.baseUrl}/api/chatbot/';
+
+  //* Notification
+  static String get Notification => '${ApiConfig.baseUrl}/api/notifications';
+  static String deleteNotification(String notificationId) =>
+      '${ApiConfig.baseUrl}/api/notifications/${notificationId}';
+  static String get deleteAllNotification =>
+      '${ApiConfig.baseUrl}/api/notifications/all';
 }

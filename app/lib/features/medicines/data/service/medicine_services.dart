@@ -34,6 +34,12 @@ class MedicineServices extends ApiService {
         fromJson: (data) => data as Map<String, dynamic>);
   }
 
+  //* Get Deleted Inventory
+  Future<ApiResponse<Map<String, dynamic>>> getInventoryDeleted() async {
+    return get(ApiEndpoints.getInventoryDeleted,
+        fromJson: (data) => data as Map<String, dynamic>);
+  }
+
   //* Update Medicine
   Future<ApiResponse<Map<String, dynamic>>> updateMedicine(
       {required String medicineId,
@@ -59,16 +65,29 @@ class MedicineServices extends ApiService {
         fromJson: (data) => data as Map<String, dynamic>);
   }
 
-  //* Delete a medicine
+  //* Delete a medicine (Soft Delete )
   Future<ApiResponse<Map<String, dynamic>>> deleteMedicine(
       {required String medicineId}) async {
     return delete(ApiEndpoints.deleteMedicine(medicineId),
         fromJson: (data) => data as Map<String, dynamic>);
   }
 
-  //* Delete all Expired Medicine
+  //* Delete a medicine (Hard Delete )
+  Future<ApiResponse<Map<String, dynamic>>> deleteMedicineHard(
+      {required String medicineId}) async {
+    return delete(ApiEndpoints.deleteMedicineHard(medicineId),
+        fromJson: (data) => data as Map<String, dynamic>);
+  }
+
+  //* Delete all Expired Medicine (Soft Delete )
   Future<ApiResponse<Map<String, dynamic>>> deleteAllExpiredMedicines() async {
     return delete(ApiEndpoints.deleteAllExpired,
+        fromJson: (data) => data as Map<String, dynamic>);
+  }
+
+  //* Delete all Deleted Medicine (Hard Delete )
+  Future<ApiResponse<Map<String, dynamic>>> deleteAllHardMedicines() async {
+    return delete(ApiEndpoints.deleteAllHard,
         fromJson: (data) => data as Map<String, dynamic>);
   }
 }

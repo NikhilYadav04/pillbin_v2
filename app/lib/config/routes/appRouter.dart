@@ -8,6 +8,8 @@ import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
 import 'package:pillbin/features/landing_screen.dart';
 import 'package:pillbin/features/locations/presentation/pages/location_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/add_medicine_screen.dart';
+import 'package:pillbin/features/medicines/presentation/pages/edit_medicine_screen.dart';
+import 'package:pillbin/features/medicines/presentation/pages/medicine_history_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.dart';
@@ -115,6 +117,30 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         phone: phone,
       );
       break;
+    case '/edit-medicine-screen':
+      final String medicineId = args?['medicineId'] ?? '';
+      final String medicineName = args?['medicineName'] ?? '';
+      final String medicineType = args?['medicineType'] ?? '';
+      final DateTime expiryDate = args?['expiryDate'] ?? DateTime.now();
+      final DateTime purchaseDate = args?['purchaseDate'] ?? DateTime.now();
+      final String quantity = args?['quantity'] ?? "0";
+      final String manufacturer = args?['manufacturer'] ?? '';
+      final String batchNumber = args?['batchNumber'] ?? '';
+      final String notes = args?['notes'] ?? '';
+
+      page = EditMedicineScreen(
+        medicineId: medicineId,
+        medicineName: medicineName,
+        medicineType: medicineType,
+        expiryDate: expiryDate,
+        purchaseDate: purchaseDate,
+        quantity: quantity,
+        manufacturer: manufacturer,
+        batchNumber: batchNumber,
+        notes: notes,
+      );
+      break;
+
     case '/edit-profile-screen':
       String fullName = args?['fullName'] ?? "";
       String phone = args?["phone"] ?? "";
@@ -149,6 +175,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/inventory-screen':
       page = MyInventoryScreen();
+      break;
+    case '/medicine-history-screen':
+      page = MedicineHistoryScreen();
       break;
     case '/profile-screen':
       page = ProfileScreen();

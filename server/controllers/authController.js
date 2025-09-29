@@ -187,7 +187,7 @@ const signin = async (req, res) => {
 
     //* Send OTP to user
     //* Send OTP to user
-    const subject = "Welcome to PillBin – Your OTP for Signup";
+    const subject = "Welcome to PillBin – Your OTP for SignIn";
 
     const html = `
        <p>Hi ${email || "there"},</p>

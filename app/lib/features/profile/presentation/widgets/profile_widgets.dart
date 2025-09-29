@@ -8,9 +8,10 @@ import 'package:pillbin/features/profile/presentation/widgets/profile_settings_c
 import 'package:pillbin/features/profile/presentation/widgets/profile_stats_card.dart';
 import 'package:pillbin/network/models/user_model.dart';
 import 'package:pillbin/network/utils/http_client.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-Widget buildProfileAppBar(
-    double sw, double sh, BuildContext context, GlobalKey<ScaffoldState> key, void Function() onTap) {
+Widget buildProfileAppBar(double sw, double sh, BuildContext context,
+    GlobalKey<ScaffoldState> key, void Function() onTap) {
   final bool isTablet = sw > 600;
 
   return Container(
@@ -74,7 +75,7 @@ Widget buildProfileAppBar(
 
         //* Refresh icon on the right
         GestureDetector(
-          onTap:onTap,
+          onTap: onTap,
           child: Container(
             padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.02),
             decoration: BoxDecoration(
@@ -484,6 +485,16 @@ Widget buildProfileSurveySection(double sw, double sh, bool isTablet) {
             child: Material(
               color: Colors.transparent,
               child: InkWell(
+                onTap: () async {
+                  final Uri url = Uri.parse(
+                    'https://docs.google.com/forms/d/e/1FAIpQLSdm5baK6hgQHAAW6Y9Mm5vymBo-jZXRx4XXCKee5vmFpJTx8w/viewform',
+                  );
+
+                  if (!await launchUrl(url,
+                      mode: LaunchMode.externalApplication)) {
+                    throw Exception('Could not launch $url');
+                  }
+                },
                 borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
                 child: Padding(
                   padding: EdgeInsets.symmetric(

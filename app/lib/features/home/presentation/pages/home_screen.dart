@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_widgets.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -62,6 +63,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onRefresh: () async {
         UserProvider _userProvider = context.read<UserProvider>();
         _userProvider.refresh();
+
+        NotificationProvider _notificationProvider =
+            context.read<NotificationProvider>();
+        _notificationProvider.refresh();
 
         return;
       },
@@ -193,6 +198,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       'duration': 300,
                     },
                   );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medicine-history-screen',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
                 })
               : buildMobileActions(sw, sh, () {
                   Navigator.pushNamed(
@@ -225,6 +239,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Navigator.pushNamed(
                     context,
                     '/inventory-screen',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medicine-history-screen',
                     arguments: {
                       'transition': TransitionType.bottomToTop,
                       'duration': 300,
