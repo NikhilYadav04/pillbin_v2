@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/notificationShimmer.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
+import 'package:pillbin/network/models/notification_model.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 
 class ViewAllNotificationsScreen extends StatefulWidget {
   const ViewAllNotificationsScreen({Key? key}) : super(key: key);
@@ -12,89 +17,92 @@ class ViewAllNotificationsScreen extends StatefulWidget {
 
 class _ViewAllNotificationsScreenState
     extends State<ViewAllNotificationsScreen> {
-  List<NotificationItem> notifications = [
-    NotificationItem(
-      id: '1',
-      title: 'Paracetamol added',
-      subtitle: '2 hours ago',
-      statusColor: PillBinColors.success,
-      type: NotificationType.medicineAdded,
-    ),
-    NotificationItem(
-      id: '2',
-      title: 'Crocin expires soon',
-      subtitle: '1 day ago',
-      statusColor: PillBinColors.warning,
-      type: NotificationType.expiringSoon,
-    ),
-    NotificationItem(
-      id: '3',
-      title: 'Dolo disposed safely',
-      subtitle: '3 days ago',
-      statusColor: PillBinColors.primary,
-      type: NotificationType.disposed,
-    ),
-    NotificationItem(
-      id: '4',
-      title: 'Aspirin stock low',
-      subtitle: '5 days ago',
-      statusColor: PillBinColors.error,
-      type: NotificationType.lowStock,
-    ),
-    NotificationItem(
-      id: '5',
-      title: 'Vitamin D expired',
-      subtitle: '1 week ago',
-      statusColor: PillBinColors.error,
-      type: NotificationType.expired,
-    ),
-  ];
-
   void _deleteNotification(String id) {
-    setState(() {
-      notifications.removeWhere((notification) => notification.id == id);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Notification deleted'),
-        backgroundColor: PillBinColors.success,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    final provider = context.read<NotificationProvider>();
+    provider.deleteNotification(context: context, notificationId: id);
   }
 
   void _clearAllNotifications() {
     showDialog(
       context: context,
       builder: (BuildContext context) {
+        final double sw = MediaQuery.of(context).size.width;
+        final bool isTablet = sw > 600;
+
         return AlertDialog(
-          title: Text('Clear All Notifications'),
-          content: Text('Are you sure you want to delete all notifications?'),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.refresh,
+                color: PillBinColors.primary,
+                size: isTablet ? sw * 0.03 : sw * 0.05,
+              ),
+              SizedBox(width: sw * 0.02),
+              Text(
+                'Clear All Notifications?',
+                style: PillBinMedium.style(
+                  fontSize: isTablet ? sw * 0.025 : sw * 0.045,
+                  color: PillBinColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'This will remove all your notifications permanently. Are you sure?',
+            style: PillBinRegular.style(
+              fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancel'),
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: PillBinMedium.style(
+                  fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                  color: PillBinColors.textSecondary,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  notifications.clear();
-                });
+                final provider = context.read<NotificationProvider>();
+                provider.deleteAllNotification(context: context);
                 Navigator.of(context).pop();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('All notifications cleared'),
-                    backgroundColor: PillBinColors.success,
-                  ),
-                );
               },
-              child: Text('Clear All'),
+              child: Text(
+                'Reset',
+                style: PillBinMedium.style(
+                  fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                  color: PillBinColors.primary,
+                ),
+              ),
             ),
           ],
         );
       },
     );
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    super.initState();
+
+    NotificationProvider provider = context.read<NotificationProvider>();
+
+    if (provider.notifications.isEmpty) {
+      provider.fetchNotifications(context: context);
+    }
+  }
+
+  void _refresh() {
+    NotificationProvider provider = context.read<NotificationProvider>();
+    provider.fetchNotifications(context: context);
   }
 
   @override
@@ -124,22 +132,34 @@ class _ViewAllNotificationsScreenState
           ),
         ),
         actions: [
-          if (notifications.isNotEmpty)
-            TextButton(
-              onPressed: _clearAllNotifications,
-              child: Text(
-                'Clear All',
-                style: PillBinMedium.style(
-                  fontSize: isTablet ? sw * 0.025 : sw * 0.035,
-                  color: PillBinColors.error,
-                ),
-              ),
-            ),
+          Consumer<NotificationProvider>(
+            builder: (context, provider, _) {
+              if (provider.notifications.isNotEmpty) {
+                return TextButton(
+                  onPressed: _clearAllNotifications,
+                  child: Text(
+                    'Clear All',
+                    style: PillBinMedium.style(
+                      fontSize: isTablet ? sw * 0.025 : sw * 0.035,
+                      color: PillBinColors.error,
+                    ),
+                  ),
+                );
+              }
+              return SizedBox.shrink();
+            },
+          ),
         ],
       ),
-      body: notifications.isEmpty
-          ? _buildEmptyState(sw, sh, isTablet)
-          : _buildNotificationsList(sw, sh, isTablet),
+      body: Consumer<NotificationProvider>(
+        builder: (context, provider, _) {
+          return provider.notifications.isEmpty
+              ? _buildEmptyState(sw, sh, isTablet)
+              : provider.isLoafing
+                  ? NotificationShimmer()
+                  : _buildNotificationsList(sw, sh, isTablet, provider);
+        },
+      ),
     );
   }
 
@@ -174,28 +194,36 @@ class _ViewAllNotificationsScreenState
     );
   }
 
-  Widget _buildNotificationsList(double sw, double sh, bool isTablet) {
-    return ListView.builder(
-      padding: EdgeInsets.symmetric(
-        horizontal: isTablet ? sw * 0.05 : sw * 0.04,
-        vertical: sh * 0.02,
-      ),
-      itemCount: notifications.length,
-      itemBuilder: (context, index) {
-        final notification = notifications[index];
-        return DismissibleNotificationItem(
-          notification: notification,
-          sw: sw,
-          sh: sh,
-          onDelete: () => _deleteNotification(notification.id),
-        );
+  Widget _buildNotificationsList(
+      double sw, double sh, bool isTablet, NotificationProvider provider) {
+    return RefreshIndicator(
+      backgroundColor: Colors.white,
+      color: PillBinColors.primary,
+      onRefresh: () async {
+        _refresh();
       },
+      child: ListView.builder(
+        padding: EdgeInsets.symmetric(
+          horizontal: isTablet ? sw * 0.05 : sw * 0.04,
+          vertical: sh * 0.02,
+        ),
+        itemCount: provider.notifications.length,
+        itemBuilder: (context, index) {
+          final notification = provider.notifications[index];
+          return DismissibleNotificationItem(
+            notification: notification,
+            sw: sw,
+            sh: sh,
+            onDelete: () => _deleteNotification(notification.id),
+          );
+        },
+      ),
     );
   }
 }
 
 class DismissibleNotificationItem extends StatelessWidget {
-  final NotificationItem notification;
+  final NotificationModel notification;
   final double sw;
   final double sh;
   final VoidCallback onDelete;
@@ -243,7 +271,7 @@ class DismissibleNotificationItem extends StatelessWidget {
 }
 
 class NotificationItemCard extends StatelessWidget {
-  final NotificationItem notification;
+  final NotificationModel notification;
   final double sw;
   final double sh;
   final VoidCallback onDelete;
@@ -256,9 +284,55 @@ class NotificationItemCard extends StatelessWidget {
     required this.onDelete,
   }) : super(key: key);
 
+  String _getTimeAgo(DateTime dateTime) {
+    final now = DateTime.now();
+    final difference = now.difference(dateTime);
+
+    if (difference.inDays > 7) {
+      return DateFormat('MMM dd, yyyy').format(dateTime);
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} day${difference.inDays > 1 ? 's' : ''} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} hour${difference.inHours > 1 ? 's' : ''} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} minute${difference.inMinutes > 1 ? 's' : ''} ago';
+    } else {
+      return 'Just now';
+    }
+  }
+
+  Color _getStatusColor(NotificationStatus status) {
+    switch (status) {
+      case NotificationStatus.important:
+        return PillBinColors.primary;
+      case NotificationStatus.urgent:
+        return PillBinColors.error;
+      case NotificationStatus.alert:
+        return PillBinColors.warning;
+      case NotificationStatus.normal:
+      default:
+        return PillBinColors.success;
+    }
+  }
+
+  IconData _getNotificationIcon(NotificationStatus status) {
+    switch (status) {
+      case NotificationStatus.important:
+        return Icons.info;
+      case NotificationStatus.urgent:
+        return Icons.error;
+      case NotificationStatus.alert:
+        return Icons.warning;
+      case NotificationStatus.normal:
+      default:
+        return Icons.notifications;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isTablet = sw > 600;
+    final statusColor = _getStatusColor(notification.status);
 
     return Container(
       margin: EdgeInsets.only(bottom: sh * 0.015),
@@ -270,23 +344,23 @@ class NotificationItemCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Status indicator icon
+          //* Status indicator icon
           Container(
             width: isTablet ? sw * 0.05 : sw * 0.08,
             height: isTablet ? sw * 0.05 : sw * 0.08,
             decoration: BoxDecoration(
-              color: notification.statusColor.withOpacity(0.1),
+              color: statusColor.withOpacity(0.1),
               shape: BoxShape.circle,
             ),
             child: Icon(
-              _getNotificationIcon(notification.type),
-              color: notification.statusColor,
+              _getNotificationIcon(notification.status),
+              color: statusColor,
               size: isTablet ? sw * 0.025 : sw * 0.04,
             ),
           ),
           SizedBox(width: sw * 0.03),
 
-          // Notification content
+          //* Notification content
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,27 +374,38 @@ class NotificationItemCard extends StatelessWidget {
                 ),
                 SizedBox(height: sh * 0.005),
                 Text(
-                  notification.subtitle,
+                  notification.description,
                   style: PillBinRegular.style(
                     fontSize: isTablet ? sw * 0.02 : sw * 0.035,
                     color: PillBinColors.textSecondary,
+                  ),
+                  maxLines: 4,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: sh * 0.005),
+                Text(
+                  _getTimeAgo(notification.createdAt),
+                  style: PillBinRegular.style(
+                    fontSize: isTablet ? sw * 0.018 : sw * 0.03,
+                    color: PillBinColors.textSecondary.withOpacity(0.7),
                   ),
                 ),
               ],
             ),
           ),
 
-          // Status dot and delete button
+          //* Status dot and delete button
           Row(
             children: [
-              Container(
-                width: isTablet ? sw * 0.015 : sw * 0.02,
-                height: isTablet ? sw * 0.015 : sw * 0.02,
-                decoration: BoxDecoration(
-                  color: notification.statusColor,
-                  shape: BoxShape.circle,
+              if (!notification.isRead)
+                Container(
+                  width: isTablet ? sw * 0.015 : sw * 0.02,
+                  height: isTablet ? sw * 0.015 : sw * 0.02,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
               SizedBox(width: sw * 0.02),
               GestureDetector(
                 onTap: onDelete,
@@ -339,46 +424,4 @@ class NotificationItemCard extends StatelessWidget {
       ),
     );
   }
-
-  IconData _getNotificationIcon(NotificationType type) {
-    switch (type) {
-      case NotificationType.medicineAdded:
-        return Icons.add_circle;
-      case NotificationType.expiringSoon:
-        return Icons.warning;
-      case NotificationType.disposed:
-        return Icons.check_circle;
-      case NotificationType.lowStock:
-        return Icons.inventory;
-      case NotificationType.expired:
-        return Icons.error;
-      default:
-        return Icons.notifications;
-    }
-  }
-}
-
-// Data models
-class NotificationItem {
-  final String id;
-  final String title;
-  final String subtitle;
-  final Color statusColor;
-  final NotificationType type;
-
-  NotificationItem({
-    required this.id,
-    required this.title,
-    required this.subtitle,
-    required this.statusColor,
-    required this.type,
-  });
-}
-
-enum NotificationType {
-  medicineAdded,
-  expiringSoon,
-  disposed,
-  lowStock,
-  expired,
 }

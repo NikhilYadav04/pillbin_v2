@@ -22,13 +22,13 @@ class NotificationService extends ApiService {
   //* delete a notification
   Future<ApiResponse<Map<String, dynamic>>> deleteNotification(
       {required String notificationId}) async {
-    return post(ApiEndpoints.deleteNotification(notificationId),
+    return delete(ApiEndpoints.deleteNotification(notificationId),
         fromJson: (data) => data as Map<String, dynamic>);
   }
 
   //* clear all notifications
   Future<ApiResponse<Map<String, dynamic>>> deleteAllNotifications() async {
-    return post(ApiEndpoints.deleteAllNotification,
+    return delete(ApiEndpoints.deleteAllNotification,
         fromJson: (data) => data as Map<String, dynamic>);
   }
 }

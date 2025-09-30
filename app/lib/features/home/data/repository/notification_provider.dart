@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/home/data/network/notification_service.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -20,6 +21,7 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   void refresh() {
+    Logger().d(_notifications.length);
     notifyListeners();
   }
 
@@ -46,13 +48,21 @@ class NotificationProvider extends ChangeNotifier {
       if (response.statusCode == 201) {
         Map<String, dynamic> notiData = response.data!;
 
-        String id = notiData["notification"]["userId"];
-        String userId = notiData["notification"]["_id"];
+        String id = notiData["notification"]["_id"];
+        String userId = notiData["notification"]["userId"];
+
+        Logger().d(id);
+        Logger().d(userId);
+
+        Logger().d(_notifications.length);
 
         NotificationModel notification = NotificationModel(
             id: id, userId: userId, title: title, description: description);
 
-        addNotifications(notification);
+        _notifications.add(notification);
+        notifyListeners();
+
+        Logger().d(_notifications.length);
 
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
@@ -89,6 +99,9 @@ class NotificationProvider extends ChangeNotifier {
     required BuildContext context,
   }) async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _notificationService.getNotifications();
       if (response.statusCode == 200) {
@@ -100,13 +113,21 @@ class NotificationProvider extends ChangeNotifier {
                 .toList();
 
         _notifications = notificationsData;
+
+        _isLoading = false;
         notifyListeners();
 
         return 'success';
       } else {
+        _isLoading = false;
+        notifyListeners();
+
         return 'error';
       }
     } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.notifications,
@@ -122,6 +143,9 @@ class NotificationProvider extends ChangeNotifier {
   Future<String> deleteNotification(
       {required BuildContext context, required String notificationId}) async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       if (notificationId.isEmpty) {
         CustomSnackBar.show(
             context: context,
@@ -135,8 +159,14 @@ class NotificationProvider extends ChangeNotifier {
       if (response.statusCode == 200) {
         deleteNotificationFromList(notificationId);
 
+        _isLoading = false;
+        notifyListeners();
+
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.notifications,
@@ -144,6 +174,9 @@ class NotificationProvider extends ChangeNotifier {
                 "Unable to delete notification at the moment. Please try again later.");
         return 'error';
       } else {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.notifications,
@@ -152,6 +185,9 @@ class NotificationProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.notifications,
@@ -168,15 +204,23 @@ class NotificationProvider extends ChangeNotifier {
     required BuildContext context,
   }) async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _notificationService.deleteAllNotifications();
 
       if (response.statusCode == 200) {
         _notifications = [];
+
+        _isLoading = false;
         notifyListeners();
 
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.notifications,
@@ -184,6 +228,9 @@ class NotificationProvider extends ChangeNotifier {
                 "Unable to clear notification at the moment. Please try again later.");
         return 'error';
       } else {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.notifications,
@@ -192,6 +239,9 @@ class NotificationProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.notifications,

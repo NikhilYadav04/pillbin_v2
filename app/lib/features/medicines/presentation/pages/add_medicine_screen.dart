@@ -780,7 +780,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     try {
       //* API Call
       MedicineProvider _provider = context.read<MedicineProvider>();
-      NotificationProvider _notificationProvider = NotificationProvider();
+      NotificationProvider _notificationProvider = context.read<NotificationProvider>();
 
       DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
       DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);

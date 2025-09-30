@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/inventoryShimmerCard.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/network/models/medicine_model.dart';
 import 'package:intl/intl.dart';
@@ -100,6 +101,16 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
               onPressed: () {
                 Navigator.of(dialogContext).pop();
                 _clearAllHistory();
+
+                NotificationProvider _notificationProvider =
+                    context.read<NotificationProvider>();
+                _notificationProvider.addNotification(
+                  context: context,
+                  title: "Inventory Cleared",
+                  description:
+                      "Your medicine history has been successfully cleared.",
+                  status: "normal",
+                );
               },
               style: TextButton.styleFrom(
                 backgroundColor: PillBinColors.error,

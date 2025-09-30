@@ -163,7 +163,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           isLoading
               ? ShimmerCards.buildProfileStatsShimmer(sw, sh, false)
               : buildProfileStatsCards(
-                  sw, sh, false, user?.medicineCount.toString() ?? "0"),
+                  sw, sh, false,context ,user?.medicineCount.toString() ?? "0"),
           SizedBox(height: sh * 0.03),
           buildProfileAchievements(sw, sh, false, user),
           SizedBox(height: sh * 0.03),
@@ -208,7 +208,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         isLoading
                             ? ShimmerCards.buildProfileStatsShimmer(
                                 sw, sh, true)
-                            : buildProfileStatsCards(sw, sh, true,
+                            : buildProfileStatsCards(sw, sh, true,context,
                                 user?.medicineCount.toString() ?? "0"),
                         SizedBox(height: sh * 0.03),
                         buildProfileAchievements(sw, sh, true, user),

@@ -70,5 +70,5 @@ class ApiEndpoints {
   static String deleteNotification(String notificationId) =>
       '${ApiConfig.baseUrl}/api/notifications/${notificationId}';
   static String get deleteAllNotification =>
-      '${ApiConfig.baseUrl}/api/notifications/all';
+      '${ApiConfig.baseUrl}/api/notifications/';
 }

@@ -538,13 +538,16 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                         NotificationProvider _notificationProvider =
                             context.read<NotificationProvider>();
 
+                        //* 1] First, delete the medicine
                         await _provider.deleteMedicine(
-                            context: context, medicineId: medicines[index].id);
-
-                        _notificationProvider.addNotification(
                           context: context,
-                          title:
-                              "${medicines[index].name.trim()} removed",
+                          medicineId: medicines[index].id,
+                        );
+
+                        //* 2] Then, add notification BEFORE closing dialog
+                        await _notificationProvider.addNotification(
+                          context: context,
+                          title: "${medicines[index].name.trim()} removed",
                           description:
                               "${medicines[index].name.trim()} has been removed from your tracker. No further reminders will be sent.",
                           status: 'alert',

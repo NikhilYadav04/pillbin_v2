@@ -29,6 +29,11 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
     _animationController.forward();
+
+    WidgetsBinding.instance.addPostFrameCallback((_){
+      NotificationProvider _notificationProvider = context.read<NotificationProvider>();
+      _notificationProvider.fetchNotifications(context: context);
+    });
   }
 
   @override
@@ -80,7 +85,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             SizedBox(height: sh * 0.04),
             _buildQuickActions(sw, sh),
             SizedBox(height: sh * 0.04),
-            buildRecentActivity(sw, sh),
+            buildRecentActivity(sw, sh,context),
             SizedBox(height: sh * 0.03),
           ],
         ),
@@ -95,6 +100,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       onRefresh: () async {
         UserProvider _userProvider = context.read<UserProvider>();
         _userProvider.refresh();
+
+        NotificationProvider _notificationProvider =
+            context.read<NotificationProvider>();
+        _notificationProvider.refresh();
 
         return;
       },
@@ -122,7 +131,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   SizedBox(width: sw * 0.03),
                   Expanded(
                     flex: 1,
-                    child: buildRecentActivity(sw, sh),
+                    child: buildRecentActivity(sw, sh,context),
                   ),
                 ],
               ),

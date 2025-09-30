@@ -272,18 +272,30 @@ Widget buildProfileHeader(
 }
 
 Widget buildProfileStatsCards(
-    double sw, double sh, bool isTablet, String medicinesTrackedCount) {
+    double sw, double sh, bool isTablet,BuildContext context, String medicinesTrackedCount) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Row(
       children: [
         Expanded(
-          child: ProfileStatCard(
-            count: '${medicinesTrackedCount}',
-            label: 'Medicines Tracked',
-            color: PillBinColors.primary,
-            sw: sw,
-            sh: sh,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/medicine-history-screen',
+                arguments: {
+                  'transition': TransitionType.bottomToTop,
+                  'duration': 300,
+                },
+              );
+            },
+            child: ProfileStatCard(
+              count: '${medicinesTrackedCount}',
+              label: 'Medicines Tracked',
+              color: PillBinColors.primary,
+              sw: sw,
+              sh: sh,
+            ),
           ),
         ),
         SizedBox(width: sw * 0.03),

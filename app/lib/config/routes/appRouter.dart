@@ -5,6 +5,7 @@ import 'package:pillbin/features/auth/presentation/pages/phone_field_screen.dart
 import 'package:pillbin/features/campaign/presentation/pages/campaign_screen.dart';
 import 'package:pillbin/features/chatbot/presentation/pages/chatbot_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
+import 'package:pillbin/features/home/presentation/pages/notification_screen.dart';
 import 'package:pillbin/features/landing_screen.dart';
 import 'package:pillbin/features/locations/presentation/pages/location_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/add_medicine_screen.dart';
@@ -181,6 +182,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/profile-screen':
       page = ProfileScreen();
+      break;
+    case '/notification-screen':
+      page = ViewAllNotificationsScreen();
       break;
     case '/campaign-screen':
       page = MyCampaignsScreen();
