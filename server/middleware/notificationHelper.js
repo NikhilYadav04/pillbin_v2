@@ -1,4 +1,5 @@
 const Notification = require("../models/Notification.js");
+const mongoose = require('mongoose')
 
 //* Helper utility class to manage notifications with 50-notification limit
 class NotificationHelper {
@@ -130,7 +131,9 @@ class NotificationHelper {
 
   static async deleteAllNotifications(userId) {
     try {
-      const result = await Notification.deleteMany({ userId });
+      const result = await Notification.deleteMany({
+        userId: userId,
+      });
 
       return {
         deletedCount: result.deletedCount,

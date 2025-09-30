@@ -18,6 +18,6 @@ router.get("/", authenticateToken, getNotifications);
 router.delete("/:notificationId", authenticateToken, deleteNotification);
 
 //* Clear All Notifications
-router.delete("/all", authenticateToken, clearNotifications);
+router.delete("/", authenticateToken, clearNotifications);
 
 module.exports = router;
