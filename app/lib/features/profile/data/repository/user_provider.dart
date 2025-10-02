@@ -37,12 +37,32 @@ class UserProvider extends ChangeNotifier {
 
   //* Medical center methods
 
-  List<MedicalCenter>? _medicalCenter;
+  //* <--------------------------------------->
 
-  List<MedicalCenter>? get medicalCenter => _medicalCenter;
+  List<MedicalCenter> _medicalCenter = [];
+  List<MedicalCenter> _filteredAllCenters = [];
+
+  List<MedicalCenter>? get medicalCenter =>
+      _isSearchActive ? _filteredAllCenters : _medicalCenter;
+
+  void updateFilterSearch(List<MedicalCenter> centers) {
+    _isSearchActive = true;
+    _filteredAllCenters = centers;
+    notifyListeners();
+  }
+
+  void clearFilterSearch() {
+    _isSearchActive = false;
+    notifyListeners();
+  }
+
+  void removeCenter(String medicalCenterId) {
+    _medicalCenter.removeWhere((item) => item.id == medicalCenterId);
+    notifyListeners();
+  }
 
   void setMedicalCenter(List<MedicalCenter> centers) {
-    _medicalCenter = medicalCenter;
+    _medicalCenter = centers;
     notifyListeners();
   }
 
@@ -52,6 +72,29 @@ class UserProvider extends ChangeNotifier {
 
   int _limit = 10;
   int get limit => _limit;
+
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
+
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  bool _isSearchActive = false;
+  bool get isSearchActive => _isSearchActive;
+
+  //* removing of saved
+  bool _isDelete = false;
+  bool get isDelete => _isDelete;
+
+  void resetAllCenters() {
+    _isLoading = false;
+    _medicalCenter = [];
+    _hasMore = true;
+    _page = 1;
+    notifyListeners();
+  }
+
+  //* <--------------------------------------->
 
   //* functions
 
@@ -361,6 +404,9 @@ class UserProvider extends ChangeNotifier {
         return 'error';
       }
 
+      _isDelete = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response = await _userServices
           .removeSavedMedicalCenter(medicalCenterId: medicalCenterId);
 
@@ -369,8 +415,9 @@ class UserProvider extends ChangeNotifier {
 
         String removedId = data["removedMedicalCenter"];
 
-        user?.removeMedicalCenter(removedId);
+        removeCenter(removedId);
 
+        _isDelete = false;
         notifyListeners();
 
         CustomSnackBar.show(
@@ -379,12 +426,16 @@ class UserProvider extends ChangeNotifier {
             title: response.message);
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
+        _isDelete = false;
+        notifyListeners();
         CustomSnackBar.show(
             context: context,
             icon: Icons.medical_information,
             title: response.message);
         return 'error';
       } else {
+        _isDelete = false;
+        notifyListeners();
         CustomSnackBar.show(
             context: context,
             icon: Icons.person,
@@ -392,6 +443,8 @@ class UserProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isDelete = false;
+      notifyListeners();
       CustomSnackBar.show(
           context: context,
           icon: Icons.person,
@@ -404,6 +457,9 @@ class UserProvider extends ChangeNotifier {
   //* get saved medical center
   Future<String> getSavedMedicalCenters({required BuildContext context}) async {
     try {
+      _isLoading = true;
+      notifyListeners();
+
       ApiResponse<Map<String, dynamic>> response =
           await _userServices.getSavedMedicalCenters(page: page, limit: limit);
 
@@ -417,12 +473,30 @@ class UserProvider extends ChangeNotifier {
 
         setMedicalCenter(medicalCenters);
 
+        int currentPage = data["pagination"]["currentPage"];
+        int totalPage = data["pagination"]["totalPages"];
+
+        if (currentPage >= totalPage) {
+          _hasMore = false;
+        } else {
+          _page++;
+        }
+
+        _isLoading = false;
+        notifyListeners();
+
         return 'success';
       } else if (response.statusCode == 404) {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context, icon: Icons.person, title: response.message);
         return 'error';
       } else {
+        _isLoading = false;
+        notifyListeners();
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.person,
@@ -431,6 +505,9 @@ class UserProvider extends ChangeNotifier {
         return 'error';
       }
     } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+
       CustomSnackBar.show(
           context: context,
           icon: Icons.person,

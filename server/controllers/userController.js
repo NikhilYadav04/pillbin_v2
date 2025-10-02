@@ -4,8 +4,7 @@ const MedicalCenter = require("../models/MedicalCenter");
 //* test route to check if jwt is valid
 const test = async (req, res) => {
   try {
-
-    console.log(req.body)
+    console.log(req.body);
     res.status(200).json({
       success: true,
       statusCode: 200,
@@ -42,7 +41,10 @@ const completeProfile = async (req, res) => {
     if (user.profileCompleted) {
       return res
         .status(400)
-        .json({ message: "Profile Details already completed !!", statusCode: 400 });
+        .json({
+          message: "Profile Details already completed !!",
+          statusCode: 400,
+        });
     }
 
     //* Update profile
@@ -291,6 +293,7 @@ const getSavedMedicalCenters = async (req, res) => {
 
     const savedMedicalCenters = await MedicalCenter.find({
       _id: { $in: paginatedIds },
+      isActive: true, // only fetch active centers
     });
 
     res.status(200).json({

@@ -300,17 +300,20 @@ class _InventoryScreenState extends State<InventoryScreen>
           color: Colors.transparent,
           child: InkWell(
             borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-            onTap: () {
-              provider.deleteAllExpiredMedicines(context: context);
+            onTap: () async {
+              String response =
+                  await provider.deleteAllExpiredMedicines(context: context);
 
-              NotificationProvider _notificationProvider =
-                  context.read<NotificationProvider>();
-              _notificationProvider.addNotification(
-                  context: context,
-                  title: "Expired Medicines Cleared",
-                  description:
-                      "✅ All expired medicines have been successfully removed from your tracker. Your list is now up-to-date and clutter-free!",
-                  status: "important");
+              if (response == 'success') {
+                NotificationProvider _notificationProvider =
+                    context.read<NotificationProvider>();
+                _notificationProvider.addNotification(
+                    context: context,
+                    title: "Expired Medicines Cleared",
+                    description:
+                        "✅ All expired medicines have been successfully removed from your tracker. Your list is now up-to-date and clutter-free!",
+                    status: "important");
+              }
             },
             child: Padding(
               padding: EdgeInsets.symmetric(

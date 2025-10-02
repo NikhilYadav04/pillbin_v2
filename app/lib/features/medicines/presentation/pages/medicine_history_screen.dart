@@ -41,6 +41,27 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
     provider.getDeletedMedicinesInventory(context: context);
   }
 
+  void _applyFiltersSearch() {
+    final provider = context.read<MedicineProvider>();
+    final searchQuery = _searchController.text.trim().toLowerCase();
+
+    if (searchQuery.isEmpty) {
+      provider.clearSearchFilter();
+      return;
+    }
+
+    //* Filter medicines
+    List<Medicine> _filteredMedicines =
+        provider.deletedMedicinesInventory.where((medicine) {
+      return medicine.name.toLowerCase().contains(searchQuery) ||
+          (medicine.batchNumber?.toLowerCase().contains(searchQuery) ??
+              false) ||
+          (medicine.manufacturer?.toLowerCase().contains(searchQuery) ?? false);
+    }).toList();
+
+    provider.updateHistoryFilteredInventory(medicine: _filteredMedicines);
+  }
+
   void _showClearAllDialog(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
     final sh = MediaQuery.of(context).size.height;
@@ -147,6 +168,8 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
     final sh = MediaQuery.of(context).size.height;
     final bool isTablet = sw > 600;
 
+    MedicineProvider _medicineProvide = context.read<MedicineProvider>();
+
     return Scaffold(
       backgroundColor: PillBinColors.background,
       appBar: AppBar(
@@ -161,7 +184,7 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Deleted Medicines',
+          'Medicines History (${_medicineProvide.deletedMedicinesInventory.length})',
           style: PillBinMedium.style(
             fontSize: isTablet ? sw * 0.028 : sw * 0.048,
             color: PillBinColors.textPrimary,
@@ -250,7 +273,7 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
                     ),
                   ),
                   onChanged: (value) {
-                    setState(() {});
+                    _applyFiltersSearch();
                   },
                 ),
               ),

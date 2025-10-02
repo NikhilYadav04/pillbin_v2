@@ -542,7 +542,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                         await _provider.deleteMedicine(
                           context: context,
                           medicineId: medicines[index].id,
-                        );
+                        );    
 
                         //* 2] Then, add notification BEFORE closing dialog
                         await _notificationProvider.addNotification(

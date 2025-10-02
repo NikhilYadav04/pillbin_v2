@@ -30,8 +30,9 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     );
     _animationController.forward();
 
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      NotificationProvider _notificationProvider = context.read<NotificationProvider>();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      NotificationProvider _notificationProvider =
+          context.read<NotificationProvider>();
       _notificationProvider.fetchNotifications(context: context);
     });
   }
@@ -85,7 +86,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             SizedBox(height: sh * 0.04),
             _buildQuickActions(sw, sh),
             SizedBox(height: sh * 0.04),
-            buildRecentActivity(sw, sh,context),
+            buildRecentActivity(sw, sh, context),
             SizedBox(height: sh * 0.03),
           ],
         ),
@@ -131,7 +132,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   SizedBox(width: sw * 0.03),
                   Expanded(
                     flex: 1,
-                    child: buildRecentActivity(sw, sh,context),
+                    child: buildRecentActivity(sw, sh, context),
                   ),
                 ],
               ),
@@ -216,6 +217,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                       'duration': 300,
                     },
                   );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medical-center-display-detail',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medical-center-display-saved',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
                 })
               : buildMobileActions(sw, sh, () {
                   Navigator.pushNamed(
@@ -257,6 +276,24 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                   Navigator.pushNamed(
                     context,
                     '/medicine-history-screen',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medical-center-display-detail',
+                    arguments: {
+                      'transition': TransitionType.bottomToTop,
+                      'duration': 300,
+                    },
+                  );
+                }, () {
+                  Navigator.pushNamed(
+                    context,
+                    '/medical-center-display-saved',
                     arguments: {
                       'transition': TransitionType.bottomToTop,
                       'duration': 300,

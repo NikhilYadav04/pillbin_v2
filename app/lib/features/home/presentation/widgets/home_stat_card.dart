@@ -10,6 +10,7 @@ class StatCard extends StatefulWidget {
   final int delay;
   final double sw;
   final double sh;
+  final void Function() onTap;
 
   const StatCard({
     Key? key,
@@ -20,6 +21,7 @@ class StatCard extends StatefulWidget {
     this.delay = 0,
     required this.sw,
     required this.sh,
+    required this.onTap,
   }) : super(key: key);
 
   @override
@@ -85,7 +87,7 @@ class _StatCardState extends State<StatCard>
             color: Colors.transparent,
             child: InkWell(
               borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
-              onTap: () {},
+              onTap: widget.onTap,
               child: Padding(
                 padding: EdgeInsets.all(
                     isTablet ? widget.sw * 0.025 : widget.sw * 0.05),

@@ -8,6 +8,9 @@ import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/notification_screen.dart';
 import 'package:pillbin/features/landing_screen.dart';
 import 'package:pillbin/features/locations/presentation/pages/location_screen.dart';
+import 'package:pillbin/features/locations/presentation/pages/medical_centers_view_all_screen.dart';
+import 'package:pillbin/features/locations/presentation/pages/saved_medical_centers_view.dart';
+import 'package:pillbin/features/locations/presentation/widgets/location_detail_card.dart';
 import 'package:pillbin/features/medicines/presentation/pages/add_medicine_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/edit_medicine_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_history_screen.dart';
@@ -16,6 +19,7 @@ import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.d
 import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
 import 'package:pillbin/features/splash_screen.dart';
+import 'package:pillbin/network/models/medical_center_model.dart';
 import 'package:pillbin/root_screen.dart';
 
 enum TransitionType {
@@ -167,6 +171,18 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/location-screen':
       page = LocationScreen();
+      break;
+    case '/location-card-display':
+      MedicalCenter center = args?['center'];
+      double sw = args?['sw'] ?? 0.0;
+      double sh = args?['sh'] ?? 0.0;
+      page = MedicalCenterDetailScreen(center: center, sw: sw, sh: sh);
+      break;
+    case '/medical-center-display-detail':
+      page = MedicalCentersViewAllScreen();
+      break;
+    case '/medical-center-display-saved':
+      page = SavedMedicalCentersScreen();
       break;
     case '/medicine-screen':
       page = InventoryScreen();

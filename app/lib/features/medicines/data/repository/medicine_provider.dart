@@ -25,6 +25,7 @@ class MedicineProvider extends ChangeNotifier {
   List<Medicine> _filteredExpiredMedicinesInventory = [];
 
   List<Medicine> _deletedMedicinesInventory = [];
+  List<Medicine> _filteredDeletedMedicinesInventory = [];
 
   List<Medicine> get activeMedicinesInventory => _isSearchActive
       ? _filteredActiveMedicinesInventory
@@ -38,7 +39,9 @@ class MedicineProvider extends ChangeNotifier {
       ? _filteredExpiredMedicinesInventory
       : _expiredMedicinesInventory;
 
-  List<Medicine> get deletedMedicinesInventory => _deletedMedicinesInventory;
+  List<Medicine> get deletedMedicinesInventory => _isFilterSearchActive
+      ? _filteredDeletedMedicinesInventory
+      : _deletedMedicinesInventory;
 
   void setActiveInventory(List<Medicine> inventory) {
     _activeMedicinesInventory = inventory;
@@ -99,6 +102,9 @@ class MedicineProvider extends ChangeNotifier {
   bool _isSearchActive = false;
   bool get isSearchActive => _isSearchActive;
 
+  bool _isFilterSearchActive = false;
+  bool get iFiltersSearchActive => _isFilterSearchActive;
+
   void deleteInventory(String status, String medicineId) {
     if (status == 'active') {
       _activeMedicinesInventory.removeWhere((m) => m.id == medicineId);
@@ -150,12 +156,21 @@ class MedicineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  //* Method to update history filtered inventory
+  void updateHistoryFilteredInventory({required List<Medicine> medicine}) {
+    _filteredDeletedMedicinesInventory = medicine;
+    _isFilterSearchActive = true;
+    notifyListeners();
+  }
+
 //* Method to clear search filter
   void clearSearchFilter() {
     _isSearchActive = false;
+    _isFilterSearchActive = false;
     _filteredActiveMedicinesInventory.clear();
     _filteredExpiringSoonMedicinesInventory.clear();
     _filteredExpiredMedicinesInventory.clear();
+    _filteredDeletedMedicinesInventory.clear();
     notifyListeners();
   }
 

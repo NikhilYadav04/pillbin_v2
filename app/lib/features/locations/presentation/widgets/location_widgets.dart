@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_action_button.dart';
+import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/locations/presentation/widgets/location_card.dart';
+import 'package:provider/provider.dart';
 
 Widget buildLocationHeader(double sw, double sh, bool isTablet) {
   return Container(
@@ -49,14 +52,129 @@ Widget buildLocationHeader(double sw, double sh, bool isTablet) {
   );
 }
 
-Widget buildCurrentLocationButton(double sw, double sh, bool isTablet) {
+Widget buildCurrentLocationButton(
+    double sw, double sh, bool isTablet, BuildContext context) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: ActionButton(
       icon: Icons.my_location,
       text: 'Use Current Location',
       isPrimary: true,
-      onTap: () {},
+      onTap: () {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            final double sw = MediaQuery.of(context).size.width;
+            final bool isTablet = sw > 600;
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+              ),
+              title: Row(
+                children: [
+                  Icon(
+                    Icons.location_on,
+                    color: PillBinColors.primary,
+                    size: isTablet ? sw * 0.03 : sw * 0.05,
+                  ),
+                  SizedBox(width: sw * 0.02),
+                  Text(
+                    'Select Location',
+                    style: PillBinMedium.style(
+                      fontSize: isTablet ? sw * 0.025 : sw * 0.045,
+                      color: PillBinColors.textPrimary,
+                    ),
+                  ),
+                ],
+              ),
+              content: Text(
+                'Would you like to use your current location or fetch a different one?',
+                style: PillBinRegular.style(
+                  fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                  color: PillBinColors.textSecondary,
+                ),
+              ),
+              actions: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      flex: 1,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final provider =
+                              context.read<MedicalCenterProvider>();
+                          provider.setLocation(false, context);
+
+                          Navigator.pop(context, "current");
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PillBinColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? sw * 0.03 : sw * 0.04,
+                            vertical: isTablet ? 16 : 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: FittedBox(
+                          child: Text(
+                            'Current Location',
+                            style: PillBinMedium.style(
+                              fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: sw * 0.02,
+                    ),
+                    Expanded(
+                      flex: 1,
+                      child: ElevatedButton(
+                        onPressed: () {
+                          final provider =
+                              context.read<MedicalCenterProvider>();
+                          provider.setLocation(true, context);
+
+                          Navigator.pop(context, "fetch");
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: PillBinColors.primary,
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isTablet ? sw * 0.03 : sw * 0.04,
+                            vertical: isTablet ? 16 : 12,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          elevation: 2,
+                        ),
+                        child: FittedBox(
+                          child: Text(
+                            'Fetch Location',
+                            style: PillBinMedium.style(
+                              fontSize: isTablet ? sw * 0.02 : sw * 0.035,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                )
+              ],
+            );
+          },
+        );
+      },
       sw: sw,
       sh: sh,
     ),
@@ -176,92 +294,295 @@ Widget _buildMapDot(Color color, double sw, bool isTablet) {
   );
 }
 
-Widget buildNearbyLocations(double sw, double sh, bool isTablet) {
+Widget buildNearbyLocations(
+    double sw, double sh, bool isTablet, MedicalCenterProvider provider) {
+  if (provider.fetchedCenters.isEmpty) {
+    //* show empty state first
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.search_off,
+            size: sw * 0.15,
+            color: PillBinColors.greyLight,
+          ),
+          SizedBox(height: sh * 0.02),
+          Text(
+            'No centers found',
+            style: PillBinMedium.style(
+              fontSize: sw * 0.04,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
+          SizedBox(height: sh * 0.01),
+          Text(
+            'Try adjusting your distance',
+            style: PillBinRegular.style(
+              fontSize: sw * 0.032,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  //* otherwise render list
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Nearby Locations',
-          style: PillBinMedium.style(
-            fontSize: isTablet ? sw * 0.03 : sw * 0.05,
-            color: PillBinColors.textPrimary,
+        GestureDetector(
+          onTap: () {
+            
+            Logger().d(provider.hasMoreFetch);
+            Logger().d(provider.fetchedCenters);
+          },
+          child: Text(
+            'Nearby Locations',
+            style: PillBinMedium.style(
+              fontSize: isTablet ? sw * 0.03 : sw * 0.05,
+              color: PillBinColors.textPrimary,
+            ),
           ),
         ),
         SizedBox(height: sh * 0.02),
-        LocationCard(
-          name: 'Apollo Pharmacy',
-          distance: '0.5 km',
-          address: 'Shop No. 12, Linking Road, Bandra West, Mumbai',
-          phone: '+91 22 2650 7890',
-          isFavorite: false,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(height: sh * 0.015),
-        LocationCard(
-          name: 'Lilavati Hospital',
-          distance: '1.2 km',
-          address: 'A-791, Bandra Reclamation, Bandra West, Mumbai',
-          phone: '+91 22 2675 1000',
-          isFavorite: true,
-          sw: sw,
-          sh: sh,
-        ),
-        SizedBox(height: sh * 0.015),
-        LocationCard(
-          name: 'Hinduja Hospital',
-          distance: '2.1 km',
-          address: 'Veer Savarkar Marg, Mahim, Mumbai',
-          phone: '+91 22 2445 2222',
-          isFavorite: false,
-          sw: sw,
-          sh: sh,
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount:
+              provider.fetchedCenters.length + (provider.hasMoreFetch ? 1 : 0),
+          itemBuilder: (context, index) {
+            if (index == provider.fetchedCenters.length) {
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: sh * 0.02),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            final center = provider.fetchedCenters[index];
+
+            return LocationCard(
+              sh: sh,
+              sw: sw,
+              medicalCenter: center,
+              isSaved: false,
+            );
+          },
         ),
       ],
     ),
   );
 }
 
-Widget buildImportantNote(double sw, double sh, bool isTablet) {
-  return Container(
-    margin: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
-    padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
-    decoration: BoxDecoration(
-      color: PillBinColors.info.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-      border: Border.all(color: PillBinColors.info.withOpacity(0.3)),
+Widget buildLocationInfo(
+  double sw,
+  double sh,
+  bool isTablet,
+  double? latitude,
+  double? longitude,
+  String? placeName,
+) {
+  //* Only show if latitude and longitude are not null
+  if (latitude == null ||
+      longitude == null ||
+      latitude == 0.0 ||
+      longitude == 0.0) {
+    return const SizedBox.shrink();
+  }
+
+  return Padding(
+    padding: EdgeInsets.symmetric(
+      horizontal: sw * (isTablet ? 0.05 : 0.04),
+      vertical: sh * 0.01,
     ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.info_outline,
-              color: PillBinColors.info,
-              size: isTablet ? sw * 0.025 : sw * 0.05,
+    child: Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: sw * 0.04,
+        vertical: sh * 0.015,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header with location icon
+          Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(isTablet ? 8 : 6),
+                decoration: BoxDecoration(
+                  color: PillBinColors.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.location_on,
+                  size: isTablet ? 20 : 18,
+                  color: PillBinColors.primary,
+                ),
+              ),
+              SizedBox(width: sw * 0.03),
+              Expanded(
+                child: Text(
+                  'Current Location',
+                  style: TextStyle(
+                    fontSize: isTablet ? 15 : 14,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          SizedBox(height: sh * 0.012),
+
+          //* Divider
+          Divider(
+            color: Colors.grey[200],
+            thickness: 1,
+            height: 1,
+          ),
+
+          SizedBox(height: sh * 0.012),
+
+          //* Place name (if available)
+          if (placeName != null && placeName.isNotEmpty) ...[
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  Icons.place,
+                  size: isTablet ? 18 : 16,
+                  color: Colors.grey[600],
+                ),
+                SizedBox(width: sw * 0.02),
+                Expanded(
+                  child: Text(
+                    placeName,
+                    style: TextStyle(
+                      fontSize: isTablet ? 14 : 13,
+                      color: Colors.grey[700],
+                      fontWeight: FontWeight.w500,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: sw * 0.02),
-            Text(
-              'Important Note',
-              style: PillBinMedium.style(
-                fontSize: isTablet ? sw * 0.02 : sw * 0.04,
-                color: PillBinColors.info,
+            SizedBox(height: sh * 0.01),
+          ],
+
+          // * Coordinates container
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: sw * 0.03,
+              vertical: sh * 0.012,
+            ),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: Colors.grey[200]!,
+                width: 1,
               ),
             ),
-          ],
-        ),
-        SizedBox(height: sh * 0.01),
-        Text(
-          'Always call ahead to confirm disposal programs are available. Some locations may have specific hours for medicine collection.',
-          style: PillBinRegular.style(
-            fontSize: isTablet ? sw * 0.018 : sw * 0.035,
-            color: PillBinColors.textSecondary,
+            child: Column(
+              children: [
+                // Latitude
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: sw * 0.02,
+                        vertical: sh * 0.005,
+                      ),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'LAT',
+                        style: TextStyle(
+                          fontSize: isTablet ? 11 : 10,
+                          fontWeight: FontWeight.bold,
+                          color: PillBinColors.primary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: sw * 0.03),
+                    Expanded(
+                      child: Text(
+                        latitude.toStringAsFixed(6),
+                        style: TextStyle(
+                          fontSize: isTablet ? 14 : 13,
+                          fontFamily: 'monospace',
+                          color: Colors.grey[800],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                SizedBox(height: sh * 0.008),
+
+                // Longitude
+                Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: sw * 0.02,
+                        vertical: sh * 0.005,
+                      ),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        'LNG',
+                        style: TextStyle(
+                          fontSize: isTablet ? 11 : 10,
+                          fontWeight: FontWeight.bold,
+                          color: PillBinColors.primary,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: sw * 0.03),
+                    Expanded(
+                      child: Text(
+                        longitude.toStringAsFixed(6),
+                        style: TextStyle(
+                          fontSize: isTablet ? 14 : 13,
+                          fontFamily: 'monospace',
+                          color: Colors.grey[800],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

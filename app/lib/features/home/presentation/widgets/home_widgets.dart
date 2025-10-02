@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/homeShimmer.dart';
@@ -64,6 +65,16 @@ Widget buildMobileStatsColumn(double sw, double sh) {
                   delay: 100,
                   sw: sw,
                   sh: sh,
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/medicine-history-screen',
+                      arguments: {
+                        'transition': TransitionType.bottomToTop,
+                        'duration': 300,
+                      },
+                    );
+                  },
                 ),
                 SizedBox(height: sh * 0.02),
                 StatCard(
@@ -74,6 +85,7 @@ Widget buildMobileStatsColumn(double sw, double sh) {
                   delay: 200,
                   sw: sw,
                   sh: sh,
+                  onTap: () {},
                 ),
                 SizedBox(height: sh * 0.02),
                 StatCard(
@@ -84,6 +96,7 @@ Widget buildMobileStatsColumn(double sw, double sh) {
                   delay: 300,
                   sw: sw,
                   sh: sh,
+                  onTap: () {},
                 ),
               ],
             );
@@ -107,6 +120,16 @@ Widget buildTabletStatsGrid(double sw, double sh) {
                   delay: 100,
                   sw: sw,
                   sh: sh,
+                  onTap: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/medicine-history-screen',
+                      arguments: {
+                        'transition': TransitionType.bottomToTop,
+                        'duration': 300,
+                      },
+                    );
+                  },
                 ),
               ),
               SizedBox(width: sw * 0.02),
@@ -119,6 +142,7 @@ Widget buildTabletStatsGrid(double sw, double sh) {
                   delay: 200,
                   sw: sw,
                   sh: sh,
+                  onTap: () {},
                 ),
               ),
               SizedBox(width: sw * 0.02),
@@ -131,6 +155,7 @@ Widget buildTabletStatsGrid(double sw, double sh) {
                   delay: 300,
                   sw: sw,
                   sh: sh,
+                  onTap: () {},
                 ),
               ),
             ],
@@ -139,17 +164,20 @@ Widget buildTabletStatsGrid(double sw, double sh) {
 }
 
 Widget buildMobileActions(
-    double sw,
-    double sh,
-    void Function() onTap1,
-    void Function() onTap2,
-    void Function() onTap3,
-    void Function() onTap4,
-    void Function() onTap5) {
+  double sw,
+  double sh,
+  void Function() onTap1,
+  void Function() onTap2,
+  void Function() onTap3,
+  void Function() onTap4,
+  void Function() onTap5,
+  void Function() onTap6,
+  void Function() onTap7,
+) {
   return Column(
     children: [
       ActionButton(
-        icon: Icons.add,
+        icon: Icons.add_circle,
         text: 'Add Medicine',
         isPrimary: true,
         onTap: onTap1,
@@ -158,25 +186,7 @@ Widget buildMobileActions(
       ),
       SizedBox(height: sh * 0.015),
       ActionButton(
-        icon: Icons.support_agent,
-        text: 'Chat Assistant',
-        isOutlined: true,
-        onTap: onTap2,
-        sw: sw,
-        sh: sh,
-      ),
-      SizedBox(height: sh * 0.015),
-      ActionButton(
-        icon: Icons.calendar_today,
-        text: 'View Campaigns',
-        isOutlined: true,
-        onTap: onTap3,
-        sw: sw,
-        sh: sh,
-      ),
-      SizedBox(height: sh * 0.015),
-      ActionButton(
-        icon: Icons.inventory,
+        icon: Icons.inventory_2,
         text: 'My Inventory',
         isOutlined: true,
         onTap: onTap4,
@@ -192,25 +202,64 @@ Widget buildMobileActions(
         sw: sw,
         sh: sh,
       ),
+      SizedBox(height: sh * 0.015),
+      ActionButton(
+        icon: Icons.event,
+        text: 'View Campaigns',
+        isOutlined: true,
+        onTap: onTap3,
+        sw: sw,
+        sh: sh,
+      ),
+      SizedBox(height: sh * 0.015),
+      ActionButton(
+        icon: Icons.local_hospital,
+        text: 'View Disposal Centers',
+        isOutlined: true,
+        onTap: onTap6,
+        sw: sw,
+        sh: sh,
+      ),
+      SizedBox(height: sh * 0.015),
+      ActionButton(
+        icon: Icons.bookmark,
+        text: 'Saved Disposal Centers',
+        isOutlined: true,
+        onTap: onTap7,
+        sw: sw,
+        sh: sh,
+      ),
+      SizedBox(height: sh * 0.015),
+      ActionButton(
+        icon: Icons.support_agent,
+        text: 'Chat Assistant',
+        isOutlined: true,
+        onTap: onTap2,
+        sw: sw,
+        sh: sh,
+      ),
     ],
   );
 }
 
 Widget buildTabletActions(
-    double sw,
-    double sh,
-    void Function() onTap1,
-    void Function() onTap2,
-    void Function() onTap3,
-    void Function() onTap4,
-    void Function() onTap5) {
+  double sw,
+  double sh,
+  void Function() onTap1,
+  void Function() onTap2,
+  void Function() onTap3,
+  void Function() onTap4,
+  void Function() onTap5,
+  void Function() onTap6,
+  void Function() onTap7,
+) {
   return Column(
     children: [
       Row(
         children: [
           Expanded(
             child: TabletActionButton(
-              icon: Icons.add,
+              icon: Icons.add_circle,
               text: 'Add Medicine',
               isPrimary: true,
               onTap: onTap1,
@@ -221,33 +270,7 @@ Widget buildTabletActions(
           SizedBox(width: sw * 0.02),
           Expanded(
             child: TabletActionButton(
-              icon: Icons.support_agent,
-              text: 'Chat Assistant',
-              isOutlined: true,
-              onTap: onTap2,
-              sw: sw,
-              sh: sh,
-            ),
-          ),
-        ],
-      ),
-      SizedBox(height: sh * 0.02),
-      Row(
-        children: [
-          Expanded(
-            child: TabletActionButton(
-              icon: Icons.calendar_today,
-              text: 'View Campaigns',
-              isOutlined: true,
-              onTap: onTap3,
-              sw: sw,
-              sh: sh,
-            ),
-          ),
-          SizedBox(width: sw * 0.02),
-          Expanded(
-            child: TabletActionButton(
-              icon: Icons.inventory,
+              icon: Icons.inventory_2,
               text: 'My Inventory',
               isOutlined: true,
               onTap: onTap4,
@@ -265,7 +288,59 @@ Widget buildTabletActions(
               icon: Icons.history,
               text: 'Medicines History',
               isOutlined: true,
-              onTap: onTap4,
+              onTap: onTap5,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+          SizedBox(width: sw * 0.02),
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.event,
+              text: 'View Campaigns',
+              isOutlined: true,
+              onTap: onTap3,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+        ],
+      ),
+      SizedBox(height: sh * 0.02),
+      Row(
+        children: [
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.local_hospital,
+              text: 'View Disposal Centers',
+              isOutlined: true,
+              onTap: onTap6,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+          SizedBox(width: sw * 0.02),
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.bookmark,
+              text: 'Saved Disposal Centers',
+              isOutlined: true,
+              onTap: onTap7,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+        ],
+      ),
+      SizedBox(height: sh * 0.02),
+      Row(
+        children: [
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.support_agent,
+              text: 'Chat Assistant',
+              isOutlined: true,
+              onTap: onTap2,
               sw: sw,
               sh: sh,
             ),
