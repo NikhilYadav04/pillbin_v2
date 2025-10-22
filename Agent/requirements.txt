@@ -1,0 +1,6 @@
+flask
+flask-cors
+langchain>=0.0
+faiss-cpu            # or faiss-gpu if you have GPU
+langchain-google-genai
+# pin versions based on your environment; adjust as needed

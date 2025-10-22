@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/health_ai/presentation/pages/health_ai_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
 import 'package:pillbin/features/locations/presentation/pages/location_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
@@ -19,7 +20,7 @@ class _BottomBarScreenState extends State<BottomBarScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const InventoryScreen(),
-    const InfoPlaceholderScreen(),
+    const HealthReportChatScreen(),
     const LocationScreen(),
     const ProfileScreen(),
   ];
@@ -141,7 +142,8 @@ class BottomNavBar extends StatelessWidget {
             children: [
               _buildNavItem(0, Icons.home, 'Home', sw, sh, isTablet),
               _buildNavItem(1, Icons.medication, 'Medicines', sw, sh, isTablet),
-              _buildNavItem(2, Icons.info, 'Info', sw, sh, isTablet),
+              _buildNavItem(
+                  2, Icons.smart_toy, 'Health AI', sw, sh, isTablet),
               _buildNavItem(
                   3, Icons.location_on, 'Locations', sw, sh, isTablet),
               _buildNavItem(4, Icons.person, 'Profile', sw, sh, isTablet),
