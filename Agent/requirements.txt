@@ -18,7 +18,7 @@ gunicorn==22.0.0
 # -------------------- PDF & OCR --------------------
 pdfplumber==0.11.7
 ocrmypdf==16.11.1         # (if you use OCR; not in your list, safe to add)
-glymur==0.13.0
+
 # -------------------- Vector Store --------------------
 faiss-cpu==1.9.0.post1    # (or latest compatible, if not yet installed)
 
