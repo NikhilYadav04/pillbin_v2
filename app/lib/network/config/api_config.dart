@@ -4,14 +4,14 @@ class ApiConfig {
 
   static const String _baseUrlDev = 'http://${IP}:5000';
   static const String _baseUrlStaging = 'https://staging-api.example.com';
-  static const String _baseUrlProd = 'http://${IP}:5000';
+  static const String _baseUrlProd = 'https://pillbinv2-production.up.railway.app';
 
   static const String baseUrl2 = 'https://srv882174.hstgr.cloud';
 
   static const String agentURL = 'https://reportlangchainagent-production.up.railway.app';
 
   //* Current environment
-  static const String currentEnvironment = 'prod';
+  static const String currentEnvironment = 'dev';
 
   static String get baseUrl {
     switch (currentEnvironment) {

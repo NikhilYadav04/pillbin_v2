@@ -19,7 +19,6 @@ const userSchema = new mongoose.Schema(
   {
     phoneNumber: {
       type: String,
-      unique: true,
       trim: true,
     },
     isVerified: {
@@ -36,10 +35,11 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     email: {
-      required :true,
+      required: true,
       type: String,
       trim: true,
       lowercase: true,
+      unique: true,
     },
     // Optional Medical Details
     currentMedicines: [

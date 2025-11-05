@@ -605,22 +605,143 @@ Widget buildProfileSettings(
           title: 'Logout',
           icon: Icons.logout,
           onTap: () {
-            final _httpClient = HttpClient();
-            _httpClient.logout();
-
-            Navigator.pushReplacementNamed(
-              context,
-              '/landing-screen',
-              arguments: {
-                'transition': TransitionType.topToBottom,
-                'duration': 300,
-              },
-            );
+            _showLogoutWarningDialog(context,sw,sh);
           },
           sw: sw,
           sh: sh,
         ),
       ],
     ),
+  );
+}
+
+void _showLogoutWarningDialog(
+  BuildContext context,
+  double sw,
+  double sh,
+) {
+  final bool isTablet = sw > 600;
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
+        ),
+        backgroundColor: Colors.white,
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: isTablet ? sw * 0.4 : sw * 0.85,
+          padding: EdgeInsets.all(isTablet ? sw * 0.03 : sw * 0.05),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Warning icon
+              Container(
+                padding: EdgeInsets.all(isTablet ? sw * 0.02 : sw * 0.03),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.logout_rounded,
+                  size: isTablet ? sw * 0.05 : sw * 0.12,
+                  color: Colors.orange.shade700,
+                ),
+              ),
+              SizedBox(height: sh * 0.02),
+
+              // Title
+              Text(
+                'Logout?',
+                style: PillBinBold.style(
+                  fontSize: isTablet ? sw * 0.028 : sw * 0.05,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: sh * 0.015),
+
+              // Message
+              Text(
+                'Are you sure you want to log out? You will need to sign in again to access your data.',
+                textAlign: TextAlign.center,
+                style: PillBinRegular.style(
+                  fontSize: isTablet ? sw * 0.02 : sw * 0.036,
+                  color: Colors.black54,
+                ),
+              ),
+              SizedBox(height: sh * 0.025),
+
+              // Action buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close dialog
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          vertical: isTablet ? sh * 0.015 : sh * 0.012,
+                        ),
+                        backgroundColor: PillBinColors.primary.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Cancel',
+                        style: PillBinBold.style(
+                          fontSize: isTablet ? sw * 0.022 : sw * 0.038,
+                          color: PillBinColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: sw * 0.03),
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Close the dialog first
+
+                        final _httpClient = HttpClient();
+                        _httpClient.logout();
+
+                        Navigator.pushReplacementNamed(
+                          context,
+                          '/landing-screen',
+                          arguments: {
+                            'transition': TransitionType.topToBottom,
+                            'duration': 300,
+                          },
+                        );
+                      },
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.symmetric(
+                          vertical: isTablet ? sh * 0.015 : sh * 0.012,
+                        ),
+                        backgroundColor: Colors.orange.shade50,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Logout',
+                        style: PillBinBold.style(
+                          fontSize: isTablet ? sw * 0.022 : sw * 0.038,
+                          color: Colors.orange.shade700,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
   );
 }

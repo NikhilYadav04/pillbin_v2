@@ -199,8 +199,8 @@ final _locationController = TextEditingController();
                         SizedBox(height: sh * 0.03),
                         _buildAnimatedSubmitButton(sw, sh, isTablet),
                         SizedBox(height: sh * 0.02),
-                        buildCompleteProfileCancelButton(
-                            sw, sh, isTablet, context),
+                        // buildCompleteProfileCancelButton(
+                        //     sw, sh, isTablet, context),
                         SizedBox(height: sh * 0.03),
                       ],
                     ),
