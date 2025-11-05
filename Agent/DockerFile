@@ -6,10 +6,10 @@ WORKDIR /app
 
 # Install Tesseract-OCR, Ghostscript, AND the missing 'jp2' system library
 RUN apt-get update && apt-get install -y \
-    tesseract-ocr \
-    ghostscript \
-    libopenjp2-7 \
-    && rm -rf /var/lib/apt/lists/*
+     tesseract-ocr \
+     ghostscript \
+     libopenjp2-7 \
+     && rm -rf /var/lib/apt/lists/*
 
 # Create the /data mount point
 RUN mkdir -p /data
