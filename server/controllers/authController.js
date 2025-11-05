@@ -111,7 +111,7 @@ const verifySignup = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    if (!email|| !otp) {
+    if (!email || !otp) {
       return res.status(400).json({
         message: "Email and OTP are required",
         statusCode: 400,
@@ -173,7 +173,7 @@ const signin = async (req, res) => {
         .json({ message: "Email is required", statusCode: 400 });
     }
 
-    const user = await User.findOne({ email, isVerified: true });
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res
@@ -230,6 +230,9 @@ const signin = async (req, res) => {
       //* Remove this in production - only for testing
       otp: otpCode,
       statusCode: 200,
+      data: {
+        isVerified: user.isVerified,
+      },
     });
   } catch (error) {
     console.error("Signin error:", error);
