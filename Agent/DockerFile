@@ -5,17 +5,18 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Install Tesseract-OCR, Ghostscript, AND the missing 'jp2' system library
+# The "# v4" comment forces Railway to re-run this layer
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
     ghostscript \
     libopenjp2-7 \
+    # v4
     && rm -rf /var/lib/apt/lists/*
 
 # Create the /data mount point
 RUN mkdir -p /data
 
 # Copy your requirements file and install all Python packages
-# Make sure 'glymur' is listed in your requirements.txt!
 COPY requirements.txt .
 RUN pip install -r requirements.txt
 
