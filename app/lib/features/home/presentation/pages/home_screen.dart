@@ -113,38 +113,19 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       },
       child: SingleChildScrollView(
         child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
+          padding: EdgeInsets.symmetric(horizontal: sw * 0.03),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               buildHomeHeader(sw, sh),
               SizedBox(height: sh * 0.03),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        _buildStatsCards(sw, sh),
-                        SizedBox(height: sh * 0.04),
-                        _buildQuickActions(sw, sh),
-                      ],
-                    ),
-                  ),
-                  SizedBox(width: sw * 0.03),
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      children: [
-                        buildRecentActivity(sw, sh, context),
-                        SizedBox(height: sh * 0.04),
-                        InfoCarouselWidget(sw: sw, sh: sh)
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              _buildStatsCards(sw, sh),
+              SizedBox(height: sh * 0.03),
+              _buildQuickActions(sw, sh),
+              SizedBox(height: sh * 0.03),
+              InfoCarouselWidget(sw: sw, sh: sh),
+              SizedBox(height: sh * 0.04),
+              buildRecentActivity(sw, sh, context),
               SizedBox(height: sh * 0.03),
             ],
           ),

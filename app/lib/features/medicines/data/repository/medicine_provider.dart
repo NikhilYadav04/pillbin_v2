@@ -239,6 +239,8 @@ class MedicineProvider extends ChangeNotifier {
         userClass.UserModel? userModel = user.user;
 
         userModel?.stats.totalMedicinesTracked += 1;
+        userModel?.stats.expiringSoonCount =
+            _expiringSoonMedicinesInventory.length;
         notifyListeners();
 
         CustomSnackBar.show(
@@ -519,7 +521,11 @@ class MedicineProvider extends ChangeNotifier {
         UserProvider? user = context.read<UserProvider>();
         userClass.UserModel? userModel = user.user;
 
-        userModel?.stats.totalMedicinesTracked -= 1;
+        if (data["status"] == "expiring_soon") {
+          userModel?.stats.expiringSoonCount -= 1;
+        }
+
+        //   userModel?.stats.totalMedicinesTracked -= 1;
 
         //* add medicine in history list
         _deletedMedicinesInventory.add(med!);
@@ -740,5 +746,25 @@ class MedicineProvider extends ChangeNotifier {
           title: "Error deleting medicines!");
       return 'error';
     }
+  }
+
+  //* <-------------Reset--------------------------->
+  Future<void> reset() async{
+    _activeMedicinesInventory.clear();
+    _expiringSoonMedicinesInventory.clear();
+    _expiredMedicinesInventory.clear();
+    _deletedMedicinesInventory.clear();
+
+    _filteredActiveMedicinesInventory.clear();
+    _filteredExpiringSoonMedicinesInventory.clear();
+    _filteredExpiredMedicinesInventory.clear();
+    _filteredDeletedMedicinesInventory.clear();
+
+    _isFetching = false;
+    _isFetchingDelete = false;
+    _isSearchActive = false;
+    _isFilterSearchActive = false;
+
+    notifyListeners();
   }
 }

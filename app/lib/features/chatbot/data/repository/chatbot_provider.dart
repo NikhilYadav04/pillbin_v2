@@ -104,6 +104,21 @@ class ChatbotProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  //* <------------------------Reset-------------------->
+  Future<void> reset() async {
+    _messages.clear();
+
+    // Re-add the default greeting message
+    _messages.add(ChatMessage(
+      message: "Hello! I'm your PillBin assistant. How can I help you today?",
+      isUser: false,
+      timestamp: DateTime.now(),
+    ));
+
+    _isTyping = false;
+    notifyListeners();
+  }
 }
 
 class ChatMessage {

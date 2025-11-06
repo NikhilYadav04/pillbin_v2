@@ -71,11 +71,16 @@ const addMedicine = async (req, res) => {
     });
 
     //* Update status based on expiry date
-    medicine.updateStatus();
+    const status = medicine.updateStatus();
     await medicine.save();
 
     //* Update user stats
     // await updateUserStats(userId);
+
+    if (status == "expiring_soon") {
+      user.stats.expiringSoonCount += 1;
+    }
+
     user.medicineCount += 1;
     user.stats.totalMedicinesTracked += 1;
     await user.save();
@@ -235,9 +240,13 @@ const deleteMedicine = async (req, res) => {
     const user = await User.findById(userId);
 
     //* Update other stats
+    if (medicine.status == "expiring_soon") {
+      user.stats.expiringSoonCount -= 1;
+    }
+
     //await updateUserStats(userId);
-    user.medicineCount -= 1;
-    user.stats.totalMedicinesTracked -= 1;
+    // user.medicineCount -= 1;
+    // user.stats.totalMedicinesTracked -= 1;
     await user.save();
 
     res.status(200).json({

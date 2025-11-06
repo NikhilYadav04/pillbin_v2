@@ -68,7 +68,7 @@ Widget buildMobileStatsColumn(double sw, double sh) {
                   onTap: () {
                     Navigator.pushNamed(
                       context,
-                      '/medicine-history-screen',
+                      '/inventory-screen',
                       arguments: {
                         'transition': TransitionType.bottomToTop,
                         'duration': 300,
@@ -123,7 +123,7 @@ Widget buildTabletStatsGrid(double sw, double sh) {
                   onTap: () {
                     Navigator.pushNamed(
                       context,
-                      '/medicine-history-screen',
+                      '/inventory-screen',
                       arguments: {
                         'transition': TransitionType.bottomToTop,
                         'duration': 300,
@@ -304,11 +304,6 @@ Widget buildTabletActions(
           //     sh: sh,
           //   ),
           // ),
-        ],
-      ),
-      SizedBox(height: sh * 0.02),
-      Row(
-        children: [
           Expanded(
             child: TabletActionButton(
               icon: Icons.local_hospital,
@@ -319,17 +314,6 @@ Widget buildTabletActions(
               sh: sh,
             ),
           ),
-          SizedBox(width: sw * 0.02),
-          // Expanded(
-          //   child: TabletActionButton(
-          //     icon: Icons.bookmark,
-          //     text: 'Saved Disposal Centers',
-          //     isOutlined: true,
-          //     onTap: onTap7,
-          //     sw: sw,
-          //     sh: sh,
-          //   ),
-          // ),
         ],
       ),
       SizedBox(height: sh * 0.02),
@@ -345,8 +329,30 @@ Widget buildTabletActions(
               sh: sh,
             ),
           ),
+          // Expanded(
+          //   child: TabletActionButton(
+          //     icon: Icons.local_hospital,
+          //     text: 'View Disposal Centers',
+          //     isOutlined: true,
+          //     onTap: onTap6,
+          //     sw: sw,
+          //     sh: sh,
+          //   ),
+          // ),
+          //SizedBox(width: sw * 0.02),
+          // Expanded(
+          //   child: TabletActionButton(
+          //     icon: Icons.bookmark,
+          //     text: 'Saved Disposal Centers',
+          //     isOutlined: true,
+          //     onTap: onTap7,
+          //     sw: sw,
+          //     sh: sh,
+          //   ),
+          // ),
         ],
       ),
+      SizedBox(height: sh * 0.02),
     ],
   );
 }

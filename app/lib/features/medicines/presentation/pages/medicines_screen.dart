@@ -563,7 +563,7 @@ class StatCard extends StatelessWidget {
     final bool isTablet = sw > 600;
 
     return Container(
-      width: isTablet ? sw * 0.15 : null,
+      width: isTablet ? sw * 0.28 : null,
       padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
       decoration: BoxDecoration(
         color: PillBinColors.surface,

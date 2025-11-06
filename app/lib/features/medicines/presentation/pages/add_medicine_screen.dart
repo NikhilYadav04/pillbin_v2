@@ -184,7 +184,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-                onTap: _isScanning ? null : _scanMedicine,
+                onTap: _isScanning ? null : _showComingSoonDialog,
                 child: Padding(
                   padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.05),
                   child: Column(
@@ -252,6 +252,55 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
               ),
             ),
           ),
+        );
+      },
+    );
+  }
+
+  void _showComingSoonDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.schedule,
+                color: PillBinColors.primary,
+                size: 28,
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Coming Soon',
+                style: PillBinMedium.style(
+                  fontSize: 20,
+                  color: PillBinColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'The medicine scanning feature will be available soon. Stay tuned for updates!',
+            style: PillBinRegular.style(
+              fontSize: 16,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'OK',
+                style: PillBinMedium.style(
+                  fontSize: 16,
+                  color: PillBinColors.primary,
+                ),
+              ),
+            ),
+          ],
         );
       },
     );
@@ -780,7 +829,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     try {
       //* API Call
       MedicineProvider _provider = context.read<MedicineProvider>();
-      NotificationProvider _notificationProvider = context.read<NotificationProvider>();
+      NotificationProvider _notificationProvider =
+          context.read<NotificationProvider>();
 
       DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
       DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);

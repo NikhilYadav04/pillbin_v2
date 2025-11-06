@@ -219,34 +219,36 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
                     ),
                 ],
               ),
-              child: TextField(
-                controller: _otpControllers[index],
-                focusNode: _focusNodes[index],
-                textAlign: TextAlign.center,
-                keyboardType: TextInputType.number,
-                maxLength: 1,
-                style: PillBinBold.style(
-                  fontSize: isTablet ? sw * 0.03 : sw * 0.05,
-                  color: PillBinColors.textDark,
-                ),
-                decoration: const InputDecoration(
-                  border: InputBorder.none,
-                  counterText: '',
-                ),
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                onChanged: (value) {
-                  setState(() {}); // Rebuild to update button state
+              child: Center(
+                child: TextField(
+                  controller: _otpControllers[index],
+                  focusNode: _focusNodes[index],
+                  textAlign: TextAlign.center,
+                  keyboardType: TextInputType.number,
+                  maxLength: 1,
+                  style: PillBinBold.style(
+                    fontSize: isTablet ? sw * 0.03 : sw * 0.05,
+                    color: PillBinColors.textDark,
+                  ),
+                  decoration: const InputDecoration(
+                    border: InputBorder.none,
+                    counterText: '',
+                  ),
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onChanged: (value) {
+                    setState(() {}); // Rebuild to update button state
 
-                  if (value.length == 1) {
-                    if (index < 5) {
-                      _focusNodes[index + 1].requestFocus();
-                    } else {
-                      _focusNodes[index].unfocus();
+                    if (value.length == 1) {
+                      if (index < 5) {
+                        _focusNodes[index + 1].requestFocus();
+                      } else {
+                        _focusNodes[index].unfocus();
+                      }
+                    } else if (value.isEmpty && index > 0) {
+                      _focusNodes[index - 1].requestFocus();
                     }
-                  } else if (value.isEmpty && index > 0) {
-                    _focusNodes[index - 1].requestFocus();
-                  }
-                },
+                  },
+                ),
               ),
             );
           }),

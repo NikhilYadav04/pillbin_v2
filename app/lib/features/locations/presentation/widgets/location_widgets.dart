@@ -304,14 +304,14 @@ Widget buildNearbyLocations(
         children: [
           Icon(
             Icons.search_off,
-            size: sw * 0.15,
+            size:  isTablet ? sw * 0.1 : sw * 0.15,
             color: PillBinColors.greyLight,
           ),
           SizedBox(height: sh * 0.02),
           Text(
             'No centers found',
             style: PillBinMedium.style(
-              fontSize: sw * 0.04,
+              fontSize: isTablet ? sw * 0.03 : sw * 0.04,
               color: PillBinColors.textSecondary,
             ),
           ),
@@ -319,7 +319,7 @@ Widget buildNearbyLocations(
           Text(
             'Try adjusting your distance',
             style: PillBinRegular.style(
-              fontSize: sw * 0.032,
+              fontSize:  isTablet ? sw * 0.025 : sw * 0.032,
               color: PillBinColors.textSecondary,
             ),
           ),

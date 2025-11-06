@@ -1,7 +1,10 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:logger/logger.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server/gmail.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/data/service/auth_service.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -13,6 +16,68 @@ class AuthProvider extends ChangeNotifier {
   final HttpClient _httpClient = HttpClient();
 
   var logger = Logger();
+
+  //* <-------------- EMAIL SERVICE --------------------->
+
+  //* send email
+  Future<void> sendMailFromGmail(String sender, String sub, String text) async {
+    //* Create the email message
+    final message = Message()
+      ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'Custom Support Stuff')
+      ..recipients.add(sender)
+      ..subject = sub
+      ..text = text;
+
+    //* Create Gmail SMTP server
+    final gmailSmtp =
+        gmail(dotenv.env["GMAIL_MAIL"]!, dotenv.env["GMAIL_PASSWORD"]!);
+
+    try {
+      //* Send the email
+      final sendReport = await send(message, gmailSmtp);
+      print('✅ Message sent: $sendReport');
+    } on MailerException catch (e) {
+      //* Handle sending errors
+      print('❌ Message not sent.');
+      for (var p in e.problems) {
+        print('Problem: ${p.code}: ${p.msg}');
+      }
+    }
+  }
+
+  //* prompt
+  String buildOtpEmail(String email, String otpCode) {
+    final html = '''
+  <p>Hi ${email.isNotEmpty ? email : 'there'},</p>
+
+  <p>Welcome to <b>PillBin</b>! 🎉</p>
+  <p>We’re excited to have you on board. Use the OTP below to complete your signup process:</p>
+
+  <p style="font-size:18px;"><b>$otpCode</b></p>
+
+  <p>This OTP is valid for the next 10 minutes. Please do not share it with anyone.</p>
+
+  <p>Best regards,<br/>The PillBin Team</p>
+  ''';
+
+    final text = '''
+  Hi ${email.isNotEmpty ? email : 'there'},
+
+  Welcome to PillBin! 🎉
+  We’re excited to have you on board. Use the OTP below to complete your signup:
+
+  $otpCode
+
+  This OTP is valid for the next 10 minutes. Please do not share it with anyone.
+
+  Best regards,
+  The PillBin Team
+  ''';
+
+    return html;
+  }
+
+  //* <----------------END------------------------------>
 
   //* Register with phone number
   Future<String> register(
@@ -48,6 +113,15 @@ class AuthProvider extends ChangeNotifier {
       logger.d(response.statusCode);
 
       if (response.statusCode == 200) {
+        String otp = response.data!["otp"];
+
+        String prompt = buildOtpEmail(email, otp.toString());
+
+        sendMailFromGmail(
+            email, "Welcome to PillBin – Your OTP for Signup", prompt);
+
+        Future.delayed(Duration(seconds: 1));
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.phone,
@@ -88,7 +162,7 @@ class AuthProvider extends ChangeNotifier {
         return 'error';
       }
 
-//* ✅ Email Regex Validation
+      //* ✅ Email Regex Validation
       final emailRegex = RegExp(
         r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$',
       );
@@ -106,10 +180,20 @@ class AuthProvider extends ChangeNotifier {
           await _authService.signIn(email: email);
 
       if (response.statusCode == 200) {
+        String otp = response.data!["otp"];
+
+        String prompt = buildOtpEmail(email, otp.toString());
+
+        sendMailFromGmail(
+            email, "Welcome to PillBin – Your OTP for SignIn", prompt);
+
+        Future.delayed(Duration(seconds: 1));
+
         CustomSnackBar.show(
             context: context,
             icon: Icons.phone,
             title: "OTP sent successfully to ${email}");
+
         return 'success';
       } else if (response.statusCode == 404) {
         CustomSnackBar.show(

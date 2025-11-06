@@ -621,4 +621,39 @@ class MedicalCenterProvider extends ChangeNotifier {
       return 'error';
     }
   }
+
+  //* <---------Reset-------------->
+  Future<void> reset() async {
+    _fetchedCenters.clear();
+    _filteredFetchCenters.clear();
+    _allCenters.clear();
+    _filteredAllCenters.clear();
+
+    // Reset flags
+    _isSearchActiveFetch = false;
+    _isSearchActive = false;
+    _isSearchAPI = false;
+    _isLoading = false;
+    _isLoadingFetch = false;
+    _isLoadingNearby = false;
+
+    // Reset pagination and counters
+    _page = 1;
+    _limit = 3;
+    _hasMore = true;
+
+    _pageFetch = 1;
+    _limitFetch = 3;
+    _hasMoreFetch = true;
+
+    _totalCount = 0;
+    _fetchedCount = 0;
+
+    // Reset location data
+    _latitude = 0.0;
+    _longitude = 0.0;
+    _placeName = "";
+
+    notifyListeners();
+  }
 }

@@ -7,6 +7,7 @@ import 'package:pillbin/features/profile/data/network/user_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/models/medical_center_model.dart';
 import 'package:pillbin/network/models/user_model.dart' as userClass;
+import 'package:pillbin/network/utils/http_client.dart';
 
 class UserProvider extends ChangeNotifier {
   //* initialize services
@@ -179,6 +180,11 @@ class UserProvider extends ChangeNotifier {
             updatedAt: DateTime.now());
 
         setUser(user);
+
+        final _httpClient = HttpClient();
+
+        await _httpClient.saveUserData(
+            userData["fullName"], userData["phoneNumber"], userData["email"]);
 
         CustomSnackBar.show(
             context: context,
@@ -515,5 +521,22 @@ class UserProvider extends ChangeNotifier {
       print(e.toString());
       return 'error';
     }
+  }
+
+  //* <----------------Reset----------------->
+  Future<void> reset() async{
+    resetUser();
+    _medicalCenter.clear();
+    _filteredAllCenters.clear();
+    _page = 1;
+    _hasMore = true;
+    _isLoading = false;
+    _isFetching = false;
+    _isDelete = false;
+    _isSearchActive = false;
+
+    notifyListeners();
+
+    notifyListeners();
   }
 }

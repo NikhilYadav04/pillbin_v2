@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server/gmail.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/features/info/presentation/pages/information_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/know_more_screen.dart';
@@ -48,6 +51,33 @@ class _InformationHubBaseScreenState extends State<InformationHubBaseScreen> {
     });
   }
 
+  //* creating smtp server for gmail
+
+  Future<void> sendMailFromGmail(String sender, String sub, String text) async {
+    // Create the email message
+    final message = Message()
+      ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'Custom Support Stuff')
+      ..recipients.add(sender)
+      ..subject = sub
+      ..text = text;
+
+    // Create Gmail SMTP server
+    final gmailSmtp =
+        gmail(dotenv.env["GMAIL_MAIL"]!, dotenv.env["GMAIL_PASSWORD"]!);
+
+    try {
+      // Send the email
+      final sendReport = await send(message, gmailSmtp);
+      print('✅ Message sent: $sendReport');
+    } on MailerException catch (e) {
+      // Handle sending errors
+      print('❌ Message not sent.');
+      for (var p in e.problems) {
+        print('Problem: ${p.code}: ${p.msg}');
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
@@ -72,10 +102,16 @@ class _InformationHubBaseScreenState extends State<InformationHubBaseScreen> {
                   color: Colors.white.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  Icons.lightbulb_outline,
-                  color: Colors.white,
-                  size: isTablet ? sw * 0.03 : sw * 0.05,
+                child: GestureDetector(
+                  onTap: () {
+                    sendMailFromGmail("byadav1723@gmail.com",
+                        "Hello test email", "this is a dummye mail");
+                  },
+                  child: Icon(
+                    Icons.lightbulb_outline,
+                    color: Colors.white,
+                    size: isTablet ? sw * 0.03 : sw * 0.05,
+                  ),
                 ),
               ),
             ),

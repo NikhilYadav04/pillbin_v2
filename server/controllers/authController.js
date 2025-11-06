@@ -1,6 +1,10 @@
 const User = require("../models/User");
 const sendOTP = require("../services/fast2SMS");
 const { generateToken, generateRefreshToken } = require("../utils/jwt");
+// const {Resend} = require("resend")
+
+// const resend = new Resend(process.env.RESEND_API_KEY);
+
 const nodemailer = require("nodemailer");
 
 //* Nodemailer transporter setup
@@ -72,13 +76,21 @@ const signup = async (req, res) => {
     Best regards,
     The PillBin Team`;
 
-    const info = await transporter.sendMail({
-      from: `PillBin`,
-      to: email,
-      subject,
-      text,
-      html,
-    });
+    console.log(process.env.RESEND_API_KEY);
+
+    // resend.emails.send({
+    //   from: "onboarding@resend.dev",
+    //   to: email,
+    //   subject: subject,
+    //   html: html,
+    // });
+    // const info = await transporter.sendMail({
+    //   from: `PillBin`,
+    //   to: email,
+    //   subject,
+    //   text,
+    //   html,
+    // });
 
     if (user) {
       //* Update existing unverified user
@@ -97,7 +109,9 @@ const signup = async (req, res) => {
     res.status(200).json({
       message: "OTP sent successfully",
       //* Remove this in production - only for testing
-      otp: otpCode,
+      data: {
+        otp: otpCode,
+      },
       statusCode: 200,
     });
   } catch (error) {
@@ -173,7 +187,7 @@ const signin = async (req, res) => {
         .json({ message: "Email is required", statusCode: 400 });
     }
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email, isVerified: true });
 
     if (!user) {
       return res
@@ -214,13 +228,20 @@ const signin = async (req, res) => {
      Best regards,
      The PillBin Team`;
 
-    const info = await transporter.sendMail({
-      from: `PillBin`,
-      to: email,
-      subject,
-      text,
-      html,
-    });
+    // resend.emails.send({
+    //   from: "onboarding@resend.dev",
+    //   to: email,
+    //   subject: subject,
+    //   html: html,
+    // });
+
+    // const info = await transporter.sendMail({
+    //   from: `PillBin`,
+    //   to: email,
+    //   subject,
+    //   text,
+    //   html,
+    // });
 
     user.otp = { code: otpCode, expiresAt: otpExpiry };
     await user.save();
@@ -228,9 +249,10 @@ const signin = async (req, res) => {
     res.status(200).json({
       message: "OTP sent successfully",
       //* Remove this in production - only for testing
-      otp: otpCode,
+
       statusCode: 200,
       data: {
+        otp: otpCode,
         isVerified: user.isVerified,
       },
     });

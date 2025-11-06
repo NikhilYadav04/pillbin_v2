@@ -2,14 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 
-Widget buildInventoryHeader(double sw, double sh, bool isTablet,BuildContext context) {
+Widget buildInventoryHeader(
+    double sw, double sh, bool isTablet, BuildContext context) {
   return Padding(
     padding: EdgeInsets.all(isTablet ? sw * 0.04 : sw * 0.06),
     child: Column(
-      crossAxisAlignment: isTablet ? CrossAxisAlignment.center  : CrossAxisAlignment.start,
+      crossAxisAlignment:
+          isTablet ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: isTablet ? MainAxisAlignment.center : MainAxisAlignment.start,
+          mainAxisAlignment:
+              isTablet ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
             GestureDetector(
               onTap: () {
@@ -55,7 +58,7 @@ Widget buildInventoryTabBar(
     int expiringCount,
     int expiredCount) {
   return Container(
-    margin: EdgeInsets.symmetric(horizontal: isTablet ? sw * 0.05 : sw * 0.04),
+    margin: EdgeInsets.symmetric(horizontal: isTablet ? sw * 0.045 : sw * 0.04),
     decoration: BoxDecoration(
       color: PillBinColors.surface,
       borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
@@ -75,7 +78,7 @@ Widget buildInventoryTabBar(
       ),
       indicatorSize: TabBarIndicatorSize.tab,
       indicatorPadding:
-          EdgeInsets.symmetric(vertical: isTablet ? sh * 0.01 : sh * 0.004),
+          EdgeInsets.symmetric(vertical: isTablet ? sh * 0.005 : sh * 0.004),
       labelColor: PillBinColors.textWhite,
       unselectedLabelColor: PillBinColors.textSecondary,
       labelStyle: PillBinMedium.style(
@@ -86,6 +89,7 @@ Widget buildInventoryTabBar(
       ),
       tabs: [
         Tab(
+          height: isTablet ? sh * 0.055 : sh * 0.045,
           child: FittedBox(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,

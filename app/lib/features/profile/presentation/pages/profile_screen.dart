@@ -215,6 +215,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         SizedBox(height: sh * 0.03),
                         buildProfileSurveySection(sw, sh, true),
                         SizedBox(height: sh * 0.02), // Bottom padding
+
+                        // buildProfileSettings(sw, sh, true, context),
+                        // SizedBox(height: sh * 0.02),
                       ],
                     ),
                   ),

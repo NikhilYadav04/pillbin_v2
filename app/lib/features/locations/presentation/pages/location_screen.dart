@@ -162,62 +162,65 @@ class _LocationScreenState extends State<LocationScreen>
         children: [
           Expanded(
             child: Container(
-              height: isTablet ? 56 : 50,
+              height: sh * (isTablet ? 0.055 : 0.06),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                    BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.08),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                    blurRadius: sw * 0.02,
+                    offset: Offset(0, sh * 0.002),
                   ),
                 ],
               ),
-              child: TextField(
-                controller: _searchController,
-                onSubmitted: (_) => _performSearch(),
-                decoration: InputDecoration(
-                  hintText: 'Search location, address, or pharmacy...',
-                  hintStyle: TextStyle(
-                    color: Colors.grey[400],
-                    fontSize: isTablet ? 15 : 14,
+              child: Center(
+                child: TextField(
+                  controller: _searchController,
+                  onSubmitted: (_) => _performSearch(),
+                  textAlignVertical: TextAlignVertical.center,
+                  decoration: InputDecoration(
+                    hintText: 'Search location, address, or pharmacy...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: sw * (isTablet ? 0.023 : 0.038),
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: Colors.grey[600],
+                      size: sw * (isTablet ? 0.032 : 0.06),
+                    ),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear,
+                              color: Colors.grey[600],
+                              size: sw * (isTablet ? 0.028 : 0.055),
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _searchController.clear();
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: sw * 0.04,
+                    ),
                   ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: Colors.grey[600],
-                    size: isTablet ? 24 : 22,
-                  ),
-                  suffixIcon: _searchController.text.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            Icons.clear,
-                            color: Colors.grey[600],
-                            size: isTablet ? 22 : 20,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _searchController.clear();
-                            });
-                          },
-                        )
-                      : null,
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: isTablet ? 16 : 14,
-                  ),
+                  onChanged: (value) {
+                    setState(() {}); // Update UI to show/hide clear button
+                  },
                 ),
-                onChanged: (value) {
-                  setState(() {}); // Update UI to show/hide clear button
-                },
               ),
             ),
           ),
           SizedBox(width: sw * 0.02),
           Container(
-            height: isTablet ? 56 : 50,
-            width: isTablet ? 56 : 50,
+            height: sh * (isTablet ? 0.055 : 0.06),
+            width: sh * (isTablet ? 0.055 : 0.06),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
@@ -227,24 +230,26 @@ class _LocationScreenState extends State<LocationScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius:
+                  BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
               boxShadow: [
                 BoxShadow(
                   color: PillBinColors.primary.withOpacity(0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
+                  blurRadius: sw * 0.02,
+                  offset: Offset(0, sh * 0.004),
                 ),
               ],
             ),
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius:
+                    BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
                 onTap: _performSearch,
                 child: Icon(
                   Icons.search,
                   color: Colors.white,
-                  size: isTablet ? 26 : 24,
+                  size: sw * (isTablet ? 0.032 : 0.065),
                 ),
               ),
             ),
@@ -263,16 +268,16 @@ class _LocationScreenState extends State<LocationScreen>
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: sw * 0.03,
-          vertical: sh * 0.015,
+          vertical: sh * (isTablet ? 0.012 : 0.015),
         ),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
+              blurRadius: sw * 0.015,
+              offset: Offset(0, sh * 0.002),
             ),
           ],
         ),
@@ -286,14 +291,14 @@ class _LocationScreenState extends State<LocationScreen>
                   children: [
                     Icon(
                       Icons.my_location,
-                      size: isTablet ? 20 : 18,
+                      size: sw * (isTablet ? 0.025 : 0.05),
                       color: PillBinColors.primary,
                     ),
                     SizedBox(width: sw * 0.02),
                     Text(
                       'Search Radius',
                       style: TextStyle(
-                        fontSize: isTablet ? 15 : 14,
+                        fontSize: sw * (isTablet ? 0.02 : 0.038),
                         fontWeight: FontWeight.w600,
                         color: Colors.grey[800],
                       ),
@@ -302,17 +307,18 @@ class _LocationScreenState extends State<LocationScreen>
                 ),
                 Container(
                   padding: EdgeInsets.symmetric(
-                    horizontal: sw * 0.03,
+                    horizontal: sw * (isTablet ? 0.015 : 0.03),
                     vertical: sh * 0.008,
                   ),
                   decoration: BoxDecoration(
                     color: PillBinColors.primary.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                        BorderRadius.circular(sw * (isTablet ? 0.025 : 0.05)),
                   ),
                   child: Text(
                     '${_searchRadius.toStringAsFixed(1)} km',
                     style: TextStyle(
-                      fontSize: isTablet ? 15 : 14,
+                      fontSize: sw * (isTablet ? 0.02 : 0.038),
                       fontWeight: FontWeight.bold,
                       color: PillBinColors.primary,
                     ),
@@ -322,12 +328,12 @@ class _LocationScreenState extends State<LocationScreen>
             ),
             SliderTheme(
               data: SliderThemeData(
-                trackHeight: 4,
+                trackHeight: sh * (isTablet ? 0.004 : 0.005),
                 thumbShape: RoundSliderThumbShape(
-                  enabledThumbRadius: isTablet ? 10 : 8,
+                  enabledThumbRadius: sw * (isTablet ? 0.012 : 0.022),
                 ),
                 overlayShape: RoundSliderOverlayShape(
-                  overlayRadius: isTablet ? 20 : 16,
+                  overlayRadius: sw * (isTablet ? 0.024 : 0.044),
                 ),
                 activeTrackColor: PillBinColors.primary,
                 inactiveTrackColor: Colors.grey[300],
@@ -358,14 +364,14 @@ class _LocationScreenState extends State<LocationScreen>
                   Text(
                     '1 km',
                     style: TextStyle(
-                      fontSize: isTablet ? 12 : 11,
+                      fontSize: sw * (isTablet ? 0.02 : 0.03),
                       color: Colors.grey[600],
                     ),
                   ),
                   Text(
                     '50 km',
                     style: TextStyle(
-                      fontSize: isTablet ? 12 : 11,
+                      fontSize: sw * (isTablet ? 0.02 : 0.03),
                       color: Colors.grey[600],
                     ),
                   ),
@@ -401,49 +407,59 @@ class _LocationScreenState extends State<LocationScreen>
       double longitude, String name, MedicalCenterProvider provider) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Left column - Map and location button (Fixed content, scrollable if needed)
-          Expanded(
-            flex: 1,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              child: Column(
-                children: [
-                  SizedBox(height: sh * 0.02),
-                  buildCurrentLocationButton(sw, sh, true, context),
-                  SizedBox(height: sh * 0.02),
-                  buildLocationInfo(sw, sh, false, latitude, longitude, name),
-                  SizedBox(height: sh * 0.025),
-                  buildMapContainer(sw, sh, true),
-                  SizedBox(height: sh * 0.02),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(width: sw * 0.03),
-          // Right column - Nearby locations (Independent scrolling for large cards)
-          Expanded(
-            flex: 1,
-            child: Column(
-              children: [
-                SizedBox(height: sh * 0.02),
-                Expanded(
-                  child: SingleChildScrollView(
-                    physics: const BouncingScrollPhysics(),
-                    child: Column(
-                      children: [
-                        buildNearbyLocations(sw, sh, true, provider),
-                        SizedBox(height: sh * 0.02), // Bottom padding
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+      child: SingleChildScrollView(
+        physics: const BouncingScrollPhysics(),
+        child: Column(
+          children: [
+            SizedBox(height: sh * 0.02),
+            buildCurrentLocationButton(sw, sh, true, context),
+            SizedBox(height: sh * 0.02),
+            buildLocationInfo(sw, sh, false, latitude, longitude, name),
+            SizedBox(height: sh * 0.02),
+            buildMapContainer(sw, sh, true),
+            SizedBox(height: sh * 0.02),
+            buildNearbyLocations(sw, sh, true, provider),
+            SizedBox(height: sh * 0.02),
+            // Row(
+            //   crossAxisAlignment: CrossAxisAlignment.start,
+            //   children: [
+            //     // Left column - Map and location button (Fixed content, scrollable if needed)
+            //     Expanded(
+            //       flex: 1,
+            //       child: SingleChildScrollView(
+            //         physics: const BouncingScrollPhysics(),
+            //         child: Column(
+            //           children: [
+            //             SizedBox(height: sh * 0.02),
+            //           ],
+            //         ),
+            //       ),
+            //     ),
+            //     SizedBox(width: sw * 0.03),
+            //     // Right column - Nearby locations (Independent scrolling for large cards)
+            //     Expanded(
+            //       flex: 1,
+            //       child: Column(
+            //         children: [
+            //           SizedBox(height: sh * 0.02),
+            //           Expanded(
+            //             child: SingleChildScrollView(
+            //               physics: const BouncingScrollPhysics(),
+            //               child: Column(
+            //                 children: [
+            //                   buildNearbyLocations(sw, sh, true, provider),
+            //                   SizedBox(height: sh * 0.02), // Bottom padding
+            //                 ],
+            //               ),
+            //             ),
+            //           ),
+            //         ],
+            //       ),
+            //     ),
+            //   ],
+            // ),
+          ],
+        ),
       ),
     );
   }

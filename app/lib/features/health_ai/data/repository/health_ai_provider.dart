@@ -50,7 +50,12 @@ class HealthAiProvider extends ChangeNotifier {
 
   void clear() {
     _file = null;
-    _messages = [];
+    _messages = [
+      MessageAIModel("agent",
+          message:
+              "Hi! I'm your health report assistant. Upload your medical reports and ask me any questions about them.",
+          sendTime: DateTime.now())
+    ];
     _isQuerying = false;
     _isUploading = false;
     notifyListeners();
@@ -74,6 +79,8 @@ class HealthAiProvider extends ChangeNotifier {
       _isUploading = true;
       _file = file;
       notifyListeners();
+
+      print(userId);
 
       ApiResponse<Map<String, dynamic>> response =
           await _healthAiServices.uploadPDF(userId: userId, file: file);
@@ -140,6 +147,24 @@ class HealthAiProvider extends ChangeNotifier {
     } catch (e) {
       print(e);
     }
+  }
+
+  //* <---------RESET---------------->
+  Future<void> reset() async {
+    _file = null;
+    _isUploading = false;
+    _isQuerying = false;
+    _isTyping = false;
+
+    // Reset messages to default greeting
+    _messages = [
+      MessageAIModel("agent",
+          message:
+              "Hi! I'm your health report assistant. Upload your medical reports and ask me any questions about them.",
+          sendTime: DateTime.now())
+    ];
+
+    notifyListeners();
   }
 }
 

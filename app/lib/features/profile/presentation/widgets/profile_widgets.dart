@@ -2,12 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
+import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
+import 'package:pillbin/features/health_ai/data/repository/health_ai_provider.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
+import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_achievements_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_campaign_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_settings_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_stats_card.dart';
 import 'package:pillbin/network/models/user_model.dart';
 import 'package:pillbin/network/utils/http_client.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 Widget buildProfileAppBar(double sw, double sh, BuildContext context,
@@ -282,7 +290,7 @@ Widget buildProfileStatsCards(double sw, double sh, bool isTablet,
             onTap: () {
               Navigator.pushNamed(
                 context,
-                '/medicine-history-screen',
+                '/inventory-screen',
                 arguments: {
                   'transition': TransitionType.bottomToTop,
                   'duration': 300,
@@ -605,7 +613,7 @@ Widget buildProfileSettings(
           title: 'Logout',
           icon: Icons.logout,
           onTap: () {
-            _showLogoutWarningDialog(context,sw,sh);
+            _showLogoutWarningDialog(context, sw, sh);
           },
           sw: sw,
           sh: sh,
@@ -703,8 +711,15 @@ void _showLogoutWarningDialog(
                   SizedBox(width: sw * 0.03),
                   Expanded(
                     child: TextButton(
-                      onPressed: () {
+                      onPressed: () async {
                         Navigator.of(context).pop(); // Close the dialog first
+
+                        await context.read<UserProvider>().reset();
+                        await context.read<MedicineProvider>().reset();
+                        await context.read<MedicalCenterProvider>().reset();
+                        await context.read<ChatbotProvider>().reset();
+                        await context.read<NotificationProvider>().reset();
+                        await context.read<HealthAiProvider>().reset();
 
                         final _httpClient = HttpClient();
                         _httpClient.logout();

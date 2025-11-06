@@ -7,7 +7,7 @@ from pathlib import Path
 ADMIN = os.getenv('ADMIN')
 
 # ... (your API key loading) ...
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY") or "AIzaSyCxj4oVBMdo6L5DZqe5ZjGybDaZVB_boew"
 if not GOOGLE_API_KEY:
     raise ValueError("GOOGLE_API_KEY not found in .env file.")
 

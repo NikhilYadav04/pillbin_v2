@@ -252,4 +252,12 @@ class NotificationProvider extends ChangeNotifier {
       return 'error';
     }
   }
+
+  //* <--------------Reset--------------->
+
+  Future<void> reset() async {
+    _notifications.clear();
+    _isLoading = false;
+    notifyListeners();
+  }
 }
