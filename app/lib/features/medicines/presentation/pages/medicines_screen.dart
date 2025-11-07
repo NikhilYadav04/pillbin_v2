@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/dateFormatter.dart';
@@ -313,6 +317,17 @@ class _InventoryScreenState extends State<InventoryScreen>
                     description:
                         "✅ All expired medicines have been successfully removed from your tracker. Your list is now up-to-date and clutter-free!",
                     status: "important");
+
+                //* send instant notification to user
+                final random = Random();
+
+                PushNotificationModel _notify = PushNotificationModel(
+                  id: random.nextInt(100).toString(),
+                  title: "All expired meds removed successfully.",
+                  body: "✅ Expired medicines removed. Your list is now clean!",
+                );
+
+                NotificationConfig().showInstantNotification(notify: _notify);
               }
             },
             child: Padding(

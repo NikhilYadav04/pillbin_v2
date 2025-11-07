@@ -44,7 +44,12 @@ class HealthAiProvider extends ChangeNotifier {
   void deleteFile() {
     _file = null;
     _isUploading = false;
-    _messages = [];
+    _messages = [
+      MessageAIModel("agent",
+          message:
+              "Hi! I'm your health report assistant. Upload your medical reports and ask me any questions about them.",
+          sendTime: DateTime.now())
+    ];
     notifyListeners();
   }
 

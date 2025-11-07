@@ -153,11 +153,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Quick Actions',
-            style: PillBinMedium.style(
-              fontSize: isTablet ? sw * 0.035 : sw * 0.05,
-              color: PillBinColors.textPrimary,
+          GestureDetector(
+            onTap: () {
+              print("notify");
+              // showInstantNotification(
+              //     id: 1, title: "Dummy", body: "This is a dummy notification");
+            },
+            child: Text(
+              'Quick Actions',
+              style: PillBinMedium.style(
+                fontSize: isTablet ? sw * 0.035 : sw * 0.05,
+                color: PillBinColors.textPrimary,
+              ),
             ),
           ),
           SizedBox(height: sh * 0.02),

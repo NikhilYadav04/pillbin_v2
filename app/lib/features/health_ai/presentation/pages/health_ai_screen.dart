@@ -3,7 +3,6 @@ import 'dart:math';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
@@ -57,11 +56,7 @@ class _HealthReportChatScreenState extends State<HealthReportChatScreen>
     });
 
     if (user_id == "X") {
-      setState(() {
-        final random = Random();
-        int id = 10000 + random.nextInt(90000);
-        user_id = id.toString();
-      });
+      user_id = "XYZ";
     }
   }
 

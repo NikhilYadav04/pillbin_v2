@@ -1,5 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
@@ -23,7 +27,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _diseasesController = TextEditingController();
-final _locationController = TextEditingController();
+  final _locationController = TextEditingController();
   bool _isLoading = false;
 
   bool _isLocationLoading = false;
@@ -912,6 +916,18 @@ final _locationController = TextEditingController();
               "🎉 Welcome to the PillBin app! Your profile is now complete and you can access all features like medicine tracking, dosage reminders, and expiry alerts.",
           status: "important",
         );
+
+        //* send instant notification to user
+        final random = Random();
+
+        PushNotificationModel _notify = PushNotificationModel(
+          id: random.nextInt(100).toString(),
+          title: "Profile Completed",
+          body:
+              " \n🎉 Welcome to the PillBin app! Your profile is now complete and you can access all features like medicine tracking, dosage reminders, and expiry alerts.",
+        );
+
+        NotificationConfig().showInstantNotification(notify: _notify);
 
         return;
       }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
@@ -29,6 +30,9 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   void initState() {
     super.initState();
+
+    //* Notification Service Initialize-
+    NotificationConfig().init(context);
 
     _logoController = AnimationController(
       duration: const Duration(milliseconds: 1500),

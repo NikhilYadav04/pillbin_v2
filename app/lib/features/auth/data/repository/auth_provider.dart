@@ -1,7 +1,10 @@
+import 'dart:convert';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
@@ -23,7 +26,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> sendMailFromGmail(String sender, String sub, String text) async {
     //* Create the email message
     final message = Message()
-      ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'Custom Support Stuff')
+      ..from = Address(dotenv.env["GMAIL_MAIL"]!, sub)
       ..recipients.add(sender)
       ..subject = sub
       ..text = text;
@@ -47,37 +50,32 @@ class AuthProvider extends ChangeNotifier {
 
   //* prompt
   String buildOtpEmail(String email, String otpCode) {
-    final html = '''
-  <p>Hi ${email.isNotEmpty ? email : 'there'},</p>
-
-  <p>Welcome to <b>PillBin</b>! 🎉</p>
-  <p>We’re excited to have you on board. Use the OTP below to complete your signup process:</p>
-
-  <p style="font-size:18px;"><b>$otpCode</b></p>
-
-  <p>This OTP is valid for the next 10 minutes. Please do not share it with anyone.</p>
-
-  <p>Best regards,<br/>The PillBin Team</p>
-  ''';
-
     final text = '''
-  Hi ${email.isNotEmpty ? email : 'there'},
+Hi ${email.isNotEmpty ? email : 'there'},
 
-  Welcome to PillBin! 🎉
-  We’re excited to have you on board. Use the OTP below to complete your signup:
+Welcome to PillBin! 🎉
+We’re excited to have you on board. Use the OTP below to complete your signup:
 
-  $otpCode
+$otpCode
 
-  This OTP is valid for the next 10 minutes. Please do not share it with anyone.
+This OTP is valid for the next 10 minutes. Please do not share it with anyone.
 
-  Best regards,
-  The PillBin Team
-  ''';
+Best regards,
+The PillBin Team
+''';
 
-    return html;
+    return text;
   }
 
   //* <----------------END------------------------------>
+
+  //* <---------------SESSION MANAGEMENT--------------->
+
+  static const _secureStorage = FlutterSecureStorage();
+
+  final String SESSION_KEY = dotenv.env["SESSION"]!;
+
+  //* <----------------------------------------------->
 
   //* Register with phone number
   Future<String> register(
@@ -105,6 +103,31 @@ class AuthProvider extends ChangeNotifier {
           title: "Please enter a valid email address!",
         );
         return 'error';
+      }
+
+      // //* Check for session count
+      final listUsers = await _secureStorage.read(key: SESSION_KEY);
+      List<String> users = [];
+
+      if (listUsers != null) {
+        users = List<String>.from(jsonDecode(listUsers));
+      }
+
+      //* ✅ Allow max 2 users per device
+      if (users.length >= 2 && !users.contains(email)) {
+        CustomSnackBar.show(
+          context: context,
+          icon: Icons.warning,
+          title:
+              "⚠️ Login limit reached. Only two users can log in on this device.",
+        );
+        return 'revoke';
+      }
+
+      //* ✅ Add user if not already present
+      if (!users.contains(email)) {
+        users.add(email);
+        await _secureStorage.write(key: SESSION_KEY, value: jsonEncode(users));
       }
 
       ApiResponse<Map<String, dynamic>> response =
@@ -174,6 +197,31 @@ class AuthProvider extends ChangeNotifier {
           title: "Please enter a valid email address!",
         );
         return 'error';
+      }
+
+      // //* Check for session count
+      final listUsers = await _secureStorage.read(key: SESSION_KEY);
+      List<String> users = [];
+
+      if (listUsers != null) {
+        users = List<String>.from(jsonDecode(listUsers));
+      }
+
+      //* ✅ Allow max 2 users per device
+      if (users.length >= 2 && !users.contains(email)) {
+        CustomSnackBar.show(
+          context: context,
+          icon: Icons.warning,
+          title:
+              "⚠️ Login limit reached. Only two users can log in on this device.",
+        );
+        return 'revoke';
+      }
+
+      //* ✅ Add user if not already present
+      if (!users.contains(email)) {
+        users.add(email);
+        await _secureStorage.write(key: SESSION_KEY, value: jsonEncode(users));
       }
 
       ApiResponse<Map<String, dynamic>> response =

@@ -1,4 +1,9 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/notification_helper.dart';
+import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
@@ -864,6 +869,44 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       });
 
       if (response == 'success') {
+        //* schedule notification
+
+        final random = Random();
+
+        final id1 = random.nextInt(10000) + random.nextInt(100);
+
+        //* 1] Inform before 2 days of expiry
+        Map<String, dynamic> expiring_soon_map =
+            NotificationHelper.getExpiringSoon(
+                _medicineNameController.text.trim());
+
+        int hours1 = NotificationHelper.getDurationNotification(_expiryDate);
+
+        NotificationConfig().scheduleReminder(
+            notify: PushNotificationModel(
+                id: id1.toString(),
+                title: expiring_soon_map["title"],
+                body: expiring_soon_map["desc"]),
+            hours: hours1);
+
+        //* 2] Inform at day of expiry
+
+        final id2 = random.nextInt(10000) + random.nextInt(100);
+
+        Future.delayed(Duration(milliseconds: 500));
+
+        Map<String, dynamic> expired_map =
+            NotificationHelper.getExpired(_medicineNameController.text.trim());
+
+        int hours2 = NotificationHelper.getDurationNotification(_expiryDate);
+
+        NotificationConfig().scheduleReminder(
+            notify: PushNotificationModel(
+                id: id2.toString(),
+                title: expired_map["title"],
+                body: expired_map["desc"]),
+            hours: hours2);
+
         //* Clear form after success
         _medicineNameController.clear();
         _quantityController.clear();

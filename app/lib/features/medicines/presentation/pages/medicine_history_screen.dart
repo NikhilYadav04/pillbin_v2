@@ -184,11 +184,13 @@ class _MedicineHistoryScreenState extends State<MedicineHistoryScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Consumer<MedicineProvider>(builder: (context, provider, _) {
-          return Text(
-            'Medicines History (${_medicineProvide.deletedMedicinesInventory.length})',
-            style: PillBinMedium.style(
-              fontSize: isTablet ? sw * 0.028 : sw * 0.048,
-              color: PillBinColors.textPrimary,
+          return FittedBox(
+            child: Text(
+              'Medicines History (${_medicineProvide.deletedMedicinesInventory.length})',
+              style: PillBinMedium.style(
+                fontSize: isTablet ? sw * 0.028 : sw * 0.048,
+                color: PillBinColors.textPrimary,
+              ),
             ),
           );
         }),

@@ -1,7 +1,11 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server/gmail.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/features/info/presentation/pages/information_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/know_more_screen.dart';
@@ -103,10 +107,7 @@ class _InformationHubBaseScreenState extends State<InformationHubBaseScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: GestureDetector(
-                  onTap: () {
-                    sendMailFromGmail("byadav1723@gmail.com",
-                        "Hello test email", "this is a dummye mail");
-                  },
+                  onTap: () {},
                   child: Icon(
                     Icons.lightbulb_outline,
                     color: Colors.white,

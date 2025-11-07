@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
 import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
 import 'package:pillbin/features/health_ai/data/repository/health_ai_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
@@ -574,13 +574,13 @@ Widget buildProfileSettings(
           ],
         ),
         SizedBox(height: sh * 0.02),
-        SettingsItem(
-          title: 'Notification Preferences',
-          icon: Icons.notifications_outlined,
-          onTap: () {},
-          sw: sw,
-          sh: sh,
-        ),
+        // SettingsItem(
+        //   title: 'Notification Preferences',
+        //   icon: Icons.notifications_outlined,
+        //   onTap: () {},
+        //   sw: sw,
+        //   sh: sh,
+        // ),
         SettingsItem(
           title: 'Privacy Settings',
           icon: Icons.privacy_tip_outlined,
@@ -623,11 +623,7 @@ Widget buildProfileSettings(
   );
 }
 
-void _showLogoutWarningDialog(
-  BuildContext context,
-  double sw,
-  double sh,
-) {
+void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
   final bool isTablet = sw > 600;
 
   showDialog(
@@ -673,7 +669,7 @@ void _showLogoutWarningDialog(
 
               // Message
               Text(
-                'Are you sure you want to log out? You will need to sign in again to access your data.',
+                "Are you sure you want to log out? You’ll need to sign in again to access your data, and any scheduled notifications will be cancelled.",
                 textAlign: TextAlign.center,
                 style: PillBinRegular.style(
                   fontSize: isTablet ? sw * 0.02 : sw * 0.036,
@@ -712,7 +708,9 @@ void _showLogoutWarningDialog(
                   Expanded(
                     child: TextButton(
                       onPressed: () async {
-                        Navigator.of(context).pop(); // Close the dialog first
+                        final HttpClient _httpClient = HttpClient();
+                        Map<String, String> map =
+                            await _httpClient.getUserData();
 
                         await context.read<UserProvider>().reset();
                         await context.read<MedicineProvider>().reset();
@@ -721,8 +719,18 @@ void _showLogoutWarningDialog(
                         await context.read<NotificationProvider>().reset();
                         await context.read<HealthAiProvider>().reset();
 
-                        final _httpClient = HttpClient();
-                        _httpClient.logout();
+                        NotificationConfig().cancelAllNotifications();
+
+                        HealthAiProvider provider =
+                            context.read<HealthAiProvider>();
+
+                        provider.deleteFAISSIndex(
+                          userId:
+                              "${map["name"]}_${map["phone"]?.substring(0, 4)}",
+                        );
+
+                        provider.deleteFile();
+                        await _httpClient.logout();
 
                         Navigator.pushReplacementNamed(
                           context,

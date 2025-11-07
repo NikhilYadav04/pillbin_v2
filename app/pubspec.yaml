@@ -47,6 +47,8 @@ dependencies:
   file_picker: ^8.3.2
   permission_handler: ^11.3.1
   mailer: ^6.6.0
+  flutter_local_notifications: ^18.0.0
+  timezone: ^0.10.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
