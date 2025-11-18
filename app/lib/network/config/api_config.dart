@@ -4,11 +4,13 @@ class ApiConfig {
 
   static const String _baseUrlDev = 'http://${IP}:5000';
   static const String _baseUrlStaging = 'https://staging-api.example.com';
-  static const String _baseUrlProd = 'https://pillbinv2-production.up.railway.app';
+  static const String _baseUrlProd =
+      'https://pillbinv2-production.up.railway.app';
 
   static const String baseUrl2 = 'https://srv882174.hstgr.cloud';
 
-  static const String agentURL = 'https://reportlangchainagent-production.up.railway.app';
+  static const String agentURL =
+      'https://reportlangchainagent-production.up.railway.app';
 
   //* Current environment
   static const String currentEnvironment = 'prod';
@@ -27,7 +29,7 @@ class ApiConfig {
   }
 
   //* API Configuration
-  static const int connectTimeout = 30000;
-  static const int receiveTimeout = 30000;
-  static const int sendTimeout =30000;
+  static const int connectTimeout = 60000;
+  static const int receiveTimeout = 60000;
+  static const int sendTimeout = 60000;
 }

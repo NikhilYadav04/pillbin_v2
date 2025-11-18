@@ -70,6 +70,8 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     provider.sendQueryToChatbot(
         context: context, prompt: _messageController.text.trim());
 
+    _messageController.clear();
+
     _scrollToBottom();
   }
 
