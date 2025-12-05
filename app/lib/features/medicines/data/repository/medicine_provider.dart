@@ -1,7 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/core/cards/unlocked_cards.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/medicines/data/service/medicine_services.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
@@ -174,6 +174,71 @@ class MedicineProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  //* update user badges
+  void updateUserBadges(BuildContext context) {
+    UserProvider? user = context.read<UserProvider>();
+    userClass.UserModel? userModel = user.user;
+
+    if (userModel!.stats.totalMedicinesTracked >= 1 &&
+        !userModel.badges.firstTimer.achieved) {
+      if (!userModel.badges.firstTimer.achieved) {
+        userModel.badges.firstTimer.achieved = true;
+        userModel.badges.firstTimer.unlockedAt = DateTime.now();
+
+        Future.delayed(Duration(milliseconds: 800), () {
+          showDialog(
+              context: context,
+              barrierColor: Colors.transparent,
+              builder: (context) => UnlockedAchievementCard(
+                    type: AchievementType.firstTimer,
+                    title: 'First Step Complete!',
+                    description: 'You\'ve tracked your first medicine!',
+                    icon: Icons.eco,
+                    onDismiss: () => Navigator.pop(context),
+                  ));
+        });
+      }
+    } else if (userModel.stats.totalMedicinesTracked >= 5 &&
+        !userModel.badges.ecoHelper.achieved) {
+      if (!userModel.badges.ecoHelper.achieved) {
+        userModel.badges.ecoHelper.achieved = true;
+        userModel.badges.ecoHelper.unlockedAt = DateTime.now();
+
+        Future.delayed(Duration(milliseconds: 800), () {
+          showDialog(
+              context: context,
+              barrierColor: Colors.transparent,
+              builder: (context) => UnlockedAchievementCard(
+                    type: AchievementType.ecoHelper,
+                    title: 'Eco Helper!',
+                    description: 'You\'ve tracked 5 medicines. Keep it up!',
+                    icon: Icons.recycling,
+                    onDismiss: () => Navigator.pop(context),
+                  ));
+        });
+      }
+    } else if (userModel.stats.totalMedicinesTracked >= 20 &&
+        !userModel.badges.greenChampion.achieved) {
+      if (!userModel.badges.greenChampion.achieved) {
+        userModel.badges.greenChampion.achieved = true;
+        userModel.badges.greenChampion.unlockedAt = DateTime.now();
+      }
+    } else {
+      Future.delayed(Duration(milliseconds: 800), () {
+        showDialog(
+            context: context,
+            barrierColor: Colors.transparent,
+            builder: (context) => UnlockedAchievementCard(
+                  type: AchievementType.greenChampion,
+                  title: 'Green Champion!',
+                  description: 'Amazing! You\'ve tracked 20 medicines!',
+                  icon: Icons.emoji_events,
+                  onDismiss: () => Navigator.pop(context),
+                ));
+      });
+    }
+  }
+
   //* function
 
   //* Add Medicine
@@ -241,6 +306,10 @@ class MedicineProvider extends ChangeNotifier {
         userModel?.stats.totalMedicinesTracked += 1;
         userModel?.stats.expiringSoonCount =
             _expiringSoonMedicinesInventory.length;
+
+        //* Update user badges
+        updateUserBadges(context);
+
         notifyListeners();
 
         CustomSnackBar.show(
@@ -749,7 +818,7 @@ class MedicineProvider extends ChangeNotifier {
   }
 
   //* <-------------Reset--------------------------->
-  Future<void> reset() async{
+  Future<void> reset() async {
     _activeMedicinesInventory.clear();
     _expiringSoonMedicinesInventory.clear();
     _expiredMedicinesInventory.clear();

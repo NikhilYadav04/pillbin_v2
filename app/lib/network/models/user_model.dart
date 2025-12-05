@@ -1,6 +1,6 @@
 class Badge {
-  final bool achieved;
-  final DateTime? unlockedAt;
+  bool achieved;
+  DateTime? unlockedAt;
 
   Badge({required this.achieved, this.unlockedAt});
 

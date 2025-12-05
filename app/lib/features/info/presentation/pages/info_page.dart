@@ -1,12 +1,6 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:mailer/mailer.dart';
-import 'package:mailer/smtp_server/gmail.dart';
-import 'package:pillbin/config/notifications/notification_config.dart';
-import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/theme/appColors.dart';
+import 'package:pillbin/core/cards/unlocked_cards.dart';
 import 'package:pillbin/features/info/presentation/pages/information_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/know_more_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/survey_screen.dart';
@@ -55,32 +49,32 @@ class _InformationHubBaseScreenState extends State<InformationHubBaseScreen> {
     });
   }
 
-  //* creating smtp server for gmail
+  // //* creating smtp server for gmail
 
-  Future<void> sendMailFromGmail(String sender, String sub, String text) async {
-    // Create the email message
-    final message = Message()
-      ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'Custom Support Stuff')
-      ..recipients.add(sender)
-      ..subject = sub
-      ..text = text;
+  // Future<void> sendMailFromGmail(String sender, String sub, String text) async {
+  //   // Create the email message
+  //   final message = Message()
+  //     ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'Custom Support Stuff')
+  //     ..recipients.add(sender)
+  //     ..subject = sub
+  //     ..text = text;
 
-    // Create Gmail SMTP server
-    final gmailSmtp =
-        gmail(dotenv.env["GMAIL_MAIL"]!, dotenv.env["GMAIL_PASSWORD"]!);
+  //   // Create Gmail SMTP server
+  //   final gmailSmtp =
+  //       gmail(dotenv.env["GMAIL_MAIL"]!, dotenv.env["GMAIL_PASSWORD"]!);
 
-    try {
-      // Send the email
-      final sendReport = await send(message, gmailSmtp);
-      print('✅ Message sent: $sendReport');
-    } on MailerException catch (e) {
-      // Handle sending errors
-      print('❌ Message not sent.');
-      for (var p in e.problems) {
-        print('Problem: ${p.code}: ${p.msg}');
-      }
-    }
-  }
+  //   try {
+  //     // Send the email
+  //     final sendReport = await send(message, gmailSmtp);
+  //     print('✅ Message sent: $sendReport');
+  //   } on MailerException catch (e) {
+  //     // Handle sending errors
+  //     print('❌ Message not sent.');
+  //     for (var p in e.problems) {
+  //       print('Problem: ${p.code}: ${p.msg}');
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +101,20 @@ class _InformationHubBaseScreenState extends State<InformationHubBaseScreen> {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: GestureDetector(
-                  onTap: () {},
+                  onTap: () {
+                    // // Show streak achievement
+                    showDialog(
+                        context: context,
+                        barrierColor: Colors.transparent,
+                        builder: (context) => UnlockedAchievementCard(
+                              type: AchievementType.ecoHelper,
+                              title: 'Eco Helper!',
+                              description:
+                                  'You\'ve tracked 5 medicines. Keep it up!',
+                              icon: Icons.recycling,
+                              onDismiss: () => Navigator.pop(context),
+                            ));
+                  },
                   child: Icon(
                     Icons.lightbulb_outline,
                     color: Colors.white,

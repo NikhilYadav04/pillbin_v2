@@ -1,5 +1,4 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
@@ -12,6 +11,7 @@ import 'package:pillbin/features/auth/presentation/widgets/complete_profile_widg
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter/painting.dart' as painting;
 
 class UserRegistrationForm extends StatefulWidget {
   final String phone;
@@ -532,7 +532,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
           BoxShadow(
             color: PillBinColors.textLight.withOpacity(0.1),
             blurRadius: 4,
-            offset: const Offset(0, 2),
+            offset: Offset(0, 2),
           ),
         ],
       ),
@@ -755,7 +755,7 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
                     _isLoading ? 0.3 : 0.4,
                   ),
                   blurRadius: _isLoading ? 8 : 12,
-                  offset: const Offset(0, 4),
+                  offset: Offset(0, 2)
                 ),
               ],
             ),

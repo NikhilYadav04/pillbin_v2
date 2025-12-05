@@ -99,7 +99,7 @@ const userSchema = new mongoose.Schema(
 userSchema.methods.updateBadges = function () {
   //* First Timer - dispose 1st medicine
   if (
-    this.stats.medicinesDisposedCount >= 1 &&
+    this.stats.totalMedicinesTracked >= 1 &&
     !this.badges.firstTimer.achieved
   ) {
     this.badges.firstTimer.achieved = true;
@@ -108,7 +108,7 @@ userSchema.methods.updateBadges = function () {
 
   //* Eco Helper - dispose 5 medicines
   if (
-    this.stats.medicinesDisposedCount >= 5 &&
+    this.stats.totalMedicinesTracked >= 5 &&
     !this.badges.ecoHelper.achieved
   ) {
     this.badges.ecoHelper.achieved = true;
@@ -117,7 +117,7 @@ userSchema.methods.updateBadges = function () {
 
   //* Green Champion - dispose 20 medicines
   if (
-    this.stats.medicinesDisposedCount >= 20 &&
+    this.stats.totalMedicinesTracked >= 20 &&
     !this.badges.greenChampion.achieved
   ) {
     this.badges.greenChampion.achieved = true;

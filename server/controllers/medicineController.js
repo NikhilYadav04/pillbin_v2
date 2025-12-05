@@ -81,8 +81,13 @@ const addMedicine = async (req, res) => {
       user.stats.expiringSoonCount += 1;
     }
 
+    //* Update user stats
     user.medicineCount += 1;
     user.stats.totalMedicinesTracked += 1;
+
+    //* update user badges
+    await user.updateBadges();
+
     await user.save();
 
     res.status(201).json({
