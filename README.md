@@ -10,7 +10,9 @@
 
 ## 🖼️ Screenshots
 
-<img width="4000" height="3000" alt="collage" src="https://github.com/user-attachments/assets/856b9723-5dd2-4f0d-a967-cd18302fc097" />
+<img width="1311" height="568" alt="Screenshot 2025-12-05 142750" src="https://github.com/user-attachments/assets/6ff038f3-fe9b-4dae-8c98-863b130d14cb" />
+
+<img width="1322" height="531" alt="Screenshot 2025-12-05 142807" src="https://github.com/user-attachments/assets/180f3b38-dd99-45ae-8067-d8f422d13cb0" />
 
 ---
 
