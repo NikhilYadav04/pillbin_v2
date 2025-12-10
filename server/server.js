@@ -20,7 +20,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
-app.set('trust proxy', 1);
+app.set("trust proxy", 1);
 
 //* Connect to Database
 connectDB();
@@ -36,6 +36,12 @@ app.use("/api/notifications", notificationRoutes);
 //* Default Route
 app.get("/", (req, res) => {
   res.json({ message: "Medicine Tracker API Server Running!" });
+});
+
+app.get("/health", async (req, res) => {
+  res.status(200).json({
+    message: "Server Health Good",
+  });
 });
 
 //* Error Handling Middleware
