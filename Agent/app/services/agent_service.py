@@ -1,15 +1,16 @@
-from app.config import GOOGLE_API_KEY
-from app.services.vector_store import load_vector_store
+from config import GOOGLE_API_KEY
 from fastapi import Response, status
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.agents import create_react_agent, AgentExecutor
+from langchain.agents.react.agent import create_react_agent
+from langchain.agents.agent import AgentExecutor
 from langchain import hub
 from langchain_community.tools import DuckDuckGoSearchRun, tool
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
-from app.services.vector_store import get_retriever
+from app.config1.vector_store import get_retriever, getAllChunks
 from langchain_core.documents import Document
 from langchain.prompts import PromptTemplate
+from config import PINECONE_INDEX_NAME
 
 # --- 1. Define Agent Tools ---
 
@@ -33,21 +34,10 @@ class GetAllChunksInput(BaseModel):
 
 def getAllChunks_fn(user_id: str) -> list[str]:
     print(f"🔍 [Tool] Fetching all chunks for user {user_id}...")
-    vectorstore = load_vector_store(user_id)
 
-    if vectorstore is None:
-        return [
-            "Error: No health report found for this user. Please upload a document first."
-        ]
+    docs = getAllChunks(user_id=user_id)
 
-    try:
-        # Access all documents from the docstore
-        docs = [doc.page_content for doc in vectorstore.docstore._dict.values()]
-        print(f"✅ [Tool] Retrieved {len(docs)} chunks for user {user_id}")
-        return docs
-    except Exception as e:
-        print(f"❌ [Tool] Error while fetching chunks for user {user_id}: {e}")
-        return [f"Error fetching data: {e}"]
+    return docs
 
 
 getAllChunks = StructuredTool.from_function(

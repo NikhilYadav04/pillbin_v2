@@ -8,8 +8,11 @@ from app.models.schemas import (
     DeleteAllResponse,
 )
 from app.services import vector_store, agent_service
-from app.config import TEMP_UPLOAD_DIR
-from app.config import ADMIN
+from config import TEMP_UPLOAD_DIR
+from config import ADMIN
+from pathlib import Path
+
+from app.config1.vector_store import clear_index, clear_documents_user
 import shutil
 
 router = APIRouter()
@@ -32,12 +35,11 @@ async def upload_pdf(
             message="Invalid file type. Only PDF allowed..",
         )
 
-    # Ensure the temporary upload directory exists
-    TEMP_UPLOAD_DIR.mkdir(exist_ok=True)
-    # ---
+    # 1. Ensure directory exists (You already fixed this)
+    Path(TEMP_UPLOAD_DIR).mkdir(parents=True, exist_ok=True)
 
-    # Use a unique name for the temp file to avoid conflicts
-    temp_path = TEMP_UPLOAD_DIR / f"{user_id}_{file.filename}"
+    # 2. Use Path() wrapper here so the '/' operator works
+    temp_path = Path(TEMP_UPLOAD_DIR) / f"{user_id}_{file.filename}"
 
     # Save uploaded file temporarily
     try:
@@ -95,7 +97,8 @@ async def delete_index(request: DeleteRequest, response: Response):
     Deletes the FAISS index folder associated with a user_id.
     """
     print(f"Received delete request for user {request.user_id}")
-    success = vector_store.delete_vector_store(request.user_id)
+
+    success = clear_documents_user(user_id=request.user_id)
 
     if success:
         return DeleteResponse(message="User index deleted successfully", statusCode=200)
@@ -111,8 +114,7 @@ async def delete_index(request: DeleteRequest, response: Response):
 @router.delete("/delete/all", response_model=DeleteAllResponse)
 async def delete_all(key: str, response: Response):
     """
-    Deletes ALL FAISS index folders by recursively deleting the main
-    storage directory and then recreating it.
+    Deletes ALL embeddings from PineCone Index ( Clear index all )
     """
     print("Received request to delete ALL user indices.")
     try:
@@ -124,35 +126,15 @@ async def delete_all(key: str, response: Response):
                 path_cleared="",
                 message=f"Invalid Key => {key}",
             )
-        # 1. Get the base path
-        # We find the parent directory of where user indexes are stored.
-        # This assumes get_faiss_path(id) returns something like /app/storage/user_id
-        # so .parent gives us /app/storage
-        base_path = vector_store.get_parent_faiss_path()
-        print(base_path)
 
-        if not base_path:
-            print(f"Base index directory not found: {base_path}")
-            response.status_code = status.HTTP_400_BAD_REQUEST
-            return DeleteAllResponse(
-                message="Base index directory not found. Nothing to delete.",
-                path_cleared=str(base_path),
-                statusCode=400,
-            )
+        response = clear_index()
 
-        # 2. Delete the entire directory tree
-        print(f"Deleting directory: {base_path}")
-        shutil.rmtree(base_path)
-
-        # 3. CRITICAL: Recreate the base directory
-        # If you don't do this, future attempts to save indexes will fail.
-        base_path.mkdir(parents=True, exist_ok=True)
-        print(f"Recreated empty directory: {base_path}")
+        if response == False:
+            raise ValueError("Cannot delete index")
 
         return DeleteAllResponse(
             message="All user indices have been deleted successfully.",
             statusCode=200,
-            path_cleared=str(base_path),
         )
 
     except Exception as e:
