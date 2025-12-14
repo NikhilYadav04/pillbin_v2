@@ -1,4 +1,4 @@
-package com.example.pillbin
+package com.nikhil.pillbin
 
 import io.flutter.embedding.android.FlutterActivity
 

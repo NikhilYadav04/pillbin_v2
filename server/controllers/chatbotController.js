@@ -19,8 +19,10 @@ const query = async (req, res) => {
       },
     ];
 
+    console.log(GEMINI_API_KEY);
+
     const response = await API.models.generateContent({
-      model: "gemini-2.0-flash-lite",
+      model: "gemini-2.5-flash-lite",
       contents,
       generationConfig: {
         maxOutputTokens: 80, // strict token cap (experiment: 50-300)
@@ -35,7 +37,7 @@ const query = async (req, res) => {
       statusCode: 200,
     });
   } catch (e) {
-    console.log(e.message)
+    console.log(e.message);
     return res.status(500).json({
       success: false,
       message: e.message,

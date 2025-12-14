@@ -140,10 +140,15 @@ The PillBin Team
 
         String prompt = buildOtpEmail(email, otp.toString());
 
-        sendMailFromGmail(
-            email, "Welcome to PillBin – Your OTP for Signup", prompt);
+        //* 🔥 IMPORTANT FIXES
+        await sendMailFromGmail(
+          email,
+          "Welcome to PillBin – Your OTP for Signup",
+          prompt,
+        );
 
-        Future.delayed(Duration(seconds: 1));
+        //* Optional small delay (now actually works)
+        await Future.delayed(const Duration(seconds: 1));
 
         CustomSnackBar.show(
             context: context,
@@ -232,10 +237,15 @@ The PillBin Team
 
         String prompt = buildOtpEmail(email, otp.toString());
 
-        sendMailFromGmail(
-            email, "Welcome to PillBin – Your OTP for SignIn", prompt);
+        //* 🔥 IMPORTANT FIXES
+        await sendMailFromGmail(
+          email,
+          "Welcome to PillBin – Your OTP for Signup",
+          prompt,
+        );
 
-        Future.delayed(Duration(seconds: 1));
+        //* Optional small delay (now actually works)
+        await Future.delayed(const Duration(seconds: 1));
 
         CustomSnackBar.show(
             context: context,
