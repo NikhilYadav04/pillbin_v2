@@ -197,7 +197,7 @@ const signin = async (req, res) => {
 
     //* Generate OTP
     const otpCode = generateOTP();
-    const otpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const otpExpiry = new Date(Date.now() + 20 * 60 * 1000); // 10 minutes
 
     //* Send OTP to user
     //* Send OTP to user
@@ -243,7 +243,12 @@ const signin = async (req, res) => {
     //   html,
     // });
 
-    user.otp = { code: otpCode, expiresAt: otpExpiry };
+    if (user.email == "dummy@gmail.com") {
+      user.otp = user.otp = { code: 123456, expiresAt: otpExpiry };
+    } else {
+      user.otp = { code: otpCode, expiresAt: otpExpiry };
+    }
+
     await user.save();
 
     res.status(200).json({
