@@ -121,8 +121,7 @@ class _LocationScreenState extends State<LocationScreen>
                   Expanded(
                     child: isTablet
                         ? provider.isLoadingFetch &&
-                                (provider.fetchedCenters.isEmpty ||
-                                    provider.isLoadingNearby)
+                                provider.fetchedCenters.isEmpty
                             ? LocationCardShimmer(sw: sw, sh: sh)
                             : _buildTabletLayout(
                                 sw,
@@ -131,9 +130,8 @@ class _LocationScreenState extends State<LocationScreen>
                                 provider.longitude,
                                 provider.placeName,
                                 provider)
-                        : provider.isLoadingFetch &&
-                                (provider.fetchedCenters.isEmpty ||
-                                    provider.isLoadingNearby)
+                        : provider.isLoadingFetch && provider.fetchedCenters.isEmpty
+
                             ? LocationCardShimmer(sw: sw, sh: sh)
                             : _buildMobileLayout(
                                 sw,
@@ -386,20 +384,32 @@ class _LocationScreenState extends State<LocationScreen>
 
   Widget _buildMobileLayout(double sw, double sh, double latitude,
       double longitude, String name, MedicalCenterProvider provider) {
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          SizedBox(height: sh * 0.02),
-          buildCurrentLocationButton(sw, sh, false, context),
-          SizedBox(height: sh * 0.02),
-          buildLocationInfo(sw, sh, false, latitude, longitude, name),
-          SizedBox(height: sh * 0.025),
-          buildMapContainer(sw, sh, false),
-          SizedBox(height: sh * 0.03),
-          buildNearbyLocations(sw, sh, false, provider),
-          SizedBox(height: sh * 0.02),
-        ],
-      ),
+    return ListView(
+      controller: _scrollController,
+      padding: EdgeInsets.zero,
+      children: [
+        SizedBox(height: sh * 0.02),
+
+        buildCurrentLocationButton(sw, sh, false, context),
+        SizedBox(height: sh * 0.02),
+
+        buildLocationInfo(sw, sh, false, latitude, longitude, name),
+        SizedBox(height: sh * 0.025),
+
+        buildMapContainer(sw, sh, false),
+        SizedBox(height: sh * 0.03),
+
+        // 👇 IMPORTANT: this must NOT create its own scroll
+        buildNearbyLocations(
+          sw,
+          sh,
+          false,
+          provider,
+          _scrollController,
+        ),
+
+        SizedBox(height: sh * 0.02),
+      ],
     );
   }
 
@@ -418,7 +428,7 @@ class _LocationScreenState extends State<LocationScreen>
             SizedBox(height: sh * 0.02),
             buildMapContainer(sw, sh, true),
             SizedBox(height: sh * 0.02),
-            buildNearbyLocations(sw, sh, true, provider),
+            buildNearbyLocations(sw, sh, true, provider, _scrollController),
             SizedBox(height: sh * 0.02),
             // Row(
             //   crossAxisAlignment: CrossAxisAlignment.start,

@@ -144,7 +144,7 @@ class HttpClient {
       final refreshToken = await getRefreshToken();
       if (refreshToken == null) return false;
 
-      //* Make refresh token request
+      //* Make refresh token requestp
       // final response = await _dio.post(
       //   '/auth/refresh',
       //   data: {'refresh_token': refreshToken},

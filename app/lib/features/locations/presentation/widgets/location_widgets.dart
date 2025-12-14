@@ -295,16 +295,20 @@ Widget _buildMapDot(Color color, double sw, bool isTablet) {
 }
 
 Widget buildNearbyLocations(
-    double sw, double sh, bool isTablet, MedicalCenterProvider provider) {
+  double sw,
+  double sh,
+  bool isTablet,
+  MedicalCenterProvider provider,
+  ScrollController scrollController,
+) {
   if (provider.fetchedCenters.isEmpty) {
-    //* show empty state first
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(
             Icons.search_off,
-            size:  isTablet ? sw * 0.1 : sw * 0.15,
+            size: isTablet ? sw * 0.1 : sw * 0.15,
             color: PillBinColors.greyLight,
           ),
           SizedBox(height: sh * 0.02),
@@ -319,7 +323,7 @@ Widget buildNearbyLocations(
           Text(
             'Try adjusting your distance',
             style: PillBinRegular.style(
-              fontSize:  isTablet ? sw * 0.025 : sw * 0.032,
+              fontSize: isTablet ? sw * 0.025 : sw * 0.032,
               color: PillBinColors.textSecondary,
             ),
           ),
@@ -328,18 +332,17 @@ Widget buildNearbyLocations(
     );
   }
 
-  //* otherwise render list
-  return Padding(
+  return ListView.builder(
+    physics: const NeverScrollableScrollPhysics(),
+    shrinkWrap: true,
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        GestureDetector(
-          onTap: () {
-            
-            Logger().d(provider.hasMoreFetch);
-            Logger().d(provider.fetchedCenters);
-          },
+    itemCount:
+        provider.fetchedCenters.length + (provider.isLoadingNearby ? 1 : 0),
+    itemBuilder: (context, index) {
+      //* Header
+      if (index == 0) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: sh * 0.02),
           child: Text(
             'Nearby Locations',
             style: PillBinMedium.style(
@@ -347,35 +350,27 @@ Widget buildNearbyLocations(
               color: PillBinColors.textPrimary,
             ),
           ),
-        ),
-        SizedBox(height: sh * 0.02),
-        ListView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount:
-              provider.fetchedCenters.length + (provider.hasMoreFetch ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index == provider.fetchedCenters.length) {
-              return Padding(
-                padding: EdgeInsets.symmetric(vertical: sh * 0.02),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
-              );
-            }
+        );
+      }
 
-            final center = provider.fetchedCenters[index];
+      //* Loader (last item)
+      if (provider.isLoadingNearby &&
+          index == provider.fetchedCenters.length + 1) {
+        return const Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Center(child: CircularProgressIndicator()),
+        );
+      }
 
-            return LocationCard(
-              sh: sh,
-              sw: sw,
-              medicalCenter: center,
-              isSaved: false,
-            );
-          },
-        ),
-      ],
-    ),
+      final center = provider.fetchedCenters[index - 1];
+
+      return LocationCard(
+        sh: sh,
+        sw: sw,
+        medicalCenter: center,
+        isSaved: false,
+      );
+    },
   );
 }
 

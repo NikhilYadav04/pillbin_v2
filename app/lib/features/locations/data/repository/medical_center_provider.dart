@@ -428,8 +428,14 @@ class MedicalCenterProvider extends ChangeNotifier {
     required int radius,
   }) async {
     try {
-      _isLoadingFetch = true;
-      _isLoadingNearby = true;
+      if (_isLoadingNearby || !_hasMoreFetch) return 'blocked';
+
+      if (_pageFetch == 1) {
+        _isLoadingFetch = true;
+      } else {
+        _isLoadingNearby = true;
+      }
+
       notifyListeners();
 
       ApiResponse<Map<String, dynamic>> response =
@@ -447,7 +453,11 @@ class MedicalCenterProvider extends ChangeNotifier {
             .map((item) => MedicalCenter.fromJson(item))
             .toList();
 
-        _fetchedCenters = medicalCenters;
+        if (_pageFetch == 1) {
+          _fetchedCenters = medicalCenters;
+        } else {
+          _fetchedCenters.addAll(medicalCenters);
+        }
 
         _fetchedCount = data["pagination"]["totalFound"];
 
@@ -463,11 +473,11 @@ class MedicalCenterProvider extends ChangeNotifier {
         }
 
         Logger().d(hasMoreFetch);
+        Logger().d("Currentpaeg : ${currentPage} - total : ${totalPage}");
 
         _isLoadingFetch = false;
         _isLoadingNearby = false;
         notifyListeners();
-
         return 'success';
       } else if (response.statusCode == 400) {
         _isLoadingNearby = false;
