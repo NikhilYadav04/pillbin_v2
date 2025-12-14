@@ -22,6 +22,11 @@ jobs:
         with:
           flutter-version: '3.24.5'
 
+      - name: Install Android SDK 35
+        run: |
+          yes | sdkmanager --licenses
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+
       - name: Flutter pub get
         working-directory: app
         run: flutter pub get
