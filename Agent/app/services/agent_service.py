@@ -7,7 +7,7 @@ from langchain import hub
 from langchain_community.tools import DuckDuckGoSearchRun, tool
 from langchain.tools import StructuredTool
 from pydantic import BaseModel, Field
-from app.config1.vector_store import get_retriever, getAllChunks
+from app.config1.vector_store import get_retriever, getAllChunksData
 from langchain_core.documents import Document
 from langchain.prompts import PromptTemplate
 from config import PINECONE_INDEX_NAME
@@ -35,7 +35,7 @@ class GetAllChunksInput(BaseModel):
 def getAllChunks_fn(user_id: str) -> list[str]:
     print(f"🔍 [Tool] Fetching all chunks for user {user_id}...")
 
-    docs = getAllChunks(user_id=user_id)
+    docs = getAllChunksData(user_id=user_id)
 
     return docs
 
@@ -69,7 +69,7 @@ If the question focuses on a specific test, metric, or section (e.g., “What do
 
 # llm
 llm = ChatGoogleGenerativeAI(
-    model="gemini-2.0-flash-lite",
+    model="gemini-2.5-flash-lite",
     google_api_key=GOOGLE_API_KEY,
     temperature=0.2,
     # convert_system_message_to_human=True,  # Helps with some ReAct prompts
@@ -112,9 +112,14 @@ Your task:
 3. Adapt your tone to sound caring, knowledgeable, and clear — like a friendly health advisor.
 4. Keep your explanation concise and professional.
 5. Include the numeric stats and normal ranges where relevant.
+
+Important instruction:
+- If the user's query can be answered directly using the provided health data and general medical knowledge, **do NOT use any external tools**, search, or chunk-retrieval methods.
+- Only rely on tools if the query explicitly requires information not present or inferable from the given data.
 """,
     input_variables=["data", "query", "user_id"],
 )
+
 
 # --- 4. Main Query Function ---
 

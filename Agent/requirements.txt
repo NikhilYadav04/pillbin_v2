@@ -29,3 +29,9 @@ duckduckgo-search==6.3.7
 
 # --------------- Pinecone ----------------
 pinecone==7.3.0
+
+
+sentence-transformers
+transformers
+torch
+accelerate

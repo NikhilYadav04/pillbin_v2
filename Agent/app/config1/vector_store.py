@@ -2,6 +2,7 @@ import os
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import (
@@ -22,11 +23,12 @@ os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 # define embedding models
-embeddings = GoogleGenerativeAIEmbeddings(
-    model="models/embedding-001",
-    google_api_key=GOOGLE_API_KEY,
-    output_dimensionality=3072,
-)
+# embeddings = GoogleGenerativeAIEmbeddings(
+#     model="models/embedding-001",
+#     google_api_key=GOOGLE_API_KEY,
+#     output_dimensionality=3072,
+# )
+embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 # retriever
@@ -38,7 +40,7 @@ def get_retriever(user_id: str):
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=384,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
@@ -59,7 +61,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=384,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
@@ -88,7 +90,7 @@ def add_document(text_content: str, user_id: str):
             print("Creating new index")
             pc.create_index(
                 name=PINECONE_INDEX_NAME,
-                dimension=3072,
+                dimension=384,
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
             )
@@ -118,7 +120,7 @@ def add_document(text_content: str, user_id: str):
 
 
 # get all chunks of data for a particular user
-def getAllChunks(user_id: str) -> list[str]:
+def getAllChunksData(user_id: str) -> list[str]:
     """
     Get all chunks of data for a user namespace
     """
@@ -129,7 +131,7 @@ def getAllChunks(user_id: str) -> list[str]:
 
         # 2. Create a "Dummy Vector"
         # (It must match your embedding dimension. Gemini uses 3072)
-        dummy_vector = [0.0] * 3072
+        dummy_vector = [0.0] * 384
 
         # 3. Query the index to get "everything" in the namespace
         # We ask for top_k=10000 to ensure we grab all chunks for this user
@@ -167,7 +169,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=384,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
@@ -189,6 +191,10 @@ async def clear_documents_user(user_id: str):
 
         # Delete only the vectors in this specific user's namespace
         index.delete(delete_all=True, namespace=user_id)
+
+        import time
+
+        time.sleep(1)
 
         print(f"Successfully deleted all documents for user: {user_id}")
         return True

@@ -98,7 +98,7 @@ async def delete_index(request: DeleteRequest, response: Response):
     """
     print(f"Received delete request for user {request.user_id}")
 
-    success = clear_documents_user(user_id=request.user_id)
+    success = await clear_documents_user(user_id=request.user_id)
 
     if success:
         return DeleteResponse(message="User index deleted successfully", statusCode=200)
@@ -127,7 +127,7 @@ async def delete_all(key: str, response: Response):
                 message=f"Invalid Key => {key}",
             )
 
-        response = clear_index()
+        response = await clear_index()
 
         if response == False:
             raise ValueError("Cannot delete index")
