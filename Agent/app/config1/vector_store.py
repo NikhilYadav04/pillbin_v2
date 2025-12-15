@@ -40,7 +40,7 @@ def get_retriever(user_id: str):
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=384,
+            dimension=3072,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
@@ -61,7 +61,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=384,
+            dimension=3072,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
@@ -90,7 +90,7 @@ def add_document(text_content: str, user_id: str):
             print("Creating new index")
             pc.create_index(
                 name=PINECONE_INDEX_NAME,
-                dimension=384,
+                dimension=3072,
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
             )
@@ -131,7 +131,7 @@ def getAllChunksData(user_id: str) -> list[str]:
 
         # 2. Create a "Dummy Vector"
         # (It must match your embedding dimension. Gemini uses 3072)
-        dummy_vector = [0.0] * 384
+        dummy_vector = [0.0] * 3072
 
         # 3. Query the index to get "everything" in the namespace
         # We ask for top_k=10000 to ensure we grab all chunks for this user
@@ -169,7 +169,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=384,
+            dimension=3072,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
