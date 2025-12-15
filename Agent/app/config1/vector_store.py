@@ -2,7 +2,7 @@ import os
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_community.embeddings import HuggingFaceEmbeddings
+# from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import (
@@ -23,12 +23,12 @@ os.environ["GOOGLE_API_KEY"] = GOOGLE_API_KEY
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 # define embedding models
-# embeddings = GoogleGenerativeAIEmbeddings(
-#     model="models/embedding-001",
-#     google_api_key=GOOGLE_API_KEY,
-#     output_dimensionality=3072,
-# )
-embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+embeddings = GoogleGenerativeAIEmbeddings(
+    model="models/embedding-001",
+    google_api_key=GOOGLE_API_KEY,
+    output_dimensionality=3072,
+)
+# embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 
 # retriever
