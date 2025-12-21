@@ -2,6 +2,7 @@ import os
 from pinecone import Pinecone, ServerlessSpec
 from langchain_pinecone import PineconeVectorStore
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
 # from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -25,8 +26,8 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 # define embedding models
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",
-    google_api_key="AIzaSyCLgKbxenZ0eU4BfQqSKJfyVpR7Iutxd-I",
-    output_dimensionality=3072,
+    google_api_key=GOOGLE_API_KEY,
+    output_dimensionality=768,
 )
 # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
@@ -40,7 +41,7 @@ def get_retriever(user_id: str):
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=768,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region="us-east-1"),
         )
@@ -61,7 +62,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=768,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
@@ -90,7 +91,7 @@ def add_document(text_content: str, user_id: str):
             print("Creating new index")
             pc.create_index(
                 name=PINECONE_INDEX_NAME,
-                dimension=3072,
+                dimension=768,
                 metric="cosine",
                 spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
             )
@@ -130,8 +131,8 @@ def getAllChunksData(user_id: str) -> list[str]:
         index = pc.Index(PINECONE_INDEX_NAME)
 
         # 2. Create a "Dummy Vector"
-        # (It must match your embedding dimension. Gemini uses 3072)
-        dummy_vector = [0.0] * 3072
+        # (It must match your embedding dimension. Gemini uses 768)
+        dummy_vector = [0.0] * 768
 
         # 3. Query the index to get "everything" in the namespace
         # We ask for top_k=10000 to ensure we grab all chunks for this user
@@ -169,7 +170,7 @@ def addIndex():
         print("Creating new index")
         pc.create_index(
             name=PINECONE_INDEX_NAME,
-            dimension=3072,
+            dimension=768,
             metric="cosine",
             spec=ServerlessSpec(cloud="aws", region=PINECONE_ENVIRONMENT),
         )
