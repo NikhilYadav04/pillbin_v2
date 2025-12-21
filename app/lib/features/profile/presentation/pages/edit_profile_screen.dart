@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/locationDialog.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -271,7 +272,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
                         SizedBox(height: sh * 0.03),
                         _buildEditProfileTips(sw, sh, isTablet),
                         SizedBox(height: sh * 0.03),
-                        _buildAnimatedSubmitButton(sw, sh, isTablet,_userProvider),
+                        _buildAnimatedSubmitButton(
+                            sw, sh, isTablet, _userProvider),
                         SizedBox(height: sh * 0.02),
                         _buildCancelButton(sw, sh, isTablet),
                         SizedBox(height: sh * 0.03),
@@ -572,7 +574,17 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
           ),
           SizedBox(height: sh * 0.01),
           GestureDetector(
-            onTap: _isLocationLoading ? null : getCoordinates,
+            onTap: _isLocationLoading
+                ? null
+                : () async {
+                    bool userResponse = await showLocationDisclosure(context);
+
+                    if (!userResponse) {
+                      return;
+                    } else {
+                      getCoordinates();
+                    }
+                  },
             child: Container(
               padding: EdgeInsets.symmetric(
                 horizontal: sw * 0.03,
@@ -927,7 +939,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
     );
   }
 
-  Widget _buildAnimatedSubmitButton(double sw, double sh, bool isTablet,UserProvider _userProvider) {
+  Widget _buildAnimatedSubmitButton(
+      double sw, double sh, bool isTablet, UserProvider _userProvider) {
     return AnimatedBuilder(
       animation: _submitAnimationController,
       builder: (context, child) {
@@ -965,9 +978,11 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
               color: Colors.transparent,
               child: InkWell(
                 borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-                onTap: _isLoading ? null : (){
-                  _handleSubmit(_userProvider);
-                },
+                onTap: _isLoading
+                    ? null
+                    : () {
+                        _handleSubmit(_userProvider);
+                      },
                 child: Padding(
                   padding: EdgeInsets.symmetric(
                     vertical: isTablet ? sh * 0.025 : sh * 0.02,

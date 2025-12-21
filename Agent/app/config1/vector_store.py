@@ -25,7 +25,7 @@ pc = Pinecone(api_key=PINECONE_API_KEY)
 # define embedding models
 embeddings = GoogleGenerativeAIEmbeddings(
     model="models/embedding-001",
-    google_api_key=GOOGLE_API_KEY,
+    google_api_key="AIzaSyCLgKbxenZ0eU4BfQqSKJfyVpR7Iutxd-I",
     output_dimensionality=3072,
 )
 # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")

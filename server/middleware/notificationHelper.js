@@ -1,5 +1,5 @@
 const Notification = require("../models/Notification.js");
-const mongoose = require('mongoose')
+const mongoose = require("mongoose");
 
 //* Helper utility class to manage notifications with 50-notification limit
 class NotificationHelper {
@@ -30,26 +30,13 @@ class NotificationHelper {
 
   static async enforceNotificationLimit(userId, limit = 50) {
     try {
-      const notificationCount = await Notification.countDocuments({ userId });
+      const count = await Notification.countDocuments({ userId });
 
-      if (notificationCount >= limit) {
-        //* Calculate how many notifications to remove
-        const excess = notificationCount - limit + 1;
-
-        //* Find the oldest notifications to remove
-        const oldestNotifications = await Notification.find({ userId })
-          .sort({ createdAt: 1 })
-          .limit(excess)
-          .select("_id");
-
-        const idsToRemove = oldestNotifications.map((n) => n._id);
-
-        //* Remove oldest notifications
-        await Notification.deleteMany({ _id: { $in: idsToRemove } });
-
-        console.log(
-          `Removed ${excess} oldest notifications for user ${userId}`
-        );
+      if (count >= limit) {
+        await Notification.find({ userId })
+          .sort({ createdAt: 1 }) //* oldest first
+          .skip(limit - 1) //* keep latest (limit - 1)
+          .deleteMany();
       }
     } catch (error) {
       throw new Error(`Failed to enforce notification limit: ${error.message}`);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/locationDialog.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_action_button.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/locations/presentation/widgets/location_card.dart';
@@ -102,10 +103,18 @@ Widget buildCurrentLocationButton(
                     Expanded(
                       flex: 1,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           final provider =
                               context.read<MedicalCenterProvider>();
-                          provider.setLocation(false, context);
+
+                          bool userResponse =
+                              await showLocationDisclosure(context);
+
+                          if (!userResponse) {
+                            return;
+                          } else {
+                            provider.setLocation(false, context);
+                          }
 
                           Navigator.pop(context, "current");
                         },
@@ -138,10 +147,18 @@ Widget buildCurrentLocationButton(
                     Expanded(
                       flex: 1,
                       child: ElevatedButton(
-                        onPressed: () {
+                        onPressed: () async {
                           final provider =
                               context.read<MedicalCenterProvider>();
-                          provider.setLocation(true, context);
+
+                          bool userResponse =
+                              await showLocationDisclosure(context);
+
+                          if (!userResponse) {
+                            return;
+                          } else {
+                            provider.setLocation(true, context);
+                          }
 
                           Navigator.pop(context, "fetch");
                         },

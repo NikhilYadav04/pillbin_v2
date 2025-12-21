@@ -6,6 +6,7 @@ import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/locationDialog.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/presentation/widgets/complete_profile_widgets.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
@@ -383,7 +384,15 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
           if (_latitude == 0.0 && _longitude == 0.0) ...[
             SizedBox(height: sh * 0.01),
             GestureDetector(
-              onTap: getCoordinates,
+              onTap: () async {
+                bool userResponse = await showLocationDisclosure(context);
+
+                if (!userResponse) {
+                  return;
+                } else {
+                  getCoordinates();
+                }
+              },
               child: Container(
                 padding: EdgeInsets.symmetric(
                   horizontal: sw * 0.03,
@@ -751,12 +760,11 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
               borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
               boxShadow: [
                 BoxShadow(
-                  color: PillBinColors.primary.withOpacity(
-                    _isLoading ? 0.3 : 0.4,
-                  ),
-                  blurRadius: _isLoading ? 8 : 12,
-                  offset: Offset(0, 2)
-                ),
+                    color: PillBinColors.primary.withOpacity(
+                      _isLoading ? 0.3 : 0.4,
+                    ),
+                    blurRadius: _isLoading ? 8 : 12,
+                    offset: Offset(0, 2)),
               ],
             ),
             child: Material(
