@@ -47,3 +47,5 @@ app.*.map.json
 /android/app/src/profile
 /android/gradle
 
+/app/.env
+.env
