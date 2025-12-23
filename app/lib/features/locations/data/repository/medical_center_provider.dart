@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/locations/data/network/medical_center_services.dart';
@@ -38,6 +39,54 @@ class MedicalCenterProvider extends ChangeNotifier {
 
   void clearFilterSearchFetch() {
     _isSearchActiveFetch = false;
+    notifyListeners();
+  }
+
+  //* markers for map
+
+  Set<Marker> _markers = {};
+  Set<Marker> get markers => _markers;
+
+  void addMarker(
+      {required double lat,
+      required double long,
+      required String markerId,
+      required InfoWindow info}) {
+    LatLng locationObject = LatLng(lat, long);
+
+    Marker mark = Marker(
+        markerId: MarkerId(markerId),
+        position: locationObject,
+        visible: true,
+        icon: BitmapDescriptor.defaultMarker,
+        infoWindow: info);
+
+    _markers.add(mark);
+    notifyListeners();
+  }
+
+  void addAllMarkers(Set<Marker> listMarkers) {
+    _markers.addAll(listMarkers);
+    notifyListeners();
+  }
+
+  void clearMarkers() {
+    _markers.clear();
+
+    LatLng locationObject = LatLng(_latitude, _longitude);
+
+    Marker mark = Marker(
+      markerId: MarkerId('current_location'),
+      position: locationObject,
+      visible: true,
+      icon: BitmapDescriptor.defaultMarker,
+      infoWindow: const InfoWindow(
+        title: 'Current Location',
+        //snippet: 'Open 9 AM – 8 PM',
+      ),
+    );
+
+    _markers.add(mark);
     notifyListeners();
   }
 
@@ -431,6 +480,7 @@ class MedicalCenterProvider extends ChangeNotifier {
       if (_isLoadingNearby || !_hasMoreFetch) return 'blocked';
 
       if (_pageFetch == 1) {
+        clearMarkers();
         _isLoadingFetch = true;
       } else {
         _isLoadingNearby = true;
@@ -457,6 +507,34 @@ class MedicalCenterProvider extends ChangeNotifier {
           _fetchedCenters = medicalCenters;
         } else {
           _fetchedCenters.addAll(medicalCenters);
+        }
+
+        //* Update markers
+        if (markers.length <= 6) {
+          Set<Marker> _fetchedMarkers = {};
+
+          for (MedicalCenter center in medicalCenters) {
+            _fetchedMarkers.add(Marker(
+                markerId: MarkerId(center.name),
+                visible: true,
+                icon: BitmapDescriptor.defaultMarker,
+                position:
+                    LatLng(center.coordinates[1], center.coordinates[0]),
+                infoWindow:
+                    InfoWindow(title: center.name, snippet: center.email)));
+
+            var logger = Logger();
+            logger.d(Marker(
+                markerId: MarkerId(center.name),
+                visible: true,
+                icon: BitmapDescriptor.defaultMarker,
+                position:
+                    LatLng(center.coordinates[1], center.coordinates[0]),
+                infoWindow:
+                    InfoWindow(title: center.name, snippet: center.email)));
+          }
+
+          addAllMarkers(_fetchedMarkers);
         }
 
         _fetchedCount = data["pagination"]["totalFound"];

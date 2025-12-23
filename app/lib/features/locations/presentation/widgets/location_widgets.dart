@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:logger/logger.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/locationDialog.dart';
@@ -198,10 +197,11 @@ Widget buildCurrentLocationButton(
   );
 }
 
-Widget buildMapContainer(double sw, double sh, bool isTablet) {
+Widget buildMapContainer(
+    double sw, double sh, bool isTablet, void Function() onTap) {
   return Container(
-    margin: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
-    height: isTablet ? sh * 0.5 : sh * 0.35,
+    margin: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.05),
+    height: isTablet ? sh * 0.5 : sh * 0.3,
     decoration: BoxDecoration(
       color: PillBinColors.greyLight,
       borderRadius: BorderRadius.circular(isTablet ? 24 : 16),
@@ -278,11 +278,14 @@ Widget buildMapContainer(double sw, double sh, bool isTablet) {
                 ),
               ),
               SizedBox(height: sh * 0.005),
-              Text(
-                'Tap locations for details',
-                style: PillBinRegular.style(
-                  fontSize: isTablet ? sw * 0.018 : sw * 0.035,
-                  color: PillBinColors.textSecondary,
+              InkWell(
+                onTap: onTap,
+                child: Text(
+                  'Switch to Map View ',
+                  style: PillBinRegular.style(
+                    fontSize: isTablet ? sw * 0.018 : sw * 0.035,
+                    color: PillBinColors.textSecondary,
+                  ),
                 ),
               ),
             ],
@@ -349,14 +352,17 @@ Widget buildNearbyLocations(
     );
   }
 
+  /// 1 header + centers + optional loader
+  final itemCount =
+      1 + provider.fetchedCenters.length + (provider.isLoadingNearby ? 1 : 0);
+
   return ListView.builder(
     physics: const NeverScrollableScrollPhysics(),
     shrinkWrap: true,
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
-    itemCount:
-        provider.fetchedCenters.length + (provider.isLoadingNearby ? 1 : 0),
+    itemCount: itemCount,
     itemBuilder: (context, index) {
-      //* Header
+      /// 🔹 HEADER
       if (index == 0) {
         return Padding(
           padding: EdgeInsets.only(bottom: sh * 0.02),
@@ -370,15 +376,15 @@ Widget buildNearbyLocations(
         );
       }
 
-      //* Loader (last item)
-      if (provider.isLoadingNearby &&
-          index == provider.fetchedCenters.length + 1) {
+      /// 🔹 LOADER (LAST ITEM)
+      if (provider.isLoadingNearby && index == itemCount - 1) {
         return const Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Center(child: CircularProgressIndicator()),
         );
       }
 
+      /// 🔹 LIST ITEMS
       final center = provider.fetchedCenters[index - 1];
 
       return LocationCard(

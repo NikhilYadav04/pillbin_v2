@@ -12,6 +12,7 @@ Future<bool> showLocationDisclosure(BuildContext context) async {
           'PillBin uses your location to help you find nearby medicine disposal centers.\n\n'
           'Your location is used only when you choose to search for disposal centers '
           'and is not stored or tracked continuously.\n\n'
+          'The app does not access your location in the background at any time.\n\n'
           'You can continue without granting location access.',
         ),
         actions: [

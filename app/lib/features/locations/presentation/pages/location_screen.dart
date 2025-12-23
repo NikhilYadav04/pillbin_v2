@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
 import 'package:pillbin/config/theme/appColors.dart';
+import 'package:pillbin/core/utils/deBouncer.dart';
 import 'package:pillbin/core/utils/locationCardShimmer.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
+import 'package:pillbin/features/locations/presentation/pages/location_map_card.dart';
 import 'package:pillbin/features/locations/presentation/widgets/location_widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -18,9 +21,41 @@ class _LocationScreenState extends State<LocationScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  //* debounce to prevent multiple search calls
+  final Debouncer _deBouncer = Debouncer(milliseconds: 2000);
+
   //* Search and filter controllers
   final TextEditingController _searchController = TextEditingController();
   double _searchRadius = 5.0; //* Default 5 km radius
+
+  //* switch to map view
+  bool isMapView = false;
+
+  //* switch to map view and initialize
+  Future<void> prepareMap() async {
+    final provider = Provider.of<MedicalCenterProvider>(context, listen: false);
+
+    final double? latitude = provider.latitude;
+    final double? longitude = provider.longitude;
+
+    if ((latitude == null || latitude == 0.0) &&
+        (longitude == null || longitude == 0.0)) {
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.maps_home_work_rounded,
+          title: "Please set your location first. Location cannot be empty.");
+      return;
+    }
+
+    setState(() {
+      isMapView = true;
+    });
+
+    provider.clearMarkers();
+  }
+
+  //* lock scroll when interacting with map
+  bool _lockScroll = false;
 
   @override
   void initState() {
@@ -63,6 +98,7 @@ class _LocationScreenState extends State<LocationScreen>
   void dispose() {
     _animationController.dispose();
     _searchController.dispose();
+    _deBouncer.dispose();
     super.dispose();
   }
 
@@ -116,30 +152,19 @@ class _LocationScreenState extends State<LocationScreen>
               return Column(
                 children: [
                   buildLocationHeader(sw, sh, isTablet),
-                  _buildSearchBar(sw, sh, isTablet),
-                  _buildRadiusSlider(sw, sh, isTablet),
+                  InkWell(
+                      onTap: () {
+                        var logger = Logger();
+                        logger.d(provider.markers);
+                        logger.d(provider.markers.length);
+                      },
+                      child: _buildRadiusSlider(sw, sh, isTablet)),
                   Expanded(
                     child: isTablet
-                        ? provider.isLoadingFetch &&
-                                provider.fetchedCenters.isEmpty
-                            ? LocationCardShimmer(sw: sw, sh: sh)
-                            : _buildTabletLayout(
-                                sw,
-                                sh,
-                                provider.latitude,
-                                provider.longitude,
-                                provider.placeName,
-                                provider)
-                        : provider.isLoadingFetch && provider.fetchedCenters.isEmpty
-
-                            ? LocationCardShimmer(sw: sw, sh: sh)
-                            : _buildMobileLayout(
-                                sw,
-                                sh,
-                                provider.latitude,
-                                provider.longitude,
-                                provider.placeName,
-                                provider),
+                        ? _buildTabletLayout(sw, sh, provider.latitude,
+                            provider.longitude, provider.placeName, provider)
+                        : _buildMobileLayout(sw, sh, provider.latitude,
+                            provider.longitude, provider.placeName, provider),
                   ),
                 ],
               );
@@ -150,123 +175,16 @@ class _LocationScreenState extends State<LocationScreen>
     );
   }
 
-  Widget _buildSearchBar(double sw, double sh, bool isTablet) {
+  Widget _buildRadiusSlider(double sw, double sh, bool isTablet) {
     return Padding(
       padding: EdgeInsets.symmetric(
         horizontal: sw * (isTablet ? 0.05 : 0.04),
         vertical: sh * 0.015,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: sh * (isTablet ? 0.055 : 0.06),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius:
-                    BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: sw * 0.02,
-                    offset: Offset(0, sh * 0.002),
-                  ),
-                ],
-              ),
-              child: Center(
-                child: TextField(
-                  controller: _searchController,
-                  onSubmitted: (_) => _performSearch(),
-                  textAlignVertical: TextAlignVertical.center,
-                  decoration: InputDecoration(
-                    hintText: 'Search location, address, or pharmacy...',
-                    hintStyle: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: sw * (isTablet ? 0.023 : 0.038),
-                    ),
-                    prefixIcon: Icon(
-                      Icons.search,
-                      color: Colors.grey[600],
-                      size: sw * (isTablet ? 0.032 : 0.06),
-                    ),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: Icon(
-                              Icons.clear,
-                              color: Colors.grey[600],
-                              size: sw * (isTablet ? 0.028 : 0.055),
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                _searchController.clear();
-                              });
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.symmetric(
-                      horizontal: sw * 0.04,
-                    ),
-                  ),
-                  onChanged: (value) {
-                    setState(() {}); // Update UI to show/hide clear button
-                  },
-                ),
-              ),
-            ),
-          ),
-          SizedBox(width: sw * 0.02),
-          Container(
-            height: sh * (isTablet ? 0.055 : 0.06),
-            width: sh * (isTablet ? 0.055 : 0.06),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  PillBinColors.primary,
-                  PillBinColors.primary.withOpacity(0.8),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius:
-                  BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
-              boxShadow: [
-                BoxShadow(
-                  color: PillBinColors.primary.withOpacity(0.3),
-                  blurRadius: sw * 0.02,
-                  offset: Offset(0, sh * 0.004),
-                ),
-              ],
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius:
-                    BorderRadius.circular(sw * (isTablet ? 0.015 : 0.03)),
-                onTap: _performSearch,
-                child: Icon(
-                  Icons.search,
-                  color: Colors.white,
-                  size: sw * (isTablet ? 0.032 : 0.065),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRadiusSlider(double sw, double sh, bool isTablet) {
-    return Padding(
-      padding: EdgeInsets.symmetric(
-        horizontal: sw * (isTablet ? 0.05 : 0.04),
-        vertical: sh * 0.01,
-      ),
       child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: sw * 0.03,
-          vertical: sh * (isTablet ? 0.012 : 0.015),
+          vertical: sh * (isTablet ? 0.012 : 0.018),
         ),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -293,12 +211,14 @@ class _LocationScreenState extends State<LocationScreen>
                       color: PillBinColors.primary,
                     ),
                     SizedBox(width: sw * 0.02),
-                    Text(
-                      'Search Radius',
-                      style: TextStyle(
-                        fontSize: sw * (isTablet ? 0.02 : 0.038),
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
+                    InkWell(
+                      child: Text(
+                        'Search Radius',
+                        style: TextStyle(
+                          fontSize: sw * (isTablet ? 0.02 : 0.038),
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey[800],
+                        ),
                       ),
                     ),
                   ],
@@ -350,7 +270,9 @@ class _LocationScreenState extends State<LocationScreen>
                   });
                 },
                 onChangeEnd: (value) {
-                  _performSearch();
+                  _deBouncer.run(() {
+                    _performSearch();
+                  });
                 },
               ),
             ),
@@ -382,33 +304,81 @@ class _LocationScreenState extends State<LocationScreen>
     );
   }
 
-  Widget _buildMobileLayout(double sw, double sh, double latitude,
-      double longitude, String name, MedicalCenterProvider provider) {
-    return ListView(
-      controller: _scrollController,
-      padding: EdgeInsets.zero,
+  Widget _buildMobileLayout(
+    double sw,
+    double sh,
+    double latitude,
+    double longitude,
+    String name,
+    MedicalCenterProvider provider,
+  ) {
+    return Column(
       children: [
-        SizedBox(height: sh * 0.02),
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          switchInCurve: Curves.easeOut,
+          switchOutCurve: Curves.easeIn,
+          transitionBuilder: (child, animation) {
+            final offset = Tween<Offset>(
+              begin: const Offset(0, 0.2),
+              end: Offset.zero,
+            ).animate(animation);
 
-        buildCurrentLocationButton(sw, sh, false, context),
-        SizedBox(height: sh * 0.02),
-
-        buildLocationInfo(sw, sh, false, latitude, longitude, name),
-        SizedBox(height: sh * 0.025),
-
-        buildMapContainer(sw, sh, false),
-        SizedBox(height: sh * 0.03),
-
-        // 👇 IMPORTANT: this must NOT create its own scroll
-        buildNearbyLocations(
-          sw,
-          sh,
-          false,
-          provider,
-          _scrollController,
+            return SlideTransition(
+              position: offset,
+              child: FadeTransition(
+                opacity: animation,
+                child: child,
+              ),
+            );
+          },
+          child: isMapView
+              ? LocationMapCard(
+                  key: const ValueKey('map'),
+                  isTablet: false,
+                  sh: sh,
+                  sw: sw,
+                  onMapTouch: (isTouching) {
+                    setState(() {
+                      _lockScroll = isTouching;
+                    });
+                  },
+                )
+              : buildMapContainer(
+                  sw,
+                  sh,
+                  false,
+                  prepareMap,
+                ),
         ),
 
-        SizedBox(height: sh * 0.02),
+        /// 🔽 SCROLLABLE CONTENT
+        Expanded(
+          child: ListView(
+            controller: _scrollController,
+            physics: _lockScroll
+                ? const NeverScrollableScrollPhysics()
+                : const BouncingScrollPhysics(),
+            padding: EdgeInsets.zero,
+            children: [
+              SizedBox(height: sh * 0.02),
+              buildCurrentLocationButton(sw, sh, false, context),
+              SizedBox(height: sh * 0.02),
+              buildLocationInfo(sw, sh, false, latitude, longitude, name),
+              SizedBox(height: sh * 0.03),
+              provider.isLoadingFetch && provider.fetchedCenters.isEmpty
+                  ? LocationCardShimmer(sw: sw, sh: sh)
+                  : buildNearbyLocations(
+                      sw,
+                      sh,
+                      false,
+                      provider,
+                      _scrollController,
+                    ),
+              SizedBox(height: sh * 0.02),
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -417,59 +387,60 @@ class _LocationScreenState extends State<LocationScreen>
       double longitude, String name, MedicalCenterProvider provider) {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: sw * 0.05),
-      child: SingleChildScrollView(
-        physics: const BouncingScrollPhysics(),
-        child: Column(
-          children: [
-            SizedBox(height: sh * 0.02),
-            buildCurrentLocationButton(sw, sh, true, context),
-            SizedBox(height: sh * 0.02),
-            buildLocationInfo(sw, sh, false, latitude, longitude, name),
-            SizedBox(height: sh * 0.02),
-            buildMapContainer(sw, sh, true),
-            SizedBox(height: sh * 0.02),
-            buildNearbyLocations(sw, sh, true, provider, _scrollController),
-            SizedBox(height: sh * 0.02),
-            // Row(
-            //   crossAxisAlignment: CrossAxisAlignment.start,
-            //   children: [
-            //     // Left column - Map and location button (Fixed content, scrollable if needed)
-            //     Expanded(
-            //       flex: 1,
-            //       child: SingleChildScrollView(
-            //         physics: const BouncingScrollPhysics(),
-            //         child: Column(
-            //           children: [
-            //             SizedBox(height: sh * 0.02),
-            //           ],
-            //         ),
-            //       ),
-            //     ),
-            //     SizedBox(width: sw * 0.03),
-            //     // Right column - Nearby locations (Independent scrolling for large cards)
-            //     Expanded(
-            //       flex: 1,
-            //       child: Column(
-            //         children: [
-            //           SizedBox(height: sh * 0.02),
-            //           Expanded(
-            //             child: SingleChildScrollView(
-            //               physics: const BouncingScrollPhysics(),
-            //               child: Column(
-            //                 children: [
-            //                   buildNearbyLocations(sw, sh, true, provider),
-            //                   SizedBox(height: sh * 0.02), // Bottom padding
-            //                 ],
-            //               ),
-            //             ),
-            //           ),
-            //         ],
-            //       ),
-            //     ),
-            //   ],
-            // ),
-          ],
-        ),
+      child: ListView(
+        controller: _scrollController,
+        physics: _lockScroll
+            ? const NeverScrollableScrollPhysics()
+            : const BouncingScrollPhysics(),
+        children: [
+          SizedBox(height: sh * 0.02),
+          buildCurrentLocationButton(sw, sh, true, context),
+          SizedBox(height: sh * 0.02),
+          buildLocationInfo(sw, sh, false, latitude, longitude, name),
+          SizedBox(height: sh * 0.02),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 350),
+            switchInCurve: Curves.easeOut,
+            switchOutCurve: Curves.easeIn,
+            transitionBuilder: (child, animation) {
+              final offset = Tween<Offset>(
+                begin: const Offset(0, 0.2),
+                end: Offset.zero,
+              ).animate(animation);
+
+              return SlideTransition(
+                position: offset,
+                child: FadeTransition(
+                  opacity: animation,
+                  child: child,
+                ),
+              );
+            },
+            child: isMapView
+                ? LocationMapCard(
+                    key: const ValueKey('map'),
+                    isTablet: false,
+                    sh: sh,
+                    sw: sw,
+                    onMapTouch: (isTouching) {
+                      setState(() {
+                        _lockScroll = isTouching;
+                      });
+                    },
+                  )
+                : buildMapContainer(
+                    sw,
+                    sh,
+                    true,
+                    prepareMap,
+                  ),
+          ),
+          SizedBox(height: sh * 0.02),
+          provider.isLoadingFetch && provider.fetchedCenters.isEmpty
+              ? LocationCardShimmer(sw: sw, sh: sh)
+              : buildNearbyLocations(sw, sh, true, provider, _scrollController),
+          SizedBox(height: sh * 0.02),
+        ],
       ),
     );
   }

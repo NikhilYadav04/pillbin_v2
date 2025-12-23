@@ -222,20 +222,20 @@ class MedicineProvider extends ChangeNotifier {
       if (!userModel.badges.greenChampion.achieved) {
         userModel.badges.greenChampion.achieved = true;
         userModel.badges.greenChampion.unlockedAt = DateTime.now();
+
+        Future.delayed(Duration(milliseconds: 800), () {
+          showDialog(
+              context: context,
+              barrierColor: Colors.transparent,
+              builder: (context) => UnlockedAchievementCard(
+                    type: AchievementType.greenChampion,
+                    title: 'Green Champion!',
+                    description: 'Amazing! You\'ve tracked 20 medicines!',
+                    icon: Icons.emoji_events,
+                    onDismiss: () => Navigator.pop(context),
+                  ));
+        });
       }
-    } else {
-      Future.delayed(Duration(milliseconds: 800), () {
-        showDialog(
-            context: context,
-            barrierColor: Colors.transparent,
-            builder: (context) => UnlockedAchievementCard(
-                  type: AchievementType.greenChampion,
-                  title: 'Green Champion!',
-                  description: 'Amazing! You\'ve tracked 20 medicines!',
-                  icon: Icons.emoji_events,
-                  onDismiss: () => Navigator.pop(context),
-                ));
-      });
     }
   }
 
