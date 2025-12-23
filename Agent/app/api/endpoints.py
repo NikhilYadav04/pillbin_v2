@@ -7,7 +7,7 @@ from app.models.schemas import (
     DeleteResponse,
     DeleteAllResponse,
 )
-from app.services import vector_store, agent_service
+from app.services import vector_store, agent_service, redis_service
 from config import TEMP_UPLOAD_DIR
 from config import ADMIN
 from pathlib import Path
@@ -43,6 +43,15 @@ async def upload_pdf(
 
     # Save uploaded file temporarily
     try:
+
+        # check whether user hit pdf upload daily limit or not
+        check = await redis_service.check_upload_count(user_id=user_id)
+
+        if check == False:
+            return UploadResponse(
+                statusCode=429, message="PDF upload limit reached (2/day)"
+            )
+
         # Save uploaded file temporarily
         with temp_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -82,6 +91,15 @@ async def query_agent(request: QueryRequest, response: Response):
     user's indexed report to answer.
     """
     print(f"Received query from {request.user_id}: {request.query}")
+
+    # check whether user hit pdf upload daily limit or not
+    check = await redis_service.check_query_count(user_id=request.user_id)
+
+    if check == False:
+        return UploadResponse(
+            statusCode=429, message="Query limit exceeded for PDF questions (10 max)"
+        )
+
     response_dict = agent_service.run_agent_query(request.user_id, request.query)
     response.status_code = response_dict["code"]
     return QueryResponse(

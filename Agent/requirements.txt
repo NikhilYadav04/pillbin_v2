@@ -26,3 +26,5 @@ duckduckgo-search==6.3.7
 # --------------- Pinecone ----------------
 pinecone==7.3.0
 
+# ------------- Cache ----------
+redis==7.1.0
