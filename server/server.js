@@ -11,6 +11,7 @@ const medicineRoutes = require("./routes/medicine");
 const medicalCenterRoutes = require("./routes/medicalCenter");
 const notificationRoutes = require("./routes/notification");
 const chatbotRoutes = require("./routes/chatbot");
+const ragRoutes = require("./routes/rag");
 const { connectDB } = require("./config/database");
 const morgan = require("morgan");
 
@@ -32,6 +33,7 @@ app.use("/api/medicine", medicineRoutes);
 app.use("/api/medical-center", medicalCenterRoutes);
 app.use("/api/chatbot", chatbotRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/rag", ragRoutes);
 
 //* Default Route
 app.get("/", (req, res) => {
