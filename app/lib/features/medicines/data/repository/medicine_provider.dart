@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/core/cards/unlocked_cards.dart';
@@ -12,11 +13,14 @@ import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/models/medicine_model.dart';
 import 'package:pillbin/network/models/user_model.dart' as userClass;
+import 'package:pillbin/network/utils/http_client.dart';
 import 'package:provider/provider.dart';
 
 class MedicineProvider extends ChangeNotifier {
   //* initialize services
   final MedicineServices _medicineServices = MedicineServices();
+  final CacheManager _cacheManager = CacheManager();
+  final HttpClient _httpClient = HttpClient();
 
   //* medicines list
 
@@ -376,76 +380,134 @@ class MedicineProvider extends ChangeNotifier {
   }
 
   //* get Inventory
-  Future<String> getInventory({required BuildContext context}) async {
+  Future<String> getInventory(
+      {required BuildContext context, bool forceRefresh = false}) async {
     try {
       _isFetching = true;
       notifyListeners();
 
-      ApiResponse<Map<String, dynamic>> response =
-          await _medicineServices.getInventory();
+      final isOnline = _httpClient.isOnline;
 
-      if (response.statusCode == 200) {
-        Map<String, dynamic> inventory = response.data!["inventory"];
+      //* Try cache first if offline or not forcing refresh
+      if (!forceRefresh &&
+          (!isOnline || await _cacheManager.hasValidMedicinesCache())) {
+        final cachedData = await _cacheManager.getCachedMedicinesInventory();
 
-        //* separate each type of medicines in the list
-        List<Medicine> activeMedicines =
-            (inventory["activeMedicines"] as List<dynamic>? ?? [])
-                .map((item) => Medicine.fromJson(item))
-                .toList();
+        if (cachedData != null) {
+          Logger().i("Loading medicines from cache");
 
-        List<Medicine> expiringSoonMedicines =
-            (inventory["expiringSoonMedicines"] as List<dynamic>? ?? [])
-                .map((item) => Medicine.fromJson(item))
-                .toList();
+          List<Medicine> activeMedicines =
+              (cachedData["activeMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
 
-        List<Medicine> expiredMedicines =
-            (inventory["expiredMedicines"] as List<dynamic>? ?? [])
-                .map((item) => Medicine.fromJson(item))
-                .toList();
+          List<Medicine> expiringSoonMedicines =
+              (cachedData["expiringSoonMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
 
-        setActiveInventory(activeMedicines);
+          List<Medicine> expiredMedicines =
+              (cachedData["expiredMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
 
-        setExpiringSoonInventory(expiringSoonMedicines);
+          setActiveInventory(activeMedicines);
+          setExpiringSoonInventory(expiringSoonMedicines);
+          setExpiredInventory(expiredMedicines);
 
-        setExpiredInventory(expiredMedicines);
+          _isFetching = false;
+          notifyListeners();
 
-        _isFetching = false;
+          if (!isOnline && context.mounted) {
+            CustomSnackBar.show(
+              context: context,
+              icon: Icons.cloud_off,
+              title: "Offline - Showing cached data",
+            );
+          }
 
-        UserProvider? user = context.read<UserProvider>();
-        userClass.UserModel? userModel = user.user;
+          return 'success';
+        }
+      }
 
-        userModel?.stats.expiringSoonCount =
-            _expiringSoonMedicinesInventory.length;
-        notifyListeners();
+      //* Fetch from API if online
+      if (isOnline || forceRefresh) {
+        ApiResponse<Map<String, dynamic>> response =
+            await _medicineServices.getInventory();
 
-        return 'success';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
-        _isFetching = false;
-        notifyListeners();
+        if (response.statusCode == 200) {
+          Map<String, dynamic> inventory = response.data!["inventory"];
 
-        CustomSnackBar.show(
-            context: context,
-            icon: Icons.medical_information,
-            title: "Error fetching inventory !");
-        return 'error';
+          //* Cache the inventory
+          await _cacheManager.cacheMedicinesInventory(inventory);
+          await _cacheManager.setLastSyncTime();
+
+          List<Medicine> activeMedicines =
+              (inventory["activeMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
+
+          List<Medicine> expiringSoonMedicines =
+              (inventory["expiringSoonMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
+
+          List<Medicine> expiredMedicines =
+              (inventory["expiredMedicines"] as List<dynamic>? ?? [])
+                  .map((item) => Medicine.fromJson(item))
+                  .toList();
+
+          setActiveInventory(activeMedicines);
+          setExpiringSoonInventory(expiringSoonMedicines);
+          setExpiredInventory(expiredMedicines);
+
+          _isFetching = false;
+          notifyListeners();
+
+          return 'success';
+        } else {
+          _isFetching = false;
+          notifyListeners();
+
+          if (context.mounted) {
+            CustomSnackBar.show(
+              context: context,
+              icon: Icons.medical_information,
+              title: "Error fetching inventory!",
+            );
+          }
+          return 'error';
+        }
       } else {
+        //* Offline and no cache
         _isFetching = false;
         notifyListeners();
 
-        CustomSnackBar.show(
+        if (context.mounted) {
+          CustomSnackBar.show(
             context: context,
-            icon: Icons.medical_information,
-            title: "Error fetching inventory !");
+            icon: Icons.cloud_off,
+            title: "No internet connection",
+          );
+        }
         return 'error';
       }
     } catch (e) {
       _isFetching = false;
       notifyListeners();
 
-      CustomSnackBar.show(
+      //* Try cache as fallback
+      final cachedData = await _cacheManager.getCachedMedicinesInventory();
+      if (cachedData != null && context.mounted) {
+        // Load from cache
+        CustomSnackBar.show(
           context: context,
-          icon: Icons.medical_information,
-          title: "Error fetching inventory !");
+          icon: Icons.cloud_off,
+          title: "Connection error - Showing cached data",
+        );
+      }
+
+      Logger().e(e.toString());
       return 'error';
     }
   }

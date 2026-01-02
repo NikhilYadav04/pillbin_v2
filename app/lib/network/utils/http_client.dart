@@ -12,6 +12,7 @@ class HttpClient {
 
   late Dio _dio;
   String? _authToken;
+  bool _isOnline = true;
 
   //* Secure storage - automatically encrypted
   static const _secureStorage = FlutterSecureStorage();
@@ -27,6 +28,7 @@ class HttpClient {
   static final String _emailKey = dotenv.get('USER_EMAIL_KEY');
 
   Dio get dio => _dio;
+  bool get isOnline => _isOnline;
 
   Future<void> init() async {
     _dio = Dio(BaseOptions(
@@ -59,11 +61,13 @@ class HttpClient {
           handler.next(options);
         },
         onResponse: (response, handler) {
+          _isOnline = true;
           if (kDebugMode) {
             print(
                 'RESPONSE: ${response.statusCode} ${response.requestOptions.uri}');
             print('DATA: ${response.data}');
           }
+
           handler.next(response);
         },
         onError: (error, handler) async {
@@ -71,6 +75,13 @@ class HttpClient {
             print(
                 'ERROR: ${error.response?.statusCode} ${error.requestOptions.uri}');
             print('MESSAGE: ${error.message}');
+          }
+
+          //* Check if its a connection error ( offline )
+          if (error.type == DioExceptionType.connectionError ||
+              error.type == DioExceptionType.connectionTimeout ||
+              error.type == DioExceptionType.unknown) {
+            _isOnline = false;
           }
 
           //* Handle 401 Unauthorized
@@ -180,47 +191,99 @@ class HttpClient {
       final token = await getAuthToken();
       final tokenRefresh = await getRefreshToken();
 
-      Logger().d("Token is Valid ${token}");
-      Logger().d("Token is Valid ${tokenRefresh}");
+      Logger().d("Access Token: ${token != null ? 'Valid' : 'Invalid'}");
+      Logger()
+          .d("Refresh Token: ${tokenRefresh != null ? 'Valid' : 'Invalid'}");
 
       if (token == null || token.isEmpty) {
         return false;
-      } else {
+      }
+
+      //* If we have a token, check if we can reach the server
+      try {
         final response = await _dio.get(
           '${ApiConfig.baseUrl}/api/user/test',
           options: Options(
             headers: {
               'Authorization': 'Bearer $token',
             },
+            sendTimeout: Duration(seconds: 5),
+            receiveTimeout: Duration(seconds: 5),
           ),
         );
 
-        if (response.statusCode == 401 || response.statusCode == 403) {
-          //* Retry with refresh token
-          final retryResponse = await _dio.get(
-            '${ApiConfig.baseUrl}/api/user/test',
-            options: Options(
-              headers: {
-                'Authorization': 'Bearer $tokenRefresh',
-              },
-            ),
-          );
-
-          if (retryResponse.statusCode == 200) {
-            return true;
-          } else {
-            logout();
-            return false;
-          }
-        } else if (response.statusCode == 200) {
+        if (response.statusCode == 200) {
+          _isOnline = true;
           return true;
-        } else {
-          logout();
+        } else if (response.statusCode == 401 || response.statusCode == 403) {
+          //* Try with refresh token
+          if (tokenRefresh != null) {
+            final retryResponse = await _dio.get(
+              '${ApiConfig.baseUrl}/api/user/test',
+              options: Options(
+                headers: {
+                  'Authorization': 'Bearer $tokenRefresh',
+                },
+                sendTimeout: Duration(seconds: 5),
+                receiveTimeout: Duration(seconds: 5),
+              ),
+            );
+
+            if (retryResponse.statusCode == 200) {
+              _isOnline = true;
+              return true;
+            }
+          }
+
+          //* Token is invalid
+          await logout();
           return false;
         }
+      } on DioException catch (e) {
+        //* If connection error, assume offline but token exists
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.connectionError ||
+            e.type == DioExceptionType.unknown) {
+          _isOnline = false;
+          Logger()
+              .w("Connection error - assuming offline mode with valid token");
+          //* We have a token, but can't verify it online
+          //* Allow user to proceed with cached data
+          return true;
+        }
+
+        //* Other errors (like 401) mean token is invalid
+        await logout();
+        return false;
       }
+
+      return false;
     } catch (e) {
-      logout();
+      Logger().e("Authentication check error: $e");
+      //* If we have a token but can't verify, assume offline
+      final token = await getAuthToken();
+      if (token != null && token.isNotEmpty) {
+        _isOnline = false;
+        return true;
+      }
+      return false;
+    }
+  }
+
+  //* Check network connectivity
+  Future<bool> checkConnection() async {
+    try {
+      final response = await _dio.get(
+        '${ApiConfig.baseUrl}/api/health',
+        options: Options(
+          sendTimeout: Duration(seconds: 3),
+          receiveTimeout: Duration(seconds: 3),
+        ),
+      );
+      _isOnline = response.statusCode == 200;
+      return _isOnline;
+    } catch (e) {
+      _isOnline = false;
       return false;
     }
   }

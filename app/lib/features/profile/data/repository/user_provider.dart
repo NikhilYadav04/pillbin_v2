@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/profile/data/network/user_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
@@ -12,6 +13,8 @@ import 'package:pillbin/network/utils/http_client.dart';
 class UserProvider extends ChangeNotifier {
   //* initialize services
   final UserServices _userServices = UserServices();
+  final CacheManager _cacheManager = CacheManager();
+  final HttpClient _httpClient = HttpClient();
 
   //* UserModel Methods
   userClass.UserModel? _user;
@@ -86,6 +89,9 @@ class UserProvider extends ChangeNotifier {
   //* removing of saved
   bool _isDelete = false;
   bool get isDelete => _isDelete;
+
+  bool _isLoadingFromCache = false;
+  bool get isLoadingFromCache => _isLoadingFromCache;
 
   void resetAllCenters() {
     _isLoading = false;
@@ -181,10 +187,21 @@ class UserProvider extends ChangeNotifier {
 
         setUser(user);
 
+        //* Cache the user profile
+        await _cacheManager.cacheUserProfile(userData);
+
         final _httpClient = HttpClient();
 
         await _httpClient.saveUserData(
             userData["fullName"], userData["phoneNumber"], userData["email"]);
+
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.person,
+            title: "Profile Completed Successfully!",
+          );
+        }
 
         CustomSnackBar.show(
             context: context,
@@ -192,21 +209,32 @@ class UserProvider extends ChangeNotifier {
             title: "Profile Completed Successfully !");
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
-        CustomSnackBar.show(
-            context: context, icon: Icons.person, title: response.message);
-        return 'error';
-      } else {
-        CustomSnackBar.show(
+        if (context.mounted) {
+          CustomSnackBar.show(
             context: context,
             icon: Icons.person,
-            title: "Server error. Please try again later");
+            title: response.message,
+          );
+        }
+        return 'error';
+      } else {
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.person,
+            title: "Server error. Please try again later",
+          );
+        }
         return 'error';
       }
     } catch (e) {
-      CustomSnackBar.show(
+      if (context.mounted) {
+        CustomSnackBar.show(
           context: context,
           icon: Icons.person,
-          title: "Server error. Please try again later");
+          title: "Server error. Please try again later",
+        );
+      }
       print(e.toString());
       return 'error';
     }
@@ -273,83 +301,181 @@ class UserProvider extends ChangeNotifier {
 
         setUser(updatedModel);
 
-        CustomSnackBar.show(
+        //* Update cache
+        if (updatedModel != null) {
+          await _cacheManager.cacheUserProfile(updatedModel.toJson());
+        }
+
+        if (context.mounted) {
+          CustomSnackBar.show(
             context: context,
             icon: Icons.person,
-            title: "Profile Edited Successfully !");
+            title: "Profile Updated Successfully!",
+          );
+        }
         return 'error';
       } else if (response.statusCode == 404) {
-        CustomSnackBar.show(
-            context: context, icon: Icons.person, title: response.message);
-        return 'error';
-      } else {
-        CustomSnackBar.show(
+        if (context.mounted) {
+          CustomSnackBar.show(
             context: context,
             icon: Icons.person,
-            title: "Server error. Please try again later");
+            title: response.message,
+          );
+        }
+        return 'error';
+      } else {
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.person,
+            title: "Server error. Please try again later",
+          );
+        }
         return 'error';
       }
     } catch (e) {
-      CustomSnackBar.show(
+      if (context.mounted) {
+        CustomSnackBar.show(
           context: context,
           icon: Icons.person,
-          title: "Server error. Please try again later");
+          title: "Server error. Please try again later",
+        );
+      }
       print(e.toString());
       return 'error';
     }
   }
 
   //* get profile
-  Future<String> getProfile({required BuildContext context}) async {
+  Future<String> getProfile(
+      {required BuildContext context, bool forceRefresh = false}) async {
     try {
       _isFetching = true;
       notifyListeners();
 
-      ApiResponse<Map<String, dynamic>> response =
-          await _userServices.getProfile();
+      //* Check if we're online
+      final isOnline = _httpClient.isOnline;
 
-      if (response.statusCode == 200) {
-        Map<String, dynamic> responseData = response.data!;
+      //* If offline or not forcing refresh, try to load from cache first
+      if (!forceRefresh &&
+          (!isOnline || await _cacheManager.hasValidUserProfileCache())) {
+        final cachedData = await _cacheManager.getCachedUserProfile();
 
-        Logger().d(responseData["user"]);
+        if (cachedData != null) {
+          Logger().i("Loading user profile from cache");
+          _isLoadingFromCache = true;
 
-        userClass.UserModel userData =
-            userClass.UserModel.fromJson(responseData["user"]);
+          userClass.UserModel userData =
+              userClass.UserModel.fromJson(cachedData);
+          setUser(userData);
 
-        _isFetching = false;
+          _isFetching = false;
+          _isLoadingFromCache = false;
+          notifyListeners();
 
-        setUser(userData);
+          //* If offline, show info message
+          if (!isOnline) {
+            if (context.mounted) {
+              CustomSnackBar.show(
+                context: context,
+                icon: Icons.cloud_off,
+                title: "Offline - Showing cached data",
+              );
+            }
+          }
 
-        notifyListeners();
+          return 'success';
+        }
+      }
 
-        return 'success';
-      } else if (response.statusCode == 404) {
-        _isFetching = false;
-        notifyListeners();
+      //* If online and (forcing refresh or no cache), fetch from API
+      if (isOnline || forceRefresh) {
+        ApiResponse<Map<String, dynamic>> response =
+            await _userServices.getProfile();
 
-        CustomSnackBar.show(
-            context: context, icon: Icons.person, title: response.message);
-        return 'error';
+        if (response.statusCode == 200) {
+          Map<String, dynamic> responseData = response.data!;
+
+          //* Cache the response
+          await _cacheManager.cacheUserProfile(responseData["user"]);
+          await _cacheManager.setLastSyncTime();
+
+          userClass.UserModel userData =
+              userClass.UserModel.fromJson(responseData["user"]);
+          setUser(userData);
+
+          _isFetching = false;
+          notifyListeners();
+
+          return 'success';
+        } else if (response.statusCode == 404) {
+          _isFetching = false;
+          notifyListeners();
+
+          if (context.mounted) {
+            CustomSnackBar.show(
+              context: context,
+              icon: Icons.person,
+              title: response.message,
+            );
+          }
+          return 'error';
+        } else {
+          _isFetching = false;
+          notifyListeners();
+
+          if (context.mounted) {
+            CustomSnackBar.show(
+              context: context,
+              icon: Icons.person,
+              title: "Error fetching profile details",
+            );
+          }
+          return 'error';
+        }
       } else {
+        //* Offline and no cache available
         _isFetching = false;
         notifyListeners();
 
-        CustomSnackBar.show(
+        if (context.mounted) {
+          CustomSnackBar.show(
             context: context,
-            icon: Icons.person,
-            title: "Error fetching profile details, please try again !!");
-
+            icon: Icons.cloud_off,
+            title: "No internet connection and no cached data available",
+          );
+        }
         return 'error';
       }
     } catch (e) {
       _isFetching = false;
       notifyListeners();
 
-      CustomSnackBar.show(
+      Logger().e("Error in getProfile: $e");
+
+      //* Try to load from cache as fallback
+      final cachedData = await _cacheManager.getCachedUserProfile();
+      if (cachedData != null) {
+        userClass.UserModel userData = userClass.UserModel.fromJson(cachedData);
+        setUser(userData);
+
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.cloud_off,
+            title: "Connection error - Showing cached data",
+          );
+        }
+        return 'success';
+      }
+
+      if (context.mounted) {
+        CustomSnackBar.show(
           context: context,
           icon: Icons.person,
-          title: "Error fetching profile details, please try again !!");
-      print(e.toString());
+          title: "Error fetching profile details",
+        );
+      }
       return 'error';
     }
   }
@@ -524,7 +650,7 @@ class UserProvider extends ChangeNotifier {
   }
 
   //* <----------------Reset----------------->
-  Future<void> reset() async{
+  Future<void> reset() async {
     resetUser();
     _medicalCenter.clear();
     _filteredAllCenters.clear();
@@ -535,7 +661,7 @@ class UserProvider extends ChangeNotifier {
     _isDelete = false;
     _isSearchActive = false;
 
-    notifyListeners();
+    _isLoadingFromCache = false;
 
     notifyListeners();
   }

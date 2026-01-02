@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
@@ -26,6 +28,8 @@ class _SplashScreenState extends State<SplashScreen>
 
   //* http client
   final HttpClient _httpClient = HttpClient();
+  final CacheManager _cacheManager = CacheManager();
+  final Logger _logger = Logger();
 
   @override
   void initState() {
@@ -91,34 +95,95 @@ class _SplashScreenState extends State<SplashScreen>
     await Future.delayed(const Duration(milliseconds: 800));
     _textController.forward();
 
-    // Navigate to landing page after all animations
-    bool isAuth = await _httpClient.isAuthenticated();
+    //* Wait for animations to complete
+    await Future.delayed(const Duration(milliseconds: 1500));
 
-    await Future.delayed(const Duration(milliseconds: 3000));
-
-    if (isAuth) {
-      Navigator.pushReplacementNamed(
-        context,
-        '/bottom-bar-screen',
-        arguments: {
-          'transition': TransitionType.bottomToTop,
-          'duration': 300,
-        },
-      );
-    } else {
-      Navigator.pushReplacementNamed(
-        context,
-        '/landing-screen',
-        arguments: {
-          'transition': TransitionType.bottomToTop,
-          'duration': 300,
-        },
-      );
-    }
+    //* Check authentication and cache status
+    await _checkAuthAndNavigate();
   }
 
-  void _navigateToLanding() {
-    Navigator.of(context).pushReplacementNamed('/landing');
+  Future<void> _checkAuthAndNavigate() async {
+    try {
+      _logger.i("Checking authentication status...");
+
+      //* Check if user has valid tokens
+      bool isAuth = await _httpClient.isAuthenticated();
+
+      if (isAuth) {
+        _logger.i("User is authenticated");
+
+        //* Check if we have cached data
+        final cacheStatus = await _cacheManager.getCacheStatus();
+        final hasCachedData = cacheStatus.values.any((hasCache) => hasCache);
+
+        _logger.i("Cache status: $cacheStatus");
+        _logger.i("Has cached data: $hasCachedData");
+
+        if (hasCachedData) {
+          _logger.i("Cached data available - proceeding to home");
+        } else {
+          _logger.i("No cached data - will fetch on home screen");
+        }
+
+        //* Navigate to home screen
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/bottom-bar-screen',
+            arguments: {
+              'transition': TransitionType.bottomToTop,
+              'duration': 300,
+            },
+          );
+        }
+      } else {
+        _logger.i("User not authenticated - going to landing page");
+
+        //* Navigate to landing page
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/landing-screen',
+            arguments: {
+              'transition': TransitionType.bottomToTop,
+              'duration': 300,
+            },
+          );
+        }
+      }
+    } catch (e) {
+      _logger.e("Error during authentication check: $e");
+
+      //* On error, check if we have tokens - if yes, go to home with cached data
+      final token = await _httpClient.getAuthToken();
+      if (token != null && token.isNotEmpty) {
+        _logger.w(
+            "Error checking auth but token exists - proceeding to home with cached data");
+
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/bottom-bar-screen',
+            arguments: {
+              'transition': TransitionType.bottomToTop,
+              'duration': 300,
+            },
+          );
+        }
+      } else {
+        //* No token, go to landing
+        if (mounted) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/landing-screen',
+            arguments: {
+              'transition': TransitionType.bottomToTop,
+              'duration': 300,
+            },
+          );
+        }
+      }
+    }
   }
 
   @override

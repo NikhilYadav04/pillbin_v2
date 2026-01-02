@@ -60,7 +60,7 @@ class _InventoryScreenState extends State<InventoryScreen>
       return;
     }
 
-    provider.getInventory(context: context);
+    provider.getInventory(context: context,forceRefresh: true);
   }
 
   @override

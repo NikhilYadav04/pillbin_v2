@@ -43,13 +43,13 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   //* fetch User Details
 
-  Future<void> _fetchUserDetails() async {
+  Future<void> _fetchUserDetails({bool isRefresh = false}) async {
     setState(() {
       _isFetchingProfile = true;
     });
 
     final userProvider = context.read<UserProvider>();
-    await userProvider.getProfile(context: context);
+    await userProvider.getProfile(context: context, forceRefresh: isRefresh);
 
     setState(() {
       _isFetchingProfile = false;
@@ -153,8 +153,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                       _isFetchingProfile = !_isFetchingProfile;
                     })
                   },
-              child: buildProfileAppBar(sw, sh, context, key,
-                  _isFetchingProfile ? () {} : _fetchUserDetails)),
+              child: buildProfileAppBar(
+                  sw,
+                  sh,
+                  context,
+                  key,
+                  _isFetchingProfile
+                      ? () {}
+                      : () {
+                          _fetchUserDetails(isRefresh: true);
+                        })),
           SizedBox(height: sh * 0.025),
           isLoading
               ? ShimmerCards.buildProfileHeaderShimmer(sw, sh, false)
@@ -185,8 +193,16 @@ class _ProfileScreenState extends State<ProfileScreen>
       child: Column(
         children: [
           // Fixed header section (non-scrollable)
-          buildProfileAppBar(sw, sh, context, key,
-              _isFetchingProfile ? () {} : _fetchUserDetails),
+          buildProfileAppBar(
+              sw,
+              sh,
+              context,
+              key,
+              _isFetchingProfile
+                  ? () {}
+                  : () {
+                      _fetchUserDetails(isRefresh: true);
+                    }),
           SizedBox(height: sh * 0.025),
           isLoading
               ? ShimmerCards.buildProfileHeaderShimmer(sw, sh, true)

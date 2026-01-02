@@ -45,7 +45,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
     // Scroll listener for pagination
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final provider = context.read<ChatbotProvider>();
-      if (provider.messages.isEmpty) provider.fetchMessages();
+      if (provider.messages.isEmpty) provider.fetchMessages(refresh: true);
       _scrollController.addListener(_onScroll);
     });
   }
@@ -317,7 +317,7 @@ class _ChatBotScreenState extends State<ChatBotScreen>
             ),
           const SizedBox(width: 12),
           GestureDetector(
-            onTap: () => provider.fetchMessages(refresh: true),
+            onTap: () => provider.fetchMessages(refresh: true,forceRefresh: true),
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(

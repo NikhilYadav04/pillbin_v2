@@ -102,7 +102,7 @@ class _ViewAllNotificationsScreenState
 
   void _refresh() {
     NotificationProvider provider = context.read<NotificationProvider>();
-    provider.fetchNotifications(context: context);
+    provider.fetchNotifications(context: context,forceRefresh: true);
   }
 
   @override

@@ -165,7 +165,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     final provider = Provider.of<MedicineProvider>(context, listen: false);
     _searchController.clear();
     provider.clearSearchFilter();
-    provider.getInventory(context: context);
+    provider.getInventory(context: context, forceRefresh: true);
   }
 
   @override
@@ -542,7 +542,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                         await _provider.deleteMedicine(
                           context: context,
                           medicineId: medicines[index].id,
-                        );    
+                        );
 
                         //* 2] Then, add notification BEFORE closing dialog
                         await _notificationProvider.addNotification(

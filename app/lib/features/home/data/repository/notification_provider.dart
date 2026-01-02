@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/home/data/network/notification_service.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/models/notification_model.dart';
+import 'package:pillbin/network/utils/http_client.dart';
 
 class NotificationProvider extends ChangeNotifier {
   //* List of Notifications
   List<NotificationModel> _notifications = [];
   List<NotificationModel> get notifications => _notifications;
+
+  final CacheManager _cacheManager = CacheManager();
+  final HttpClient _httpClient = HttpClient();
 
   void addNotifications(NotificationModel list) {
     _notifications.add(list);
@@ -95,46 +100,81 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   //* fetch notifications
-  Future<String> fetchNotifications({
-    required BuildContext context,
-  }) async {
+  Future<String> fetchNotifications(
+      {required BuildContext context, bool forceRefresh = false}) async {
     try {
       _isLoading = true;
       notifyListeners();
 
-      ApiResponse<Map<String, dynamic>> response =
-          await _notificationService.getNotifications();
-      if (response.statusCode == 200) {
-        Map<String, dynamic> notiData = response.data!;
+      final isOnline = _httpClient.isOnline;
 
-        List<NotificationModel> notificationsData =
-            (notiData['notifications'] as List<dynamic>)
-                .map((element) => NotificationModel.fromJson(element))
-                .toList();
+      if (!forceRefresh &&
+          (!isOnline || await _cacheManager.hasValidNotificationsCache())) {
+        final cachedData = await _cacheManager.getCachedNotifications();
 
-        _notifications = notificationsData;
+        if (cachedData != null) {
+          List<NotificationModel> notificationsData = cachedData
+              .map((element) => NotificationModel.fromJson(element))
+              .toList();
 
-        _isLoading = false;
-        notifyListeners();
+          _notifications = notificationsData;
+          _isLoading = false;
+          notifyListeners();
 
-        return 'success';
+          if (!isOnline && context.mounted) {
+            CustomSnackBar.show(
+              context: context,
+              icon: Icons.cloud_off,
+              title: "Offline - Showing cached data",
+            );
+          }
+
+          return 'success';
+        }
+      }
+
+      if (isOnline || forceRefresh) {
+        ApiResponse<Map<String, dynamic>> response =
+            await _notificationService.getNotifications();
+
+        if (response.statusCode == 200) {
+          Map<String, dynamic> notiData = response.data!;
+
+          //* Cache notifications
+          await _cacheManager.cacheNotifications(notiData['notifications']);
+
+          List<NotificationModel> notificationsData =
+              (notiData['notifications'] as List<dynamic>)
+                  .map((element) => NotificationModel.fromJson(element))
+                  .toList();
+
+          _notifications = notificationsData;
+          _isLoading = false;
+          notifyListeners();
+
+          return 'success';
+        } else {
+          _isLoading = false;
+          notifyListeners();
+          return 'error';
+        }
       } else {
         _isLoading = false;
         notifyListeners();
 
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.cloud_off,
+            title: "No internet connection",
+          );
+        }
         return 'error';
       }
     } catch (e) {
       _isLoading = false;
       notifyListeners();
-
-      CustomSnackBar.show(
-          context: context,
-          icon: Icons.notifications,
-          title:
-              "Unable to fetch notifications at the moment. Please try again later.");
-
-      print(e.toString());
+      Logger().e(e.toString());
       return 'error';
     }
   }

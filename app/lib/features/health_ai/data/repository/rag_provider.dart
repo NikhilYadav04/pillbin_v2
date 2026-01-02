@@ -2,17 +2,21 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
-import 'package:pillbin/config/notifications/notification_helper.dart';
 import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/health_ai/data/model/rag_model.dart';
 import 'package:pillbin/features/health_ai/data/service/rag_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
+import 'package:pillbin/network/utils/http_client.dart';
 
 class RagProvider extends ChangeNotifier {
   final RagServices _ragServices = RagServices();
   final Logger _logger = Logger();
+
+  final CacheManager _cacheManager = CacheManager();
+  final HttpClient _httpClient = HttpClient();
 
   //* <------------ STATE --------------------- >
   final List<HealthRagModel> _ragDocuments = [];
@@ -25,7 +29,7 @@ class RagProvider extends ChangeNotifier {
   bool get isFetching => _isFetching;
 
   int _page = 1;
-  final int _limit = 10;
+  final int _limit = 15;
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
@@ -39,7 +43,8 @@ class RagProvider extends ChangeNotifier {
   }
 
   //* fetch History
-  Future<void> fetchRagHistory({bool refresh = false}) async {
+  Future<void> fetchRagHistory(
+      {bool refresh = false, bool forceRefresh = false}) async {
     if (_isFetching || (!_hasMore && !refresh)) return;
 
     try {
@@ -49,33 +54,51 @@ class RagProvider extends ChangeNotifier {
         _page = 1;
         _hasMore = true;
         _ragDocuments.clear();
-        notifyListeners();
       }
 
-      final ApiResponse<Map<String, dynamic>> response =
-          await _ragServices.fetchRagHistory(
-        page: _page,
-        limit: _limit,
-      );
+      final isOnline = _httpClient.isOnline;
 
-      _logger.d("RAG Fetch Status: ${response.statusCode}");
+      if (_page == 1 &&
+          !forceRefresh &&
+          (!isOnline || await _cacheManager.hasValidRagHistoryCache())) {
+        final cachedData = await _cacheManager.getCachedRagHistory();
 
-      if (response.statusCode == 200) {
-        final List list = response.data!['data'];
-
-        final fetchedDocs =
-            list.map((e) => HealthRagModel.fromJson(e)).toList();
-
-        if (refresh || _page == 1) {
+        if (cachedData != null) {
+          final List list = cachedData['data'] ?? [];
+          final fetchedDocs =
+              list.map((e) => HealthRagModel.fromJson(e)).toList();
           _ragDocuments.addAll(fetchedDocs);
-        } else {
-          _ragDocuments.addAll(fetchedDocs);
+
+          _isFetching = false;
+          notifyListeners();
+          return;
         }
+      }
 
-        final pagination = response.data!['pagination'];
-        _hasMore = pagination['hasMore'] ?? false;
+      if (isOnline || forceRefresh) {
+        final ApiResponse<Map<String, dynamic>> response =
+            await _ragServices.fetchRagHistory(
+          page: _page,
+          limit: _limit,
+        );
 
-        _page++;
+        if (response.statusCode == 200) {
+          final data = response.data!;
+
+          if (_page == 1) {
+            await _cacheManager.cacheRagHistory(data);
+          }
+
+          final List list = data['data'];
+          final fetchedDocs =
+              list.map((e) => HealthRagModel.fromJson(e)).toList();
+
+          _ragDocuments.addAll(fetchedDocs);
+
+          final pagination = data['pagination'];
+          _hasMore = pagination['hasMore'] ?? false;
+          _page++;
+        }
       }
     } catch (e) {
       _logger.e(e);

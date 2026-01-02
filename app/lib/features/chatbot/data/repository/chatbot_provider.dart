@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/chatbot/data/model/chatBotModel.dart';
 import 'package:pillbin/features/chatbot/data/services/chatbot_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
+import 'package:pillbin/network/utils/http_client.dart';
 
 class ChatbotProvider extends ChangeNotifier {
   final ChatBotServices _chatBotServices = ChatBotServices();
   final Logger _logger = Logger();
+
+  final CacheManager _cacheManager = CacheManager();
+  final HttpClient _httpClient = HttpClient();
 
   //* <------------ STATE --------------------- >
   final List<ChatMessage> _messages = [];
@@ -20,7 +25,7 @@ class ChatbotProvider extends ChangeNotifier {
   bool get isFetching => _isFetching;
 
   int _page = 1;
-  final int _limit = 10;
+  final int _limit = 15;
   bool _hasMore = true;
   bool get hasMore => _hasMore;
 
@@ -41,7 +46,8 @@ class ChatbotProvider extends ChangeNotifier {
   }
 
   //* fetch
-  Future<void> fetchMessages({bool refresh = false}) async {
+  Future<void> fetchMessages(
+      {bool refresh = false, bool forceRefresh = false}) async {
     if (_isFetching || (!_hasMore && !refresh)) return;
 
     try {
@@ -51,34 +57,63 @@ class ChatbotProvider extends ChangeNotifier {
         _page = 1;
         _hasMore = true;
         _messages.clear();
-        notifyListeners();
       }
 
-      final ApiResponse<Map<String, dynamic>> response =
-          await _chatBotServices.fetchChatMessages(
-        page: _page,
-        limit: _limit,
-      );
+      final isOnline = _httpClient.isOnline;
 
-      _logger.d("Fetch Status: ${response.statusCode}");
+      //* Try cache first on initial load
+      if (_page == 1 &&
+          !forceRefresh &&
+          (!isOnline || await _cacheManager.hasValidChatHistoryCache())) {
+        final cachedData = await _cacheManager.getCachedChatHistory();
 
-      if (response.statusCode == 200) {
-        final List list = response.data!['data'];
-
-        final fetchedMessages =
-            list.map((e) => ChatMessage.fromJson(e)).toList().reversed.toList();
-
-        if (refresh || _page == 1) {
-          //* First load: just add them
+        if (cachedData != null) {
+          final List list = cachedData['data'] ?? [];
+          final fetchedMessages = list
+              .map((e) => ChatMessage.fromJson(e))
+              .toList()
+              .reversed
+              .toList();
           _messages.addAll(fetchedMessages);
-        } else {
-          _messages.insertAll(0, fetchedMessages);
+
+          _isFetching = false;
+          notifyListeners();
+          return;
         }
+      }
 
-        final pagination = response.data!['pagination'];
-        _hasMore = pagination['hasMore'] ?? false;
+      if (isOnline || forceRefresh) {
+        final ApiResponse<Map<String, dynamic>> response =
+            await _chatBotServices.fetchChatMessages(
+          page: _page,
+          limit: _limit,
+        );
 
-        _page++;
+        if (response.statusCode == 200) {
+          final data = response.data!;
+
+          //* Cache on first page
+          if (_page == 1) {
+            await _cacheManager.cacheChatHistory(data);
+          }
+
+          final List list = data['data'];
+          final fetchedMessages = list
+              .map((e) => ChatMessage.fromJson(e))
+              .toList()
+              .reversed
+              .toList();
+
+          if (refresh || _page == 1) {
+            _messages.addAll(fetchedMessages);
+          } else {
+            _messages.insertAll(0, fetchedMessages);
+          }
+
+          final pagination = data['pagination'];
+          _hasMore = pagination['hasMore'] ?? false;
+          _page++;
+        }
       }
     } catch (e) {
       _logger.e(e);

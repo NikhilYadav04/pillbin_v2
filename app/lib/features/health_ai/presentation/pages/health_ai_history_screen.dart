@@ -52,7 +52,7 @@ class _RagHistoryScreenState extends State<RagHistoryScreen> {
       _searchController.clear();
       _isSearching = false;
       _filteredDocuments.clear();
-      provider.fetchRagHistory(refresh: true);
+      provider.fetchRagHistory(refresh: true,forceRefresh: true);
     }
   }
 
