@@ -65,6 +65,15 @@ class ApiEndpoints {
   //* Chatbot
   static String get sendQueryToChatbot => '${ApiConfig.baseUrl}/api/chatbot/';
 
+  static String deleteChatMessage(String messageId) =>
+      '${ApiConfig.baseUrl}/api/chatbot$messageId';
+
+  static String get clearChatHistory =>
+      '${ApiConfig.baseUrl}/api/chatbot/clear';
+
+  static String fetchChatMessages({int page = 1, int limit = 20}) =>
+      '${ApiConfig.baseUrl}/api/chatbot?page=$page&limit=$limit';
+
   //* Notification
   static String get Notification => '${ApiConfig.baseUrl}/api/notifications';
   static String deleteNotification(String notificationId) =>
@@ -76,4 +85,15 @@ class ApiEndpoints {
   static String get uploadPDF => '${ApiConfig.agentURL}/api/upload';
   static String get askQuery => '${ApiConfig.agentURL}/api/query';
   static String get deleteIndex => '${ApiConfig.agentURL}/api/delete_index';
+
+  //* Health AI data routes
+  static String get savePDFData => '${ApiConfig.baseUrl}/api/rag';
+
+  static String deleteRagDocument(String ragId) =>
+      '${ApiConfig.baseUrl}/api/rag/$ragId';
+
+  static String get clearRAGHistory => '${ApiConfig.baseUrl}/api/rag/clear';
+
+  static String fetchRagHistory({int page = 1, int limit = 20}) =>
+      '${ApiConfig.baseUrl}/api/rag?page=$page&limit=$limit';
 }

@@ -4,6 +4,7 @@ import 'package:pillbin/features/auth/presentation/pages/otp_field_screen.dart';
 import 'package:pillbin/features/auth/presentation/pages/phone_field_screen.dart';
 import 'package:pillbin/features/campaign/presentation/pages/campaign_screen.dart';
 import 'package:pillbin/features/chatbot/presentation/pages/chatbot_screen.dart';
+import 'package:pillbin/features/health_ai/presentation/pages/health_ai_history_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/notification_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/info_page.dart';
@@ -211,6 +212,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/info-screen':
       page = InformationHubBaseScreen();
+      break;
+    case '/rag-history-screen':
+      page = RagHistoryScreen();
       break;
 
     //* Error Handling

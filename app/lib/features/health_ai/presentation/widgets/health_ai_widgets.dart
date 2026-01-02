@@ -3,6 +3,10 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/health_ai/data/repository/health_ai_provider.dart';
 import 'package:path/path.dart' as path;
+import 'package:pillbin/features/health_ai/data/repository/rag_provider.dart';
+import 'package:pillbin/features/health_ai/presentation/widgets/save_document_dialog.dart';
+import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
 
 Widget buildHealthAIHeader(BuildContext context, double sw, double sh,
     String user_id, HealthAiProvider provider) {
@@ -40,24 +44,77 @@ Widget buildHealthAIHeader(BuildContext context, double sw, double sh,
                   ),
                 ),
                 SizedBox(width: sw * 0.025),
-                Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: isTablet ? sw * 0.02 : sw * 0.025,
-                    vertical: sh * 0.005,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                      color: Colors.orange[300]!,
-                      width: 1.5,
+                InkWell(
+                  onTap: () async {
+                    if (provider.messages.length == 1) {
+                      return;
+                    }
+
+                    String pdfName = p.basename(provider.file!.path);
+
+                    List<Map<String, dynamic>> queries =
+                        provider.messages.map((m) {
+                      return {
+                        "content": m.message,
+                        "byUser": m.role.toLowerCase() == 'user',
+                        "createdAt": m.sendTime.toIso8601String(),
+                      };
+                    }).toList();
+
+                    final String? description = await showDialog<String?>(
+                      context: context,
+                      builder: (context) => SaveReportDialog(
+                        sw: sw,
+                        sh: sh,
+                        isTablet: isTablet,
+                      ),
+                    );
+
+                    if (description != null) {
+                      //* Save data
+                      final provider = context.read<RagProvider>();
+                      provider.savePDFData(
+                          context: context,
+                          pdfName: pdfName,
+                          pdfDescription: description,
+                          queries: queries);
+
+                    
+                    } else {
+                      print('User cancelled');
+                    }
+                  },
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isTablet ? sw * 0.02 : sw * 0.03,
+                      vertical: sh * 0.008,
                     ),
-                  ),
-                  child: Text(
-                    'EXPERIMENTAL',
-                    style: PillBinBold.style(
-                      fontSize: isTablet ? sw * 0.018 : sw * 0.026,
-                      color: Colors.white,
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: Colors.orange[300]!,
+                        width: 1.5,
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.save_outlined,
+                          color: Colors.white,
+                          size: isTablet ? sw * 0.018 : sw * 0.04,
+                        ),
+                        SizedBox(width: sw * 0.015),
+                        Text(
+                          'SAVE',
+                          style: PillBinBold.style(
+                            fontSize: isTablet ? sw * 0.018 : sw * 0.035,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

@@ -1,134 +1,182 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
+import 'package:pillbin/features/chatbot/data/model/chatBotModel.dart';
 import 'package:pillbin/features/chatbot/data/services/chatbot_services.dart';
 import 'package:pillbin/network/models/api_response.dart';
 
 class ChatbotProvider extends ChangeNotifier {
   final ChatBotServices _chatBotServices = ChatBotServices();
+  final Logger _logger = Logger();
 
-  //* getter and setters
-  List<ChatMessage> _messages = [
-    ChatMessage(
-      message: "Hello! I'm your PillBin assistant. How can I help you today?",
-      isUser: false,
-      timestamp: DateTime.now(),
-    ),
-  ];
-  List<ChatMessage> get messages => _messages;
-
-  void clearList() {
-    _messages.clear();
-    notifyListeners();
-  }
-
-  void addInList(ChatMessage message) {
-    _messages.add(message);
-    notifyListeners();
-  }
+  //* <------------ STATE --------------------- >
+  final List<ChatMessage> _messages = [];
+  List<ChatMessage> get messages => List.unmodifiable(_messages);
 
   bool _isTyping = false;
   bool get isTyping => _isTyping;
 
-  //* Functions
+  bool _isFetching = false;
+  bool get isFetching => _isFetching;
 
-  //* clean gemini response
+  int _page = 1;
+  final int _limit = 10;
+  bool _hasMore = true;
+  bool get hasMore => _hasMore;
+
+  //* <--------- INIT ----------------->
+  ChatbotProvider();
+
+  //* < -------------- HELPERS ----------------->
   String cleanGeminiResponse(String input) {
-    //* Remove markdown headings like **MEDIUM**, **HIGH**, etc.
-    String cleaned = input.replaceAll(RegExp(r'\*\*.*?\*\*'), '');
-
-    //* Replace escaped newlines (\n) with actual space or line breaks
-    cleaned = cleaned.replaceAll(r'\n', ' ');
-
-    //* Trim extra spaces
-    cleaned = cleaned.trim();
-
-    return cleaned;
+    return input
+        .replaceAll(RegExp(r'\*\*.*?\*\*'), '')
+        .replaceAll(r'\n', ' ')
+        .trim();
   }
 
-  //* Call chatbot to send query
-  Future<String> sendQueryToChatbot(
-      {required BuildContext context, required String prompt}) async {
+  void _setTyping(bool value) {
+    _isTyping = value;
+    notifyListeners();
+  }
+
+  //* fetch
+  Future<void> fetchMessages({bool refresh = false}) async {
+    if (_isFetching || (!_hasMore && !refresh)) return;
+
     try {
-      if (prompt.length == 0) {
-        return 'Prompt cannot be empty. Please provide a valid question.';
+      _isFetching = true;
+
+      if (refresh) {
+        _page = 1;
+        _hasMore = true;
+        _messages.clear();
+        notifyListeners();
       }
 
-      _isTyping = true;
+      final ApiResponse<Map<String, dynamic>> response =
+          await _chatBotServices.fetchChatMessages(
+        page: _page,
+        limit: _limit,
+      );
 
-      addInList(ChatMessage(
-          message: prompt.trim(), isUser: true, timestamp: DateTime.now()));
-      notifyListeners();
-
-      ApiResponse<Map<String, dynamic>> response =
-          await _chatBotServices.sendQuery(context: context, prompt: prompt);
+      _logger.d("Fetch Status: ${response.statusCode}");
 
       if (response.statusCode == 200) {
-        String responseText = response.data!["response"]["candidates"][0]
-            ["content"]["parts"][0]["text"];
-        Logger().d(responseText);
+        final List list = response.data!['data'];
 
-        String cleanResponse = cleanGeminiResponse(responseText);
+        final fetchedMessages =
+            list.map((e) => ChatMessage.fromJson(e)).toList().reversed.toList();
 
-        addInList(ChatMessage(
-            message: cleanResponse, isUser: false, timestamp: DateTime.now()));
-        notifyListeners();
+        if (refresh || _page == 1) {
+          //* First load: just add them
+          _messages.addAll(fetchedMessages);
+        } else {
+          _messages.insertAll(0, fetchedMessages);
+        }
 
-        return cleanResponse;
-      } else {
-        CustomSnackBar.show(
-            context: context,
-            icon: Icons.chat,
-            title: 'Cannot reach server, please try again');
-        addInList(ChatMessage(
-            message: 'Cannot reach server, please try again',
-            isUser: false,
-            timestamp: DateTime.now()));
-        notifyListeners();
-        return 'Cannot reach server, please try again';
+        final pagination = response.data!['pagination'];
+        _hasMore = pagination['hasMore'] ?? false;
+
+        _page++;
       }
     } catch (e) {
-      CustomSnackBar.show(
-          context: context,
-          icon: Icons.chat,
-          title: 'Cannot reach server, please try again');
-      print(e.toString());
-      addInList(ChatMessage(
-          message: 'Cannot reach server, please try again',
-          isUser: false,
-          timestamp: DateTime.now()));
-      return 'Cannot reach server, please try again';
+      _logger.e(e);
     } finally {
-      _isTyping = false;
+      _isFetching = false;
       notifyListeners();
     }
   }
 
-  //* <------------------------Reset-------------------->
+  //* send
+  Future<void> sendQuery({
+    required BuildContext context,
+    required String prompt,
+  }) async {
+    if (prompt.trim().isEmpty) return;
+
+    try {
+      _setTyping(true);
+
+      final userMessage = ChatMessage(
+        id: "local-${DateTime.now().millisecondsSinceEpoch}",
+        userId: "me",
+        message: prompt.trim(),
+        isUser: true,
+        timestamp: DateTime.now(),
+      );
+
+      _messages.add(userMessage);
+      notifyListeners();
+
+      final response =
+          await _chatBotServices.sendQuery(context: context, prompt: prompt);
+
+      if (response.statusCode == 200) {
+        final text = response.data!["reply"];
+
+        final botMessage = ChatMessage(
+          id: response.data!["_id"] ??
+              "bot-${DateTime.now().millisecondsSinceEpoch}",
+          userId: response.data!["userId"] ?? "bot",
+          message: cleanGeminiResponse(text),
+          isUser: false,
+          timestamp: DateTime.now(),
+        );
+
+        _messages.add(botMessage);
+      } else if (response.statusCode == 429) {
+        if (context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.chat,
+            title: "You’ve reached the maximum chat limit (100 messages).",
+          );
+        }
+      } else {
+        throw Exception("Server error");
+      }
+    } catch (e) {
+      CustomSnackBar.show(
+        context: context,
+        icon: Icons.chat,
+        title: "Something went wrong. Please try again.",
+      );
+    } finally {
+      _setTyping(false);
+    }
+  }
+
+  //* delete
+  Future<void> deleteMessage(String messageId) async {
+    try {
+      await _chatBotServices.deleteChatMessage(messageId: messageId);
+      _messages.removeWhere((m) => m.id == messageId);
+      notifyListeners();
+    } catch (e) {
+      _logger.e(e);
+    }
+  }
+
+  //* clear
+  Future<void> clearChatHistory() async {
+    try {
+      await _chatBotServices.clearChatHistory();
+      _messages.clear();
+      _page = 1;
+      _hasMore = true;
+      notifyListeners();
+    } catch (e) {
+      _logger.e(e);
+    }
+  }
+
+  //* reset (Local UI Reset)
   Future<void> reset() async {
     _messages.clear();
-
-    // Re-add the default greeting message
-    _messages.add(ChatMessage(
-      message: "Hello! I'm your PillBin assistant. How can I help you today?",
-      isUser: false,
-      timestamp: DateTime.now(),
-    ));
-
+    _page = 1;
+    _hasMore = true;
     _isTyping = false;
     notifyListeners();
   }
-}
-
-class ChatMessage {
-  final String message;
-  final bool isUser;
-  final DateTime timestamp;
-
-  ChatMessage({
-    required this.message,
-    required this.isUser,
-    required this.timestamp,
-  });
 }

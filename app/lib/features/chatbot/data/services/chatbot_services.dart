@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/services/api_service.dart';
@@ -15,8 +14,36 @@ class ChatBotServices extends ApiService {
     String promptFinal = promptTemplate(prompt);
 
     return post(ApiEndpoints.sendQueryToChatbot,
-        data: {"prompt": promptFinal},
+        data: {"prompt": promptFinal, "input": prompt},
         fromJson: (data) => data as Map<String, dynamic>);
   }
-  
+
+  //* Fetch chat messages (pagination)
+  Future<ApiResponse<Map<String, dynamic>>> fetchChatMessages({
+    required int page,
+    required int limit,
+  }) async {
+    return get(
+      ApiEndpoints.fetchChatMessages(page: page, limit: limit),
+      fromJson: (data) => data as Map<String, dynamic>,
+    );
+  }
+
+  //* Delete single chat message
+  Future<ApiResponse<Map<String, dynamic>>> deleteChatMessage({
+    required String messageId,
+  }) async {
+    return delete(
+      ApiEndpoints.deleteChatMessage(messageId),
+      fromJson: (data) => data as Map<String, dynamic>,
+    );
+  }
+
+  //* Clear entire chat history
+  Future<ApiResponse<Map<String, dynamic>>> clearChatHistory() async {
+    return delete(
+      ApiEndpoints.clearChatHistory,
+      fromJson: (data) => data as Map<String, dynamic>,
+    );
+  }
 }

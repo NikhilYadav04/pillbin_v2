@@ -111,9 +111,11 @@ class _HealthReportChatScreenState extends State<HealthReportChatScreen>
       } else {
         // ❌ Upload failed
         CustomSnackBar.show(
+          duration: Duration(seconds: 4),
           context: context,
           icon: Icons.error,
-          title: "Failed to upload PDF. Please try again!",
+          title:
+              "Unable to save document. You may have reached your upload limit, or there is a temporary server issue.",
         );
       }
 

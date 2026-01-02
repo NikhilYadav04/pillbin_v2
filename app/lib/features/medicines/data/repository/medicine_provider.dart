@@ -1,6 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/core/cards/unlocked_cards.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/medicines/data/service/medicine_services.dart';
@@ -179,11 +183,24 @@ class MedicineProvider extends ChangeNotifier {
     UserProvider? user = context.read<UserProvider>();
     userClass.UserModel? userModel = user.user;
 
+    //* random id
+    int getRandomId() => Random().nextInt(100000);
+
     if (userModel!.stats.totalMedicinesTracked >= 1 &&
         !userModel.badges.firstTimer.achieved) {
       if (!userModel.badges.firstTimer.achieved) {
         userModel.badges.firstTimer.achieved = true;
         userModel.badges.firstTimer.unlockedAt = DateTime.now();
+
+        //* notification
+        NotificationConfig().showInstantNotification(
+          notify: PushNotificationModel(
+            id: getRandomId().toString(),
+            title: "🏆 First Step Complete!",
+            body:
+                "You've tracked your first medicine! 🌱 Check your achievements.",
+          ),
+        );
 
         Future.delayed(Duration(milliseconds: 800), () {
           showDialog(
@@ -204,6 +221,15 @@ class MedicineProvider extends ChangeNotifier {
         userModel.badges.ecoHelper.achieved = true;
         userModel.badges.ecoHelper.unlockedAt = DateTime.now();
 
+        //* notification
+        NotificationConfig().showInstantNotification(
+          notify: PushNotificationModel(
+            id: getRandomId().toString(),
+            title: "🌿 Eco Helper Unlocked!",
+            body: "You've tracked 5 medicines. Great job! ♻️",
+          ),
+        );
+
         Future.delayed(Duration(milliseconds: 800), () {
           showDialog(
               context: context,
@@ -222,6 +248,15 @@ class MedicineProvider extends ChangeNotifier {
       if (!userModel.badges.greenChampion.achieved) {
         userModel.badges.greenChampion.achieved = true;
         userModel.badges.greenChampion.unlockedAt = DateTime.now();
+
+        //* notification
+        NotificationConfig().showInstantNotification(
+          notify: PushNotificationModel(
+            id: getRandomId().toString(),
+            title: "👑 Green Champion!",
+            body: "Amazing! You've tracked 20 medicines! 🌍✨",
+          ),
+        );
 
         Future.delayed(Duration(milliseconds: 800), () {
           showDialog(

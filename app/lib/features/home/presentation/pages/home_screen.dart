@@ -226,7 +226,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 }, () {
                   Navigator.pushNamed(
                     context,
-                    '/medical-center-display-saved',
+                    '/rag-history-screen',
                     arguments: {
                       'transition': TransitionType.bottomToTop,
                       'duration': 300,
@@ -290,7 +290,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                 }, () {
                   Navigator.pushNamed(
                     context,
-                    '/medical-center-display-saved',
+                    '/rag-history-screen',
                     arguments: {
                       'transition': TransitionType.bottomToTop,
                       'duration': 300,

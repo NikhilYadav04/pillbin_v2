@@ -220,7 +220,7 @@ Widget buildMobileActions(
         sw: sw,
         sh: sh,
       ),
-      // SizedBox(height: sh * 0.015),
+      SizedBox(height: sh * 0.015),
       // ActionButton(
       //   icon: Icons.bookmark,
       //   text: 'Saved Disposal Centers',
@@ -229,6 +229,14 @@ Widget buildMobileActions(
       //   sw: sw,
       //   sh: sh,
       // ),
+      ActionButton(
+        icon: Icons.document_scanner,
+        text: 'Saved Analysis Reports',
+        isOutlined: true,
+        onTap: onTap7,
+        sw: sw,
+        sh: sh,
+      ),
       SizedBox(height: sh * 0.015),
       ActionButton(
         icon: Icons.support_agent,
@@ -353,6 +361,20 @@ Widget buildTabletActions(
         ],
       ),
       SizedBox(height: sh * 0.02),
+      Row(
+        children: [
+          Expanded(
+            child: TabletActionButton(
+              icon: Icons.document_scanner,
+              text: 'Saved Report Analysis',
+              isOutlined: true,
+              onTap: onTap7,
+              sw: sw,
+              sh: sh,
+            ),
+          ),
+        ],
+      ),
     ],
   );
 }

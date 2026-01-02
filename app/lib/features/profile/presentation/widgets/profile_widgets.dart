@@ -5,6 +5,7 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
 import 'package:pillbin/features/health_ai/data/repository/health_ai_provider.dart';
+import 'package:pillbin/features/health_ai/data/repository/rag_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
@@ -718,6 +719,7 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                         await context.read<ChatbotProvider>().reset();
                         await context.read<NotificationProvider>().reset();
                         await context.read<HealthAiProvider>().reset();
+                        await context.read<RagProvider>().reset();
 
                         NotificationConfig().cancelAllNotifications();
 

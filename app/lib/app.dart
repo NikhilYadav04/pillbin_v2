@@ -4,6 +4,7 @@ import 'package:pillbin/core/constants/dummy.dart';
 import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
 import 'package:pillbin/features/chatbot/data/repository/chatbot_provider.dart';
 import 'package:pillbin/features/health_ai/data/repository/health_ai_provider.dart';
+import 'package:pillbin/features/health_ai/data/repository/rag_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
@@ -27,6 +28,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ChatbotProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => HealthAiProvider()),
+        ChangeNotifierProvider(create: (_) => RagProvider()),
       ],
       child: MaterialApp(
         navigatorKey: navKey,
