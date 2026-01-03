@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
@@ -720,6 +721,7 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                         await context.read<NotificationProvider>().reset();
                         await context.read<HealthAiProvider>().reset();
                         await context.read<RagProvider>().reset();
+                        await CacheManager().clearAllCache();
 
                         NotificationConfig().cancelAllNotifications();
 

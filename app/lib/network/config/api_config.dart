@@ -14,7 +14,7 @@ class ApiConfig {
   // 'https://reportlangchainagent-production.up.railway.app';
 
   //* Current environment
-  static const String currentEnvironment = 'dev';
+  static const String currentEnvironment = 'prod';
 
   static String get baseUrl {
     switch (currentEnvironment) {
