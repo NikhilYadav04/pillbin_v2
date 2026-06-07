@@ -1,0 +1,67 @@
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+
+const app = express();
+
+//* Import Routes
+const authRoutes = require("./routes/auth");
+const userRoutes = require("./routes/user");
+const medicineRoutes = require("./routes/medicine");
+const medicalCenterRoutes = require("./routes/medicalCenter");
+const notificationRoutes = require("./routes/notification");
+const chatbotRoutes = require("./routes/chatbot");
+const blogRoutes = require("./routes/blog");
+const ragRoutes = require("./routes/rag");
+const vendorRoutes = require("./routes/vendor");
+const donationRoutes = require("./routes/donation");
+const adminRoutes = require("./routes/admin");
+const { connectDB } = require("./config/database");
+const morgan = require("morgan");
+
+//* Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(morgan("dev"));
+
+app.set("trust proxy", 1);
+
+//* Connect to Database
+connectDB();
+
+//* Use Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/user", userRoutes);
+app.use("/api/medicine", medicineRoutes);
+app.use("/api/medical-center", medicalCenterRoutes);
+app.use("/api/chatbot", chatbotRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/rag", ragRoutes);
+app.use("/api/blog", blogRoutes);
+app.use("/api/vendor", vendorRoutes);
+app.use("/api/donations", donationRoutes);
+app.use("/api/admin", adminRoutes);
+
+//* Default Route
+app.get("/", (req, res) => {
+  res.json({ message: "Medicine Tracker API Server Running!" });
+});
+
+app.get("/health", async (req, res) => {
+  res.status(200).json({
+    message: "Server Health Good",
+  });
+});
+
+//* Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: "Something went wrong!" });
+});
+
+const PORT = process.env.PORT || 5000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+});
