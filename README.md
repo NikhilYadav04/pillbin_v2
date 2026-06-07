@@ -31,11 +31,168 @@
 
 The platform connects users with **verified vendor centers** through a full donation and approval pipeline, enriched with contextual in-app nudges, a community blog, and **PillBot** — a multi-agent AI chatbot powered by the Agno framework with RAG over medical PDFs.
 
-Key highlights:
-- **Offline-first** with a custom 11-type TTL cache layer and 3-priority fallback
-- **Role-based** flows for Users, Vendors, and Admins
-- **Geospatial** center discovery via MongoDB `$geoNear`
-- **Multi-agent AI** with Pinecone RAG, web search, Redis chat history, and MCP tooling
+---
+
+### 📦 Medicine Inventory Management
+
+At its core, PillBin is a smart medicine cabinet. Users can add medicines with full metadata — `name`, `dosage`, `batch number`, `manufacturer`, `type`, `purchase date`, `expiry date`, `notes`, and even an optional photo. The system auto-classifies each medicine into one of three live states:
+
+- **Active** — more than 5 days until expiry, shown in green
+- **Expiring Soon** — 5 days or fewer until expiry, shown in amber with a daily 9 AM push notification
+- **Expired** — past expiry date, shown in red with a one-tap bulk-clear action
+
+Medicines are **soft-deleted** first (moved to a "Deleted Bin" with up to 100-item history), then permanently wiped on demand or auto-cleaned after 15 days. A per-account cap of **100 active medicines** keeps queries performant. Each medicine also stores product links to external pharmacy sites (`Tata 1mg`, `PharmEasy`, `Netmeds`) for quick reordering.
+
+---
+
+### 🏥 Donation System
+
+PillBin turns unused medicines into community value. Users can submit a donation request to any nearby approved medical center, attaching:
+
+- A list of medicines to donate (name, category, quantity, expiry, condition)
+- Up to 2 medicine photos (`medicinePhotos[]` stored on Cloudinary)
+- A personal note and contact preference (`call`, `visit`, `either`)
+
+The request enters a **4-stage pipeline**:
+
+```
+Pending → Approved / Rejected → Completed
+```
+
+Once approved, the user is notified and can call the center directly from the app to schedule pickup. Vendors can attach a `vendorNote` on approval or rejection. Users can cancel `pending` requests at any time. All donations are searchable by medicine name or center name and grouped by status.
+
+---
+
+### 🏢 Vendor Portal
+
+Medical centers onboard as **Vendors**. After registration, a center goes through admin verification before appearing in the user-facing location list. The vendor dashboard provides:
+
+- **Center profile management** — name, address, facility type, operating hours, accepted medicine categories, ratings
+- **Image gallery** — upload up to 3 center photos (Cloudinary + `CachedNetworkImage` with shimmer loading)
+- **Verification document upload** — up to 5 documents for admin review
+- **Inventory management** — what medicine types the center currently accepts
+- **Donation request inbox** — view all incoming requests, approve / reject with a note, mark as completed
+
+Vendor routes are guarded by the `requireVendor` middleware — the `role` field on the `User` model must be `"vendor"`.
+
+---
+
+### 🤖 PillBot — Multi-Agent AI Chatbot
+
+PillBot is built on the **Agno** multi-agent framework and is the most technically complex feature in PillBin. It exposes a **FastAPI** endpoint that the Flutter app calls with user queries and a `userId` for session continuity.
+
+The agent pipeline:
+1. **Query intake** — user message received by FastAPI, `userId` resolved to a Redis chat history key
+2. **RAG retrieval** — query embedded and searched against a **Pinecone** vector index containing chunked medical PDFs, returning the top-k relevant passages
+3. **Web search** — DuckDuckGo search tool activated for real-time health information not covered by static PDFs
+4. **MCP tooling** — Model Context Protocol server tools extend the agent with structured capabilities
+5. **LLM reasoning** — Agno orchestrates the above context sources and sends a final prompt to **OpenAI** models for a grounded, safe response
+6. **Response + caching** — the response is streamed back to the app and the turn is appended to the **Redis**-backed chat history for the session
+
+Chat history is persisted per `userId`, providing continuity across app sessions.
+
+---
+
+### 📍 Location-Based Services
+
+Users can discover nearby medical and disposal centers using **MongoDB `$geoNear`** geospatial queries. The default search radius is **10 km** and is customizable. Results can be filtered by facility type:
+
+- `Hospital`, `Clinic`, `Pharmacy`, `Health Center`
+
+Each center card shows: operating hours, accepted medicine types, ratings, an image gallery, and a direct-call button. Only **admin-approved** centers appear in this list — centers awaiting verification are invisible to users.
+
+Users can **save** centers to a personal list (`savedMedicalCenters` on the `User` model) and access them quickly from their profile.
+
+---
+
+### 🔔 Smart Notification System
+
+PillBin has a server-side notification model (`Notification` collection) with 4 priority levels — `Normal`, `Important`, `Urgent`, `Alert`. Notifications are delivered in-app and via **Flutter Local Notifications**:
+
+| Type | Trigger | Schedule | Priority |
+|---|---|---|---|
+| Welcome | Signup completion | Instant | Normal |
+| Medicine Expiry | Expires within 5 days | Daily 9 AM | Urgent |
+| Custom Alerts | Admin / system events | Instant | Varies |
+
+The inbox stores the **last 50 notifications** with auto-cleanup. Users can dismiss individually or bulk-clear with one tap.
+
+---
+
+### 💬 In-App Nudge System
+
+Separate from the notification inbox, PillBin has a live **nudge engine** built into the `RootScreen` overlay. On app open, it evaluates real user data and injects up to **3 contextual slide-up cards** per session, in strict priority order:
+
+| Priority | Nudge | Condition |
+|---|---|---|
+| 1 | Donation Approved | Any approved donation request |
+| 2 | Medicines Expiring | `expiringSoonCount` > 0 |
+| 3 | Donation Pending | Any pending request > 2 days old |
+| 4 | Find Centers Near You | First time only (persisted flag) |
+| 5 | Explore Health Blogs | First time only (persisted flag) |
+| 6 | Donate Unused Medicines | First time + no donations yet |
+
+Cards auto-dismiss after 6 s, support swipe-to-dismiss, and their tap action navigates directly to the relevant screen. One-time nudges are stored in `FlutterSecureStorage` and never repeat.
+
+---
+
+### 📝 Community Blog
+
+PillBin has a fully-featured community blog for health awareness content:
+
+- Browse all community posts in a chronological feed
+- Create posts with up to 2 media attachments (photos)
+- **AI-generated blog images** — a dedicated `/api/blogs/generate/image` endpoint uses **Gemini** (`@google/genai`) to generate a relevant cover image from the blog title
+- Like posts (toggle), view likers, add / edit / delete comments
+- Personal feed showing only your own posts
+
+---
+
+### 💾 Offline-First Architecture
+
+Every API response that the app fetches is saved to a **custom TTL cache** built on `FlutterSecureStorage`, covering 11 distinct data types (inventory, donations, centers, notifications, profile, etc.). On every subsequent load:
+
+1. **Cache hit** — serve data instantly, no spinner shown
+2. **Cache miss / expired** — call API, refresh cache, update UI
+3. **Network error** — fall back to stale cache, show connectivity banner
+
+TTL is **24 hours**. `Connectivity Plus` monitors network state in real time; the app syncs in the background as soon as connectivity is restored.
+
+---
+
+### 🎖️ Badge & Stats System
+
+The `User` model tracks lifetime stats (`totalMedicinesTracked`, `expiringSoonCount`, `medicinesDisposedCount`, `campaignsJoinedCount`) and awards **gamification badges** automatically:
+
+| Badge | Condition |
+|---|---|
+| 🥉 First Timer | ≥ 1 medicine tracked |
+| 🥈 Eco Helper | ≥ 5 medicines tracked |
+| 🥇 Green Champion | ≥ 20 medicines tracked |
+
+Badge unlock timestamps are recorded and displayed on the user's profile screen.
+
+---
+
+### 📚 Information & Awareness
+
+The **Info** feature provides curated, static-content articles on:
+- Medicine disposal best practices
+- Environmental impact of improper disposal
+- Government disposal programs and NGO directories
+
+This makes PillBin not just a utility app but an awareness platform for responsible medicine lifecycle management.
+
+---
+
+### 🔐 Authentication & Role System
+
+PillBin uses **passwordless email OTP** authentication:
+1. User enters email → OTP sent via `Nodemailer` / `Resend`
+2. OTP verified → JWT **access token** (3h) + **refresh token** issued
+3. Refresh endpoint rotates both tokens transparently
+
+OTP requests are rate-limited to **10 per 10 minutes** per email / IP via `express-rate-limit`. Three roles exist — `user`, `vendor`, `admin` — each enforced by dedicated middleware (`requireVendor`, `requireAdmin`) on all sensitive routes.
 
 ---
 
