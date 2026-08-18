@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/add_medicine_widgets.dart';
 import 'package:provider/provider.dart';
@@ -707,8 +706,6 @@ class _EditMedicineScreenState extends State<EditMedicineScreen>
     try {
       //* API Call
       MedicineProvider _provider = context.read<MedicineProvider>();
-      NotificationProvider _notificationProvider =
-          context.read<NotificationProvider>();
 
       DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
       DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);
@@ -723,14 +720,6 @@ class _EditMedicineScreenState extends State<EditMedicineScreen>
         batchNumber: _batchNumberController.text.trim(),
         type: _selectedMedicineType ?? 'Other',
         purchaseDate: safePurchaseDate.toIso8601String(),
-      );
-
-      _notificationProvider.addNotification(
-        context: context,
-        title: "${_medicineNameController.text.trim()} updated",
-        description:
-            "The details for ${_medicineNameController.text.trim()} have been updated. All reminders will reflect the new information.",
-        status: 'normal',
       );
 
       //* Stop animation

@@ -1,7 +1,10 @@
+const mongoose = require("mongoose");
 const MedicalCenter = require("../models/MedicalCenter");
 const User = require("../models/User");
 const DonationRequest = require("../models/DonationRequest");
-const { NotificationHelper } = require("../middleware/notificationHelper");
+const Medicine = require("../models/Medicine");
+const CenterReview = require("../models/CenterReview");
+const { notify } = require("../services/notifyService");
 const {
   uploadImageService,
   deleteImageService,
@@ -255,7 +258,8 @@ const getRequests = async (req, res) => {
       });
     }
 
-    const { status, page = 1, limit = 10 } = req.query;
+    const { status, page = 1 } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
 
     const query = { medicalCenterId: req.user.vendorCenterId };
     if (status) query.status = status;
@@ -327,6 +331,11 @@ const updateRequestStatus = async (req, res) => {
 
     request.status = status;
     if (vendorNote) request.vendorNote = vendorNote;
+    request.statusHistory.push({
+      status,
+      by: req.user.id,
+      note: vendorNote,
+    });
     await request.save();
 
     //* Notify the user
@@ -338,11 +347,18 @@ const updateRequestStatus = async (req, res) => {
         ? `Your donation request to ${center.name} has been approved. ${vendorNote || ""}`
         : `Your donation request to ${center.name} was not accepted. ${vendorNote || ""}`;
 
-    await NotificationHelper.createNotification(
-      request.userId,
-      status === "approved" ? "Donation Request Approved" : "Donation Request Rejected",
-      notificationMessage
-    );
+    notify({
+      recipientIds: [request.userId],
+      type: status === "approved" ? "donation_approved" : "donation_rejected",
+      title:
+        status === "approved"
+          ? "Donation Request Approved"
+          : "Donation Request Rejected",
+      description: notificationMessage.trim(),
+      status: "important",
+      entityType: "donation_request",
+      entityId: request._id,
+    });
 
     res.status(200).json({
       statusCode: 200,
@@ -384,16 +400,52 @@ const completeRequest = async (req, res) => {
     }
 
     request.status = "completed";
+    request.statusHistory.push({ status: "completed", by: req.user.id });
     await request.save();
+
+    //* Remove the donated medicines from the donor's inventory
+    const donatedIds = request.medicines
+      .map((m) => m.medicineId)
+      .filter(Boolean);
+
+    if (donatedIds.length > 0) {
+      await Medicine.updateMany(
+        { _id: { $in: donatedIds }, userId: request.userId, isDeleted: false },
+        { $set: { isDeleted: true } }
+      );
+    }
 
     //* Increment center's donation count
     await MedicalCenter.findByIdAndUpdate(req.user.vendorCenterId, {
       $inc: { donationCount: 1 },
     });
 
-    //* Update user's disposed medicine stats
+    //* Count actual units where quantity is numeric, else one per entry
+    const disposedCount = request.medicines.reduce((sum, m) => {
+      const parsed = parseInt(m.quantity, 10);
+      return sum + (Number.isNaN(parsed) || parsed < 1 ? 1 : parsed);
+    }, 0);
+
     await User.findByIdAndUpdate(request.userId, {
-      $inc: { "stats.medicinesDisposedCount": request.medicines.length },
+      $inc: { "stats.medicinesDisposedCount": disposedCount },
+    });
+
+    const center = await MedicalCenter.findById(req.user.vendorCenterId).select(
+      "name"
+    );
+
+    notify({
+      recipientIds: [request.userId],
+      type: "donation_completed",
+      title: "Donation Completed",
+      description: `Your donation to ${
+        center ? center.name : "the medical center"
+      } is complete. ${disposedCount} ${
+        disposedCount === 1 ? "medicine has" : "medicines have"
+      } been removed from your inventory.`,
+      status: "normal",
+      entityType: "donation_request",
+      entityId: request._id,
     });
 
     res.status(200).json({
@@ -403,6 +455,281 @@ const completeRequest = async (req, res) => {
     });
   } catch (error) {
     console.error("Complete request error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Aggregated stats for the vendor dashboard
+const getAnalytics = async (req, res) => {
+  try {
+    if (!req.user.vendorCenterId) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: "No medical center linked to your account",
+      });
+    }
+
+    const centerId = new mongoose.Types.ObjectId(req.user.vendorCenterId);
+    const months = Math.min(parseInt(req.query.months) || 6, 60);
+
+    //* Wider ranges switch to coarser buckets so the chart never exceeds
+    //* ~12 bars no matter how far back the vendor looks
+    const granularity =
+      months <= 12 ? "month" : months <= 36 ? "quarter" : "year";
+    const stepMonths =
+      granularity === "month" ? 1 : granularity === "quarter" ? 3 : 12;
+
+    const since = new Date();
+    since.setDate(1);
+    since.setHours(0, 0, 0, 0);
+    since.setMonth(since.getMonth() - (months - 1));
+
+    //* Snap to the bucket boundary, else the first bar is a partial
+    //* period and reads as a dip that never happened
+    if (granularity === "quarter") {
+      since.setMonth(Math.floor(since.getMonth() / 3) * 3);
+    } else if (granularity === "year") {
+      since.setMonth(0);
+    }
+
+    const timelineGroupId =
+      granularity === "month"
+        ? {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+          }
+        : granularity === "quarter"
+          ? {
+              year: { $year: "$createdAt" },
+              quarter: {
+                $ceil: { $divide: [{ $month: "$createdAt" }, 3] },
+              },
+            }
+          : { year: { $year: "$createdAt" } };
+
+    const [statusCounts, timeline, topMedicines, approvalTime, center, ratingCounts] =
+      await Promise.all([
+        DonationRequest.aggregate([
+          { $match: { medicalCenterId: centerId, createdAt: { $gte: since } } },
+          { $group: { _id: "$status", count: { $sum: 1 } } },
+        ]),
+
+        DonationRequest.aggregate([
+          { $match: { medicalCenterId: centerId, createdAt: { $gte: since } } },
+          {
+            $group: {
+              _id: timelineGroupId,
+              total: { $sum: 1 },
+              completed: {
+                $sum: { $cond: [{ $eq: ["$status", "completed"] }, 1, 0] },
+              },
+            },
+          },
+        ]),
+
+        DonationRequest.aggregate([
+          { $match: { medicalCenterId: centerId, createdAt: { $gte: since } } },
+          { $unwind: "$medicines" },
+          {
+            $group: {
+              _id: { $toLower: "$medicines.name" },
+              count: { $sum: 1 },
+            },
+          },
+          { $sort: { count: -1 } },
+          { $limit: 5 },
+        ]),
+
+        //* Approval latency, straight off the statusHistory trail
+        DonationRequest.aggregate([
+          {
+            $match: {
+              medicalCenterId: centerId,
+              status: { $in: ["approved", "completed"] },
+              createdAt: { $gte: since },
+            },
+          },
+          {
+            $addFields: {
+              submitted: {
+                $arrayElemAt: [
+                  {
+                    $filter: {
+                      input: "$statusHistory",
+                      cond: { $eq: ["$$this.status", "pending"] },
+                    },
+                  },
+                  0,
+                ],
+              },
+              approved: {
+                $arrayElemAt: [
+                  {
+                    $filter: {
+                      input: "$statusHistory",
+                      cond: { $eq: ["$$this.status", "approved"] },
+                    },
+                  },
+                  0,
+                ],
+              },
+            },
+          },
+          { $match: { submitted: { $ne: null }, approved: { $ne: null } } },
+          {
+            $group: {
+              _id: null,
+              avgMs: {
+                $avg: { $subtract: ["$approved.at", "$submitted.at"] },
+              },
+            },
+          },
+        ]),
+
+        MedicalCenter.findById(centerId).select("rating totalReviews donationCount"),
+
+        CenterReview.aggregate([
+          { $match: { medicalCenterId: centerId } },
+          { $group: { _id: "$rating", count: { $sum: 1 } } },
+        ]),
+      ]);
+
+    const counts = statusCounts.reduce((acc, s) => {
+      acc[s._id] = s.count;
+      return acc;
+    }, {});
+
+    const total = Object.values(counts).reduce((a, b) => a + b, 0);
+    const completed = counts.completed || 0;
+    const decided = completed + (counts.rejected || 0);
+
+    //* Fill gaps so the chart has a bar for every period, not just active ones
+    const series = [];
+    const cursor = new Date(since);
+    const now = new Date();
+
+    while (cursor <= now) {
+      const year = cursor.getFullYear();
+      const month = cursor.getMonth() + 1;
+
+      let label;
+      let match;
+
+      if (granularity === "month") {
+        label = `${year}-${String(month).padStart(2, "0")}`;
+        match = timeline.find(
+          (t) => t._id.year === year && t._id.month === month
+        );
+      } else if (granularity === "quarter") {
+        const quarter = Math.floor((month - 1) / 3) + 1;
+        label = `${year}-Q${quarter}`;
+        match = timeline.find(
+          (t) => t._id.year === year && t._id.quarter === quarter
+        );
+      } else {
+        label = `${year}`;
+        match = timeline.find((t) => t._id.year === year);
+      }
+
+      series.push({
+        label,
+        total: match ? match.total : 0,
+        completed: match ? match.completed : 0,
+      });
+      cursor.setMonth(cursor.getMonth() + stepMonths);
+    }
+
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        summary: {
+          total,
+          pending: counts.pending || 0,
+          approved: counts.approved || 0,
+          completed,
+          rejected: counts.rejected || 0,
+          cancelled: counts.cancelled || 0,
+          fulfilmentRate:
+            decided > 0 ? Math.round((completed / decided) * 100) : 0,
+          avgApprovalMinutes:
+            approvalTime.length > 0 && approvalTime[0].avgMs
+              ? Math.max(1, Math.round(approvalTime[0].avgMs / 60000))
+              : null,
+          rating: center ? center.rating : 0,
+          totalReviews: center ? center.totalReviews : 0,
+          ratingBreakdown: [1, 2, 3, 4, 5].reduce((acc, star) => {
+            const match = ratingCounts.find((r) => r._id === star);
+            acc[star] = match ? match.count : 0;
+            return acc;
+          }, {}),
+        },
+        granularity,
+        timeline: series,
+        topMedicines: topMedicines.map((m) => ({
+          name: m._id,
+          count: m.count,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("Get analytics error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Full ranked list of donated medicines, paginated
+const getDonatedMedicines = async (req, res) => {
+  try {
+    if (!req.user.vendorCenterId) {
+      return res.status(404).json({
+        statusCode: 404,
+        message: "No medical center linked to your account",
+      });
+    }
+
+    const centerId = new mongoose.Types.ObjectId(req.user.vendorCenterId);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
+    const [rows, totals] = await Promise.all([
+      DonationRequest.aggregate([
+        { $match: { medicalCenterId: centerId } },
+        { $unwind: "$medicines" },
+        {
+          $group: {
+            _id: { $toLower: "$medicines.name" },
+            count: { $sum: 1 },
+          },
+        },
+        { $sort: { count: -1, _id: 1 } },
+        { $skip: skip },
+        { $limit: limit },
+      ]),
+      DonationRequest.aggregate([
+        { $match: { medicalCenterId: centerId } },
+        { $unwind: "$medicines" },
+        { $group: { _id: { $toLower: "$medicines.name" } } },
+        { $count: "total" },
+      ]),
+    ]);
+
+    const total = totals.length > 0 ? totals[0].total : 0;
+
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        medicines: rows.map((r) => ({ name: r._id, count: r.count })),
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(total / limit),
+          total,
+          limit,
+        },
+      },
+    });
+  } catch (error) {
+    console.error("Get donated medicines error:", error);
     res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
@@ -564,4 +891,6 @@ module.exports = {
   getRequests,
   updateRequestStatus,
   completeRequest,
+  getAnalytics,
+  getDonatedMedicines,
 };

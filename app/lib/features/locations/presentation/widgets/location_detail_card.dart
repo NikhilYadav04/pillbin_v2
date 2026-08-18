@@ -258,6 +258,8 @@ class _MedicalCenterDetailScreenState
                     color: PillBinColors.primary,
                   ),
                 ),
+                SizedBox(height: sh * 0.004),
+                _buildRatingRow(isTablet),
               ],
             ),
           ),
@@ -288,6 +290,62 @@ class _MedicalCenterDetailScreenState
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRatingRow(bool isTablet) {
+    final starSize = isTablet ? sw * 0.022 : sw * 0.035;
+    final textSize = isTablet ? sw * 0.019 : sw * 0.029;
+
+    if (center.totalReviews == 0) {
+      return Text(
+        'No reviews yet',
+        style: PillBinRegular.style(
+          fontSize: textSize,
+          color: PillBinColors.textLight,
+        ),
+      );
+    }
+
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/center-reviews-screen',
+        arguments: {
+          'centerId': center.id,
+          'centerName': center.name,
+          'transition': TransitionType.rightToLeft,
+        },
+      ),
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        children: [
+          ...List.generate(5, (i) {
+            final filled = center.rating >= i + 1;
+            final half = !filled && center.rating > i;
+            return Icon(
+              half
+                  ? Icons.star_half_rounded
+                  : filled
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+              size: starSize,
+              color: filled || half ? Colors.amber : PillBinColors.greyLight,
+            );
+          }),
+          SizedBox(width: sw * 0.015),
+          Text(
+            '${center.rating.toStringAsFixed(1)} (${center.totalReviews})',
+            style: PillBinMedium.style(
+              fontSize: textSize,
+              color: PillBinColors.textSecondary,
+            ),
+          ),
+          SizedBox(width: sw * 0.008),
+          Icon(Icons.chevron_right_rounded,
+              size: starSize * 1.15, color: PillBinColors.primary),
         ],
       ),
     );

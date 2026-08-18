@@ -13,6 +13,10 @@ class ApiConfig {
   // 'http://10.0.2.2:8000';
   // 'https://reportlangchainagent-production.up.railway.app';
 
+  static const String agentBaseUrl = 'http://10.0.2.2:8000';
+
+  static const int agentReceiveTimeout = 90000;
+
   //* Current environment
   static const String currentEnvironment = 'dev';
 

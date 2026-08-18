@@ -1,92 +1,115 @@
+import json
+import uuid
 from datetime import datetime, timezone
-from typing import List, Dict, Any
-from backend.database.supabase_client import get_supabase
+from typing import Any, Dict, List
+
 from backend.config.settings import settings
+from backend.database.sqlite_client import get_db
+from backend.database.redis_client import get_redis
 
 TABLE = "chat_history"
+REDIS_KEY_PREFIX = "chat:"
 
 
-def insert_message(token: str, role: str, message: str, message_id: str = None) -> None:
-    """Insert a single chat message into chat_history."""
-    supabase = get_supabase()
-    data = {
-        "token": token,
-        "role": role,
-        "message": message,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
-    if message_id:
-        data["id"] = message_id
-
-    supabase.table(TABLE).insert(data).execute()
+def _redis_key(token: str) -> str:
+    return f"{REDIS_KEY_PREFIX}{token}"
 
 
-def fetch_recent(token: str, limit: int = 10) -> List[Dict[str, Any]]:
-    """Fetch the most recent messages for a token, returned chronologically."""
-    supabase = get_supabase()
-    response = (
-        supabase.table(TABLE)
-        .select("id, role, message, timestamp")
-        .eq("token", token)
-        .order("timestamp", desc=True)
-        .limit(limit)
-        .execute()
+async def insert_message(
+    token: str, role: str, message: str, message_id: str = None
+) -> None:
+    msg_id = message_id or str(uuid.uuid4())
+    ts = datetime.now(timezone.utc).isoformat()
+    data = {"id": msg_id, "role": role, "message": message, "timestamp": ts}
+
+    # Redis (best-effort)
+    try:
+        r = await get_redis()
+        key = _redis_key(token)
+        await r.rpush(key, json.dumps(data))
+        await r.ltrim(key, -settings.REDIS_MAX_MESSAGES, -1)
+        await r.expire(key, settings.REDIS_HISTORY_TTL)
+    except Exception as e:
+        print(f"[Redis write skip]: {e}")
+
+    # SQLite (source of truth)
+    db = await get_db()
+    await db.execute(
+        f"INSERT INTO {TABLE} (id, token, role, message, timestamp) VALUES (?, ?, ?, ?, ?)",
+        (msg_id, token, role, message, ts),
     )
-    # Reverse so oldest → newest for agent context
-    return list(reversed(response.data))
+    await db.commit()
+    await db.close()
 
 
-def fetch_all(token: str, page: int = 1, limit: int = 20) -> Dict[str, Any]:
-    """Fetch paginated conversation history for a token, chronological order."""
-    supabase = get_supabase()
+async def fetch_recent(token: str, limit: int = 10) -> List[Dict[str, Any]]:
+    # Redis first
+    try:
+        r = await get_redis()
+        key = _redis_key(token)
+        cached = await r.lrange(key, -limit, -1)
+        if cached:
+            return [json.loads(msg) for msg in cached]
+    except Exception as e:
+        print(f"[Redis read skip]: {e}")
 
-    # Calculate offset
+    # SQLite fallback
+    db = await get_db()
+    cursor = await db.execute(
+        f"SELECT id, role, message, timestamp FROM {TABLE} WHERE token = ? ORDER BY timestamp DESC LIMIT ?",
+        (token, limit),
+    )
+    rows = await cursor.fetchall()
+    await db.close()
+    messages = [dict(row) for row in reversed(rows)]
+
+    # Warm Redis
+    if messages:
+        try:
+            r = await get_redis()
+            key = _redis_key(token)
+            pipe = r.pipeline()
+            await pipe.delete(key)
+            for msg in messages:
+                await pipe.rpush(key, json.dumps(msg))
+            await pipe.expire(key, settings.REDIS_HISTORY_TTL)
+            await pipe.execute()
+        except Exception:
+            pass
+
+    return messages
+
+
+async def fetch_all(token: str, page: int = 1, limit: int = 20) -> Dict[str, Any]:
+    db = await get_db()
     offset = (page - 1) * limit
 
-    # We use count="exact" to get the total number of records along with the paginated data
-    response = (
-        supabase.table(TABLE)
-        .select("id, role, message, timestamp", count="exact")
-        .eq("token", token)
-        .order("timestamp", desc=False)
-        .range(offset, offset + limit - 1)
-        .execute()
+    cursor = await db.execute(
+        f"SELECT COUNT(*) as cnt FROM {TABLE} WHERE token = ?", (token,)
     )
+    row = await cursor.fetchone()
+    total = row["cnt"] if row else 0
 
-    # Supabase response object has .data and .count when we ask for count
-    return {
-        "data": response.data,
-        "total": getattr(
-            response, "count", 0
-        ),  # Default fallback if count isn't retrieved
-    }
-
-
-def delete_all(token: str) -> None:
-    """Delete all chat history for a token."""
-    supabase = get_supabase()
-    supabase.table(TABLE).delete().eq("token", token).execute()
-
-
-def prune(token: str, max_rows: int = None) -> None:
-    """
-    FIFO pruning: if a token has more than max_rows records,
-    delete the oldest ones until exactly max_rows remain.
-    """
-    if max_rows is None:
-        max_rows = settings.MAX_MEMORY_ROWS
-
-    supabase = get_supabase()
-    # Fetch all IDs ordered oldest first
-    response = (
-        supabase.table(TABLE)
-        .select("id, timestamp")
-        .eq("token", token)
-        .order("timestamp", desc=False)
-        .execute()
+    cursor = await db.execute(
+        f"SELECT id, role, message, timestamp FROM {TABLE} WHERE token = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?",
+        (token, limit, offset),
     )
-    rows = response.data
-    excess = len(rows) - max_rows
-    if excess > 0:
-        ids_to_delete = [row["id"] for row in rows[:excess]]
-        supabase.table(TABLE).delete().in_("id", ids_to_delete).execute()
+    rows = await cursor.fetchall()
+    await db.close()
+
+    return {"data": [dict(r) for r in reversed(rows)], "total": total}
+
+
+async def delete_all(token: str) -> None:
+    # Clear Redis
+    try:
+        r = await get_redis()
+        await r.delete(_redis_key(token))
+    except Exception:
+        pass
+
+    # Clear SQLite
+    db = await get_db()
+    await db.execute(f"DELETE FROM {TABLE} WHERE token = ?", (token,))
+    await db.commit()
+    await db.close()

@@ -1,54 +1,87 @@
 const { NotificationHelper } = require("../middleware/notificationHelper.js");
 const Notification = require("../models/Notification.js");
+const DeviceToken = require("../models/DeviceToken.js");
+const { deactivateTokens } = require("../services/pushService.js");
 
-//* Add Notification
-const addNotification = async (req, res) => {
+const registerToken = async (req, res) => {
   try {
-    const { title, description, status } = req.body;
-    const userId = req.user.id;
+    const { fcmToken, deviceId, deviceType, deviceModel, appVersion } =
+      req.body || {};
 
-    //* Validate required fields
-    if (!title || !description) {
+    if (!fcmToken) {
       return res.status(400).json({
         statusCode: 400,
         success: false,
-        message: "Title and description are required",
+        message: "fcmToken is required",
       });
     }
 
-    //* Validate status
-    const validStatuses = ["important", "normal", "urgent", "alert"];
-    if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        statusCode: 400,
-        success: false,
-        message:
-          "Invalid status. Must be one of: important, normal, urgent, alert",
-      });
+    if (deviceId) {
+      try {
+        await DeviceToken.updateMany(
+          { deviceId, fcmToken: { $ne: fcmToken } },
+          { $set: { isActive: false } }
+        );
+      } catch (error) {
+        console.error("Failed retiring stale device tokens:", error.message);
+      }
     }
 
-    //* Create notification
-    const notification = await NotificationHelper.createNotification(
-      userId,
-      title,
-      description,
-      status
+    await DeviceToken.findOneAndUpdate(
+      { fcmToken },
+      {
+        userId: req.user.id,
+        fcmToken,
+        deviceId: deviceId || null,
+        deviceType: deviceType || "android",
+        deviceModel: deviceModel || null,
+        appVersion: appVersion || null,
+        isActive: true,
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
     );
 
-    res.status(201).json({
-      statusCode: 201,
+    res.status(200).json({
+      statusCode: 200,
       success: true,
-      message: "Notification created successfully",
-      data: {
-        notification,
-      },
+      message: "Device token registered",
     });
   } catch (error) {
-    console.error("Error adding notification:", error);
+    console.error("Error registering device token:", error);
     res.status(500).json({
       statusCode: 500,
       success: false,
-      message: "Failed to create notification",
+      message: "Failed to register device token",
+      error: error.message,
+    });
+  }
+};
+
+const deactivateToken = async (req, res) => {
+  try {
+    const { fcmToken } = req.body || {};
+
+    if (!fcmToken) {
+      return res.status(400).json({
+        statusCode: 400,
+        success: false,
+        message: "fcmToken is required",
+      });
+    }
+
+    await deactivateTokens([fcmToken]);
+
+    res.status(200).json({
+      statusCode: 200,
+      success: true,
+      message: "Device token deactivated",
+    });
+  } catch (error) {
+    console.error("Error deactivating device token:", error);
+    res.status(500).json({
+      statusCode: 500,
+      success: false,
+      message: "Failed to deactivate device token",
       error: error.message,
     });
   }
@@ -59,13 +92,11 @@ const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    let notifications;
-
-    notifications = await Notification.find({ userId }).sort({
+    const notifications = await Notification.find({ userId }).sort({
       createdAt: -1,
     });
 
-    //const unreadCount = await NotificationHelper.getUnreadCount(userId);
+    const unreadCount = await NotificationHelper.getUnreadCount(userId);
 
     res.status(200).json({
       statusCode: 200,
@@ -74,7 +105,7 @@ const getNotifications = async (req, res) => {
       data: {
         notifications,
         totalCount: notifications.length,
-        // unreadCount,
+        unreadCount,
       },
     });
   } catch (error) {
@@ -83,6 +114,72 @@ const getNotifications = async (req, res) => {
       statusCode: 500,
       success: false,
       message: "Failed to fetch notifications",
+      error: error.message,
+    });
+  }
+};
+
+//* Mark Read — a single notification's group, or all of them
+const markRead = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { id, all } = req.body || {};
+
+    if (!id && !all) {
+      return res.status(400).json({
+        statusCode: 400,
+        success: false,
+        message: "Either 'id' or 'all' is required",
+      });
+    }
+
+    const updated = all
+      ? await NotificationHelper.markAllAsRead(userId)
+      : await NotificationHelper.markAsRead(id, userId);
+
+    res.status(200).json({
+      statusCode: 200,
+      success: true,
+      message: "Notifications marked as read",
+      data: { updated },
+    });
+  } catch (error) {
+    console.error("Error marking notifications read:", error);
+
+    if (error.message.includes("not found or unauthorized")) {
+      return res.status(404).json({
+        statusCode: 404,
+        success: false,
+        message: "Notification not found or you are not authorized",
+      });
+    }
+
+    res.status(500).json({
+      statusCode: 500,
+      success: false,
+      message: "Failed to mark notifications as read",
+      error: error.message,
+    });
+  }
+};
+
+//* Unread Count
+const getUnreadCount = async (req, res) => {
+  try {
+    const count = await NotificationHelper.getUnreadCount(req.user.id);
+
+    res.status(200).json({
+      statusCode: 200,
+      success: true,
+      message: "Unread count fetched successfully",
+      data: { count },
+    });
+  } catch (error) {
+    console.error("Error fetching unread count:", error);
+    res.status(500).json({
+      statusCode: 500,
+      success: false,
+      message: "Failed to fetch unread count",
       error: error.message,
     });
   }
@@ -169,4 +266,12 @@ const clearNotifications = async (req, res) => {
   }
 };
 
-module.exports = { addNotification, getNotifications, deleteNotification ,clearNotifications};
+module.exports = {
+  getNotifications,
+  markRead,
+  getUnreadCount,
+  registerToken,
+  deactivateToken,
+  deleteNotification,
+  clearNotifications,
+};

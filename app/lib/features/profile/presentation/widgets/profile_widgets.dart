@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/cache/cache_manager.dart';
-import 'package:pillbin/config/notifications/notification_config.dart';
+import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
@@ -15,6 +15,10 @@ import 'package:pillbin/features/pillbot/data/repository/pillbot_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/profile/presentation/widgets/my_posts_button.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
+import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
+import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
+import 'package:pillbin/features/locations/data/repository/saved_centers_provider.dart';
+import 'package:pillbin/features/vendor/presentation/widgets/vendor_center_sheets.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_achievements_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_campaign_card.dart';
 import 'package:pillbin/features/profile/presentation/widgets/profile_settings_card.dart';
@@ -289,7 +293,8 @@ Widget buildProfileHeader(
 }
 
 Widget buildProfileStatsCards(double sw, double sh, bool isTablet,
-    BuildContext context, String medicinesTrackedCount) {
+    BuildContext context, String medicinesTrackedCount,
+    {UserModel? user}) {
   return Padding(
     padding: EdgeInsets.symmetric(horizontal: isTablet ? 0 : sw * 0.04),
     child: Row(
@@ -317,12 +322,24 @@ Widget buildProfileStatsCards(double sw, double sh, bool isTablet,
         ),
         SizedBox(width: sw * 0.03),
         Expanded(
-          child: ProfileStatCard(
-            count: '0',
-            label: 'Safely Disposed',
-            color: PillBinColors.success,
-            sw: sw,
-            sh: sh,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.pushNamed(
+                context,
+                '/impact-screen',
+                arguments: {
+                  'transition': TransitionType.bottomToTop,
+                  'duration': 300,
+                },
+              );
+            },
+            child: ProfileStatCard(
+              count: '${user?.stats.medicinesDisposedCount ?? 0}',
+              label: 'Safely Disposed',
+              color: PillBinColors.success,
+              sw: sw,
+              sh: sh,
+            ),
           ),
         ),
         SizedBox(width: sw * 0.03),
@@ -747,9 +764,12 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                         await context.read<RagProvider>().reset();
                         await context.read<BlogProvider>().reset();
                         await context.read<PillBotProvider>().reset();
+                        context.read<DonationProvider>().reset();
+                        context.read<VendorProvider>().reset();
+                        context.read<SavedCentersProvider>().reset();
+                        context.read<AuthProvider>().reset();
                         await CacheManager().clearAllCache();
-
-                        NotificationConfig().cancelAllNotifications();
+                        await FcmService().deactivate();
 
                         HealthAiProvider provider =
                             context.read<HealthAiProvider>();
@@ -807,6 +827,10 @@ Widget buildVendorCenterCard(double sw, double sh, bool isTablet, BuildContext c
   final bool isActive = center.isActive;
   final String facilityType = center.facilityType;
   final String address = center.address;
+  final String prettyType = facilityType.isEmpty
+      ? ''
+      : facilityType[0].toUpperCase() +
+          facilityType.substring(1).replaceAll('_', ' ');
 
   return Padding(
     padding: EdgeInsets.only(
@@ -814,132 +838,169 @@ Widget buildVendorCenterCard(double sw, double sh, bool isTablet, BuildContext c
       right: isTablet ? 0 : sw * 0.04,
       bottom: sh * 0.025,
     ),
-    child: Container(
-      width: double.infinity,
-      padding: EdgeInsets.all(isTablet ? sw * 0.03 : sw * 0.05),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            PillBinColors.primary.withValues(alpha: 0.08),
-            PillBinColors.primaryLight.withValues(alpha: 0.08),
-          ],
-        ),
+    child: Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () => showVendorCenterDetailsSheet(context, center),
         borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
-        border: Border.all(color: PillBinColors.primary.withValues(alpha: 0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: EdgeInsets.all(isTablet ? sw * 0.015 : sw * 0.025),
-                decoration: BoxDecoration(
-                  color: PillBinColors.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.local_hospital_outlined,
-                  color: PillBinColors.primary,
-                  size: isTablet ? sw * 0.025 : sw * 0.05,
-                ),
+        child: Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: PillBinColors.surface,
+            borderRadius: BorderRadius.circular(isTablet ? 20 : 16),
+            border: Border.all(color: PillBinColors.greyLight),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 12,
+                offset: const Offset(0, 3),
               ),
-              SizedBox(width: sw * 0.03),
-              Expanded(
-                child: Column(
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  isTablet ? sw * 0.025 : sw * 0.042,
+                  isTablet ? sw * 0.025 : sw * 0.042,
+                  isTablet ? sw * 0.025 : sw * 0.035,
+                  isTablet ? sw * 0.02 : sw * 0.035,
+                ),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'Your Center',
-                      style: PillBinRegular.style(
-                        fontSize: isTablet ? sw * 0.018 : sw * 0.03,
-                        color: PillBinColors.textSecondary,
+                    Container(
+                      padding: EdgeInsets.all(isTablet ? sw * 0.018 : sw * 0.032),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.primary.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.local_hospital_rounded,
+                        color: PillBinColors.primary,
+                        size: isTablet ? sw * 0.026 : sw * 0.052,
                       ),
                     ),
-                    Text(
-                      center.name,
-                      style: PillBinBold.style(
-                        fontSize: isTablet ? sw * 0.025 : sw * 0.045,
-                        color: PillBinColors.primary,
+                    SizedBox(width: sw * 0.035),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'YOUR CENTER',
+                            style: PillBinMedium.style(
+                              fontSize: isTablet ? sw * 0.016 : sw * 0.026,
+                              color: PillBinColors.textLight,
+                            ),
+                          ),
+                          SizedBox(height: sh * 0.005),
+                          Text(
+                            center.name,
+                            style: PillBinBold.style(
+                              fontSize: isTablet ? sw * 0.024 : sw * 0.042,
+                              color: PillBinColors.textDark,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(width: sw * 0.02),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: sw * 0.022, vertical: sh * 0.004),
+                          decoration: BoxDecoration(
+                            color: (isActive
+                                    ? PillBinColors.success
+                                    : PillBinColors.error)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: PillBinMedium.style(
+                              fontSize: isTablet ? sw * 0.016 : sw * 0.027,
+                              color: isActive
+                                  ? PillBinColors.success
+                                  : PillBinColors.error,
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: sh * 0.008),
+                        Icon(Icons.chevron_right_rounded,
+                            size: isTablet ? sw * 0.022 : sw * 0.05,
+                            color: PillBinColors.textLight),
+                      ],
                     ),
                   ],
                 ),
               ),
-              Container(
-                padding: EdgeInsets.symmetric(
-                    horizontal: sw * 0.025, vertical: sh * 0.005),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? Colors.green.withValues(alpha: 0.12)
-                      : Colors.red.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: PillBinMedium.style(
-                    fontSize: isTablet ? sw * 0.018 : sw * 0.03,
-                    color: isActive ? Colors.green : Colors.red,
+              if (prettyType.isNotEmpty || address.isNotEmpty) ...[
+                Divider(height: 1, thickness: 1, color: PillBinColors.greyLight),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                    isTablet ? sw * 0.025 : sw * 0.042,
+                    isTablet ? sw * 0.018 : sw * 0.03,
+                    isTablet ? sw * 0.025 : sw * 0.042,
+                    isTablet ? sw * 0.02 : sw * 0.035,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (prettyType.isNotEmpty)
+                        Row(
+                          children: [
+                            Icon(Icons.category_outlined,
+                                size: isTablet ? sw * 0.018 : sw * 0.036,
+                                color: PillBinColors.textLight),
+                            SizedBox(width: sw * 0.025),
+                            Text(
+                              prettyType,
+                              style: PillBinRegular.style(
+                                fontSize: isTablet ? sw * 0.018 : sw * 0.033,
+                                color: PillBinColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      if (prettyType.isNotEmpty && address.isNotEmpty)
+                        SizedBox(height: sh * 0.009),
+                      if (address.isNotEmpty)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.only(top: sh * 0.002),
+                              child: Icon(Icons.location_on_outlined,
+                                  size: isTablet ? sw * 0.018 : sw * 0.036,
+                                  color: PillBinColors.textLight),
+                            ),
+                            SizedBox(width: sw * 0.025),
+                            Expanded(
+                              child: Text(
+                                address,
+                                style: PillBinRegular.style(
+                                  fontSize: isTablet ? sw * 0.018 : sw * 0.033,
+                                  color: PillBinColors.textSecondary,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ],
           ),
-          if (facilityType.isNotEmpty || address.isNotEmpty) ...[
-            SizedBox(height: sh * 0.012),
-            Divider(color: PillBinColors.primary.withValues(alpha: 0.15), height: 1),
-            SizedBox(height: sh * 0.012),
-            if (facilityType.isNotEmpty)
-              Row(
-                children: [
-                  Icon(Icons.category_outlined,
-                      size: isTablet ? sw * 0.018 : sw * 0.035,
-                      color: PillBinColors.textSecondary),
-                  SizedBox(width: sw * 0.02),
-                  Text(
-                    facilityType[0].toUpperCase() + facilityType.substring(1).replaceAll('_', ' '),
-                    style: PillBinRegular.style(
-                      fontSize: isTablet ? sw * 0.018 : sw * 0.033,
-                      color: PillBinColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            if (address.isNotEmpty) ...[
-              SizedBox(height: sh * 0.006),
-              Row(
-                children: [
-                  Icon(Icons.location_on_outlined,
-                      size: isTablet ? sw * 0.018 : sw * 0.035,
-                      color: PillBinColors.textSecondary),
-                  SizedBox(width: sw * 0.02),
-                  Expanded(
-                    child: Text(
-                      address,
-                      style: PillBinRegular.style(
-                        fontSize: isTablet ? sw * 0.018 : sw * 0.033,
-                        color: PillBinColors.textSecondary,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ],
+        ),
       ),
     ),
   );

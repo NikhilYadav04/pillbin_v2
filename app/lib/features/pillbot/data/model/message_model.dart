@@ -27,6 +27,7 @@ class ChatMessage {
     bool isTable = false;
     List<List<String>>? tableRows;
     List<String>? tableColumns;
+    double? confidence;
 
     if (raw is Map<String, dynamic>) {
       // History path: nested object
@@ -40,6 +41,7 @@ class ChatMessage {
               .map((row) => List<String>.from(row))
               .toList()
           : null;
+      confidence = (raw['confidence'] as num?)?.toDouble();
     } else if (raw is String) {
       msg = raw;
       try {
@@ -55,8 +57,7 @@ class ChatMessage {
                   .map((row) => List<String>.from(row))
                   .toList()
               : null;
-          confidence:
-          (decoded['confidence'] as num?)?.toDouble();
+          confidence = (decoded['confidence'] as num?)?.toDouble();
         }
       } catch (_) {}
     }
@@ -75,6 +76,8 @@ class ChatMessage {
           : null;
     }
 
+    confidence ??= (json['confidence'] as num?)?.toDouble();
+
     return ChatMessage(
       id: json['id'] ?? '',
       role: json['role'] == 'user' ? MessageRole.user : MessageRole.agent,
@@ -85,6 +88,7 @@ class ChatMessage {
       isTable: isTable,
       tableRows: tableRows,
       tableColumns: tableColumns,
+      confidence: confidence,
     );
   }
 
@@ -96,6 +100,7 @@ class ChatMessage {
         isTable: isTable,
         tableRows: tableRows,
         tableColumns: tableColumns,
+        confidence: confidence,
       );
 
   Map<String, dynamic> toJson() => {

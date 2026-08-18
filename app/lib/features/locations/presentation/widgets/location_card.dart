@@ -9,7 +9,6 @@ import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/locations/data/repository/saved_centers_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/network/models/medical_center_model.dart';
-import 'package:pillbin/network/models/user_model.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -136,12 +135,15 @@ class _LocationCardState extends State<LocationCard> {
     return '${_formatTime(hours.open)} - ${_formatTime(hours.close)}';
   }
 
-  double _getDistance(double lat, double long) {
-    UserProvider provider = context.read<UserProvider>();
-    UserModel user = provider.user!;
+  //* Null when the user has no saved location — the card then hides the
+  //* distance chip instead of throwing during build
+  double? _getDistance(double lat, double long) {
+    final coordinates =
+        context.read<UserProvider>().user?.location?.coordinates;
+    final lat1 = coordinates?.latitude;
+    final long1 = coordinates?.longitude;
 
-    double lat1 = user.location!.coordinates!.latitude!;
-    double long1 = user.location!.coordinates!.longitude!;
+    if (lat1 == null || long1 == null) return null;
 
     //* Distance in meters
     double distanceInMeters = Geolocator.distanceBetween(
@@ -238,6 +240,10 @@ class _LocationCardState extends State<LocationCard> {
   }
 
   Widget _buildHeader(bool isTablet) {
+    final double? distanceKm = _getDistance(
+        widget.medicalCenter.coordinates.last,
+        widget.medicalCenter.coordinates.first);
+
     return Row(
       children: [
         ClipRRect(
@@ -339,39 +345,42 @@ class _LocationCardState extends State<LocationCard> {
               SizedBox(height: widget.sh * 0.005),
               Row(
                 children: [
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: widget.sw * 0.025,
-                      vertical: widget.sh * 0.004,
-                    ),
-                    decoration: BoxDecoration(
-                      color: PillBinColors.success.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: PillBinColors.success.withOpacity(0.3),
-                        width: 1,
+                  if (distanceKm != null)
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: widget.sw * 0.025,
+                        vertical: widget.sh * 0.004,
+                      ),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.success.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: PillBinColors.success.withOpacity(0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.location_on,
+                            color: PillBinColors.success,
+                            size:
+                                isTablet ? widget.sw * 0.018 : widget.sw * 0.03,
+                          ),
+                          SizedBox(width: widget.sw * 0.008),
+                          Text(
+                            '${distanceKm.toStringAsFixed(1)} km',
+                            style: PillBinMedium.style(
+                              fontSize: isTablet
+                                  ? widget.sw * 0.02
+                                  : widget.sw * 0.032,
+                              color: PillBinColors.success,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.location_on,
-                          color: PillBinColors.success,
-                          size: isTablet ? widget.sw * 0.018 : widget.sw * 0.03,
-                        ),
-                        SizedBox(width: widget.sw * 0.008),
-                        Text(
-                          '${_getDistance(widget.medicalCenter.coordinates.last, widget.medicalCenter.coordinates.first).toStringAsFixed(1)} km',
-                          style: PillBinMedium.style(
-                            fontSize:
-                                isTablet ? widget.sw * 0.02 : widget.sw * 0.032,
-                            color: PillBinColors.success,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                   Spacer(),
                   GestureDetector(
                     onTap: () async {

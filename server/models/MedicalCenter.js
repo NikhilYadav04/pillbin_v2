@@ -73,6 +73,24 @@ const medicalCenterSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    //* Running totals so a rating change is an $inc, never a recount
+    ratingSum: {
+      type: Number,
+      default: 0,
+    },
+    ratingBreakdown: {
+      1: { type: Number, default: 0 },
+      2: { type: Number, default: 0 },
+      3: { type: Number, default: 0 },
+      4: { type: Number, default: 0 },
+      5: { type: Number, default: 0 },
+    },
+    //* Bayesian-adjusted rating used for ranking — an unrated center sits at
+    //* the neutral prior instead of below every 1-star center
+    weightedRating: {
+      type: Number,
+      default: 3.5,
+    },
     facilityType: {
       type: String,
       enum: ["hospital", "clinic", "pharmacy", "health_center"],
@@ -149,6 +167,10 @@ const medicalCenterSchema = new mongoose.Schema(
         uploadedAt: { type: Date, default: Date.now },
       },
     ],
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
     verificationRejectionReason: {
       type: String,
       default: null,

@@ -15,10 +15,7 @@ class NotificationProvider extends ChangeNotifier {
   final CacheManager _cacheManager = CacheManager();
   final HttpClient _httpClient = HttpClient();
 
-  void addNotifications(NotificationModel list) {
-    _notifications.add(list);
-    notifyListeners();
-  }
+  int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
   void deleteNotificationFromList(String notificationId) {
     _notifications.removeWhere((n) => n.id == notificationId);
@@ -38,66 +35,6 @@ class NotificationProvider extends ChangeNotifier {
   NotificationService _notificationService = NotificationService();
 
   //* Functions
-
-  //* Add Notification
-  Future<String> addNotification(
-      {required BuildContext context,
-      required String title,
-      required String description,
-      required String status}) async {
-    try {
-      ApiResponse<Map<String, dynamic>> response =
-          await _notificationService.addNotification(
-              title: title, description: description, status: status);
-
-      if (response.statusCode == 201) {
-        Map<String, dynamic> notiData = response.data!;
-
-        String id = notiData["notification"]["_id"];
-        String userId = notiData["notification"]["userId"];
-
-        Logger().d(id);
-        Logger().d(userId);
-
-        Logger().d(_notifications.length);
-
-        NotificationModel notification = NotificationModel(
-            id: id, userId: userId, title: title, description: description);
-
-        _notifications.add(notification);
-        notifyListeners();
-
-        Logger().d(_notifications.length);
-
-        return 'success';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
-        CustomSnackBar.show(
-            context: context,
-            icon: Icons.notifications,
-            title:
-                "Unable to add notification at the moment. Please try again later.");
-        print(response.message);
-        return 'error';
-      } else {
-        CustomSnackBar.show(
-            context: context,
-            icon: Icons.notifications,
-            title:
-                "Unable to add notification at the moment. Please try again later.");
-        print(response.message);
-        return 'error';
-      }
-    } catch (e) {
-      CustomSnackBar.show(
-          context: context,
-          icon: Icons.notifications,
-          title:
-              "Unable to add notification at the moment. Please try again later.");
-
-      print(e.toString());
-      return 'error';
-    }
-  }
 
   //* fetch notifications
   Future<String> fetchNotifications(
@@ -173,6 +110,46 @@ class NotificationProvider extends ChangeNotifier {
       }
     } catch (e) {
       _isLoading = false;
+      notifyListeners();
+      Logger().e(e.toString());
+      return 'error';
+    }
+  }
+
+  //* mark read
+  Future<String> markRead({String? notificationId}) async {
+    final previous = List<NotificationModel>.from(_notifications);
+
+    final int index = _notifications.indexWhere((n) => n.id == notificationId);
+    if (notificationId != null && index == -1) return 'error';
+    final String? groupKey =
+        index == -1 ? null : _notifications[index].groupKey;
+
+    _notifications = _notifications.map((n) {
+      if (notificationId == null) return n.copyWith(isRead: true);
+      if (groupKey != null && n.groupKey == groupKey) {
+        return n.copyWith(isRead: true);
+      }
+      if (n.id == notificationId) return n.copyWith(isRead: true);
+      return n;
+    }).toList();
+    notifyListeners();
+
+    try {
+      ApiResponse<Map<String, dynamic>> response =
+          await _notificationService.markRead(id: notificationId);
+
+      if (response.statusCode == 200) {
+        await _cacheManager
+            .cacheNotifications(_notifications.map((n) => n.toJson()).toList());
+        return 'success';
+      }
+
+      _notifications = previous;
+      notifyListeners();
+      return 'error';
+    } catch (e) {
+      _notifications = previous;
       notifyListeners();
       Logger().e(e.toString());
       return 'error';

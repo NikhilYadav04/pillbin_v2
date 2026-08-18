@@ -1,15 +1,12 @@
 import 'dart:io';
-import 'dart:math';
+
+import 'package:pillbin/core/utils/snackBar.dart';
 
 import 'package:flutter/material.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:pillbin/config/notifications/notification_config.dart';
-import 'package:pillbin/config/notifications/notification_helper.dart';
-import 'package:pillbin/config/notifications/notification_model.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/helper/ocr_helper.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
@@ -1314,8 +1311,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     try {
       //* API Call
       MedicineProvider _provider = context.read<MedicineProvider>();
-      NotificationProvider _notificationProvider =
-          context.read<NotificationProvider>();
 
       DateTime safeExpiryDate = createSafeDateTime(_expiryDate);
       DateTime safePurchaseDate = createSafeDateTime(_purchaseDate);
@@ -1335,15 +1330,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         context: context,
       );
 
-      //* Add Notification
-      _notificationProvider.addNotification(
-        context: context,
-        title: "${_medicineNameController.text.trim()} added",
-        description:
-            "Your medicine has been added successfully and will now be tracked for dosage reminders and expiry alerts.",
-        status: 'normal',
-      );
-
       // Stop animation
       _saveAnimationController.reverse();
 
@@ -1352,40 +1338,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
       });
 
       if (response == 'success') {
-        //* schedule notification
-        final random = Random();
-        final id1 = random.nextInt(10000) + random.nextInt(100);
-
-        //* 1] Inform before 2 days of expiry
-        Map<String, dynamic> expiring_soon_map =
-            NotificationHelper.getExpiringSoon(
-                _medicineNameController.text.trim());
-
-        int hours1 = NotificationHelper.getDurationNotification(_expiryDate);
-
-        NotificationConfig().scheduleReminder(
-            notify: PushNotificationModel(
-                id: id1.toString(),
-                title: expiring_soon_map["title"],
-                body: expiring_soon_map["desc"]),
-            hours: hours1);
-
-        //* 2] Inform at day of expiry
-        final id2 = random.nextInt(10000) + random.nextInt(100);
-
-        Future.delayed(Duration(milliseconds: 500));
-
-        Map<String, dynamic> expired_map =
-            NotificationHelper.getExpired(_medicineNameController.text.trim());
-
-        int hours2 = NotificationHelper.getDurationNotification(_expiryDate);
-
-        NotificationConfig().scheduleReminder(
-            notify: PushNotificationModel(
-                id: id2.toString(),
-                title: expired_map["title"],
-                body: expired_map["desc"]),
-            hours: hours2);
+        final addedName = _medicineNameController.text.trim();
 
         //* Clear form after success
         _medicineNameController.clear();
@@ -1399,6 +1352,14 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
           _selectedMedicineType = null;
           medicinePhoto = null; // Clear the photo
         });
+
+        if (mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.check_circle_outline,
+            title: '$addedName added to your inventory',
+          );
+        }
       } else {
         return;
       }

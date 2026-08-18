@@ -1,5 +1,4 @@
 import asyncio
-import uuid
 import httpx
 import json
 
@@ -7,7 +6,7 @@ BASE_URL = "http://localhost:8000"
 
 
 async def run_tests():
-    token = f"test_user_123"
+    token = "test_user_123"
     print(f"=== Starting API Tests using token: {token} ===\n")
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -22,7 +21,7 @@ async def run_tests():
             f"{BASE_URL}/query",
             data={
                 "token": token,
-                "user_message": "Hello! Please reply with exactly 'hi' and nothing else. Do not delegate.",
+                "user_message": "Hello! Please reply with exactly 'hi'.",
             },
         )
         print(f"Status: {res.status_code}")
@@ -35,7 +34,7 @@ async def run_tests():
                     end = line.rfind("}") + 1
                     if start != -1 and end != 0:
                         parsed_id = json.loads(line[start:end]).get("id")
-                except:
+                except Exception:
                     pass
         print(f"Stream output captured. Agent Message ID: {parsed_id}\n")
 
@@ -44,25 +43,15 @@ async def run_tests():
         res = await client.get(f"{BASE_URL}/history", params={"token": token})
         print(f"Status: {res.status_code}")
         history_cnt = len(res.json().get("history", []))
-        print(f"Total messages in history for token: {history_cnt}\n")
+        print(f"Total messages in history: {history_cnt}\n")
 
-        # 4. Clear Memory
-        print("4. Testing POST /memory/clear ...")
-        res = await client.post(f"{BASE_URL}/memory/clear", params={"token": token})
-        print(f"Status: {res.status_code} | Body: {res.text}\n")
-
-        # 5. Clear Knowledge
-        print("5. Testing POST /knowledge/clear ...")
-        res = await client.post(f"{BASE_URL}/knowledge/clear", params={"token": token})
-        print(f"Status: {res.status_code} | Body: {res.text}\n")
-
-        # 6. Clear History
-        print("6. Testing DELETE /history ...")
+        # 4. Clear History
+        print("4. Testing DELETE /history ...")
         res = await client.delete(f"{BASE_URL}/history", params={"token": token})
         print(f"Status: {res.status_code} | Body: {res.text}\n")
 
-        # 7. Verify History Cleared
-        print("7. Verifying History is empty ...")
+        # 5. Verify History Cleared
+        print("5. Verifying History is empty ...")
         res = await client.get(f"{BASE_URL}/history", params={"token": token})
         print(
             f"Status: {res.status_code} | History Length: {len(res.json().get('history', []))}\n"

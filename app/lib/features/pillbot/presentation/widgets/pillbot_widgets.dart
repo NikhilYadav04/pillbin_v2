@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:pillbin/features/pillbot/presentation/widgets/sugeestion_chips.dart';
 import 'package:shimmer/shimmer.dart';
@@ -53,6 +51,39 @@ const List<SuggestionItem> kSuggestions = [
     label: 'Is Arogya Medical Center available?',
     description: '',
     icon: Icons.local_pharmacy_outlined,
+  ),
+];
+
+const List<SuggestionItem> kVendorSuggestions = [
+  SuggestionItem(
+    label: 'Show my pending donation requests',
+    description: '',
+    icon: Icons.pending_actions_outlined,
+  ),
+  SuggestionItem(
+    label: 'How is my center performing?',
+    description: '',
+    icon: Icons.insights_outlined,
+  ),
+  SuggestionItem(
+    label: 'What medicines were donated to my center?',
+    description: '',
+    icon: Icons.inventory_2_outlined,
+  ),
+  SuggestionItem(
+    label: 'Show my center rating and reviews',
+    description: '',
+    icon: Icons.star_outline_rounded,
+  ),
+  SuggestionItem(
+    label: 'Any new notifications for me?',
+    description: '',
+    icon: Icons.notifications_none_rounded,
+  ),
+  SuggestionItem(
+    label: 'How should expired medicines be disposed?',
+    description: '',
+    icon: Icons.recycling_outlined,
   ),
 ];
 
@@ -112,50 +143,6 @@ class UserAvatar extends StatelessWidget {
   }
 }
 
-/// Blinking streaming cursor shown while bot is streaming text.
-class StreamingCursor extends StatefulWidget {
-  const StreamingCursor({Key? key}) : super(key: key);
-
-  @override
-  State<StreamingCursor> createState() => _StreamingCursorState();
-}
-
-class _StreamingCursorState extends State<StreamingCursor>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _c;
-
-  @override
-  void initState() {
-    super.initState();
-    _c = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 500))
-      ..repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final sw = context.sw;
-    return AnimatedBuilder(
-      animation: _c,
-      builder: (_, __) => Container(
-        width: sw * 0.005,
-        height: sw * 0.036,
-        decoration: BoxDecoration(
-          color: PillBinColors.primary.withOpacity(_c.value),
-          borderRadius: BorderRadius.circular(2),
-        ),
-      ),
-    );
-  }
-}
-
-/// File attachment chip — compact preview with icon + remove button.
 class AttachmentChip extends StatelessWidget {
   final String filename;
   final VoidCallback? onRemove; // null = inside a sent bubble (no remove)
@@ -496,7 +483,9 @@ class _TypingIndicatorState extends State<TypingIndicator>
 // ─────────────────────────────────────────────────────────────────────────────
 class EmptyStateView extends StatefulWidget {
   final void Function(String) onSuggestionTap;
-  const EmptyStateView({Key? key, required this.onSuggestionTap})
+  final bool isVendor;
+  const EmptyStateView(
+      {Key? key, required this.onSuggestionTap, this.isVendor = false})
       : super(key: key);
 
   @override
@@ -567,14 +556,18 @@ class _EmptyStateViewState extends State<EmptyStateView>
                     ),
                   ],
                 ),
-                child: Icon(Icons.medication_rounded,
-                    color: PillBinColors.textWhite, size: heroSize * 0.5),
+                child: Icon(
+                    widget.isVendor
+                        ? Icons.local_hospital_rounded
+                        : Icons.medication_rounded,
+                    color: PillBinColors.textWhite,
+                    size: heroSize * 0.5),
               ),
 
               SizedBox(height: sh * 0.025),
 
               Text(
-                'Hi! I\'m PillBot 👋',
+                widget.isVendor ? 'PillBot for Centers 🏥' : 'Hi! I\'m PillBot 👋',
                 textAlign: TextAlign.center,
                 style: PillBinBold.style(
                   fontSize: sw * (isTablet ? 0.034 : 0.054),
@@ -586,7 +579,9 @@ class _EmptyStateViewState extends State<EmptyStateView>
 
               // 1–2 line subtitle
               Text(
-                'Your AI health companion for medicines,\nsymptoms & general health queries.',
+                widget.isVendor
+                    ? 'Your assistant for donation requests,\ncenter performance & notifications.'
+                    : 'Your AI health companion for medicines,\nsymptoms & general health queries.',
                 textAlign: TextAlign.center,
                 style: PillBinRegular.style(
                   fontSize: sw * (isTablet ? 0.021 : 0.035),
@@ -612,7 +607,7 @@ class _EmptyStateViewState extends State<EmptyStateView>
 
               // Horizontal floating chip row
               SuggestionChipsGrid(
-                items: kSuggestions,
+                items: widget.isVendor ? kVendorSuggestions : kSuggestions,
                 onTap: (item) => widget.onSuggestionTap(item.label),
               ),
 
@@ -1059,83 +1054,64 @@ class PaginationLoader extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  2. STREAMING TEXT  (char-by-char typewriter effect)
-//     Drop this inside MessageBubble in place of the plain Text widget
-//     when message.isStreaming == true.
-// ─────────────────────────────────────────────────────────────────────────────
+class _FadeInOnce extends StatefulWidget {
+  final String id;
+  final bool enabled;
+  final Widget child;
 
-class StreamingText extends StatefulWidget {
-  final String text;
-  final TextStyle style;
-
-  const StreamingText({Key? key, required this.text, required this.style})
-      : super(key: key);
+  const _FadeInOnce({
+    required this.id,
+    required this.enabled,
+    required this.child,
+  });
 
   @override
-  State<StreamingText> createState() => _StreamingTextState();
+  State<_FadeInOnce> createState() => _FadeInOnceState();
 }
 
-class _StreamingTextState extends State<StreamingText> {
-  String _shown = '';
-  int _idx = 0;
-  Timer? _timer;
+class _FadeInOnceState extends State<_FadeInOnce> {
+  static final Set<String> _played = <String>{};
+  late final bool _play;
 
   @override
   void initState() {
     super.initState();
-    _tick(widget.text);
-  }
-
-  @override
-  void didUpdateWidget(StreamingText old) {
-    super.didUpdateWidget(old);
-    if (widget.text != old.text) {
-      if (_idx < widget.text.length) _tick(widget.text);
+    _play = widget.enabled && widget.id.isNotEmpty && !_played.contains(widget.id);
+    if (_play) {
+      if (_played.length > 400) _played.clear();
+      _played.add(widget.id);
     }
   }
 
-  void _tick(String full) {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(milliseconds: 16), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
-      }
-      if (_idx >= full.length) {
-        t.cancel();
-        return;
-      }
-      // Natural burst: 1 char most ticks, 3 chars every 5th tick
-      final burst = (_idx % 5 == 0) ? 1 : 3;
-      final end = (_idx + burst).clamp(0, full.length);
-      setState(() {
-        _shown = full.substring(0, end);
-        _idx = end;
-      });
-    });
-  }
-
   @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
+  Widget build(BuildContext context) {
+    if (!_play) return widget.child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 240),
+      curve: Curves.easeOutCubic,
+      child: widget.child,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(
+          offset: Offset(0, 10 * (1 - t)),
+          child: child,
+        ),
+      ),
+    );
   }
-
-  @override
-  Widget build(BuildContext context) => Text(_shown, style: widget.style);
 }
 
 class MessageBubble extends StatelessWidget {
   final ChatMessage message;
   final String userInitial;
-  final bool isStreaming;
+  final bool animateIn;
 
   const MessageBubble({
     Key? key,
     required this.message,
     required this.userInitial,
-    this.isStreaming = false,
+    this.animateIn = false,
   }) : super(key: key);
 
   bool get _isUser => message.role == MessageRole.user;
@@ -1191,7 +1167,10 @@ class MessageBubble extends StatelessWidget {
             ? PillBinColors.error
             : PillBinColors.textDark;
 
-    return Tooltip(
+    return _FadeInOnce(
+      id: message.id,
+      enabled: animateIn,
+      child: Tooltip(
       message: _isLowConfidence
           ? 'PillBot is not fully confident in this response. Please verify with a healthcare professional.'
           : '',
@@ -1262,7 +1241,6 @@ class MessageBubble extends StatelessWidget {
                             columns: message.tableColumns!,
                             rows: message.tableRows!,
                             textSize: textSize,
-                            isStreaming: isStreaming,
                           )
                         : Padding(
                             padding: EdgeInsets.symmetric(
@@ -1288,31 +1266,19 @@ class MessageBubble extends StatelessWidget {
                                       ],
                                     ),
                                   ),
-                                isStreaming
-                                    ? StreamingText(
-                                        text: message.message,
+                                _isUser
+                                    ? Text(
+                                        message.message,
                                         style: PillBinRegular.style(
                                             fontSize: textSize,
                                             color: textColor),
                                       )
-                                    : _isUser
-                                        ? Text(
-                                            message.message,
-                                            style: PillBinRegular.style(
-                                                fontSize: textSize,
-                                                color: textColor),
-                                          )
-                                        : SelectableText(
-                                            message.message,
-                                            style: PillBinRegular.style(
-                                                fontSize: textSize,
-                                                color: textColor),
-                                          ),
-                                if (isStreaming)
-                                  Padding(
-                                    padding: EdgeInsets.only(top: sw * 0.01),
-                                    child: const StreamingCursor(),
-                                  ),
+                                    : SelectableText(
+                                        message.message,
+                                        style: PillBinRegular.style(
+                                            fontSize: textSize,
+                                            color: textColor),
+                                      ),
                               ],
                             ),
                           ),
@@ -1333,6 +1299,7 @@ class MessageBubble extends StatelessWidget {
           ],
         ),
       ),
+      ),
     );
   }
 }
@@ -1346,14 +1313,12 @@ class _TableBubbleContent extends StatelessWidget {
   final List<String> columns;
   final List<List<String>> rows;
   final double textSize;
-  final bool isStreaming;
 
   const _TableBubbleContent({
     required this.leadingText,
     required this.columns,
     required this.rows,
     required this.textSize,
-    required this.isStreaming,
   });
 
   @override

@@ -1,4 +1,5 @@
 const MedicalCenter = require("../models/MedicalCenter");
+const { deleteImageService } = require("../services/clopudinaryService.js");
 
 //* Add a new medical center
 const addMedicalCenter = async (req, res) => {
@@ -94,7 +95,7 @@ const getAllMedicalCenters = async (req, res) => {
 
     const skip = (page - 1) * limit;
     const medicalCenters = await MedicalCenter.find(query)
-      .sort({ rating: -1, name: 1 })
+      .sort({ weightedRating: -1, name: 1 })
       .limit(parseInt(limit))
       .skip(skip);
 
@@ -326,13 +327,30 @@ const deleteMedicalCenterPermanent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const medicalCenter = await MedicalCenter.findByIdAndDelete(id);
+    const medicalCenter = await MedicalCenter.findById(id);
 
     if (!medicalCenter) {
       return res
         .status(404)
         .json({ statusCode: 404, message: "Medical center not found" });
     }
+
+    const publicIds = [
+      ...(medicalCenter.images || []),
+      ...(medicalCenter.verificationDocuments || []),
+    ]
+      .map((f) => f.publicId)
+      .filter(Boolean);
+
+    for (const publicId of publicIds) {
+      try {
+        await deleteImageService(publicId);
+      } catch (cloudinaryError) {
+        console.error("Cloudinary deletion error:", cloudinaryError);
+      }
+    }
+
+    await MedicalCenter.findByIdAndDelete(id);
 
     res.status(200).json({
       statusCode: 200,
@@ -376,7 +394,7 @@ const searchMedicalCenters = async (req, res) => {
 
     const skip = (page - 1) * limit;
     const medicalCenters = await MedicalCenter.find(searchQuery)
-      .sort({ rating: -1, name: 1 })
+      .sort({ weightedRating: -1, name: 1 })
       .limit(parseInt(limit))
       .skip(skip);
 

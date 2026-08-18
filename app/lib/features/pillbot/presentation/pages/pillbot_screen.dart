@@ -5,7 +5,6 @@ import 'package:logger/web.dart';
 import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/pillbot/data/model/message_model.dart';
 import 'package:pillbin/features/pillbot/data/repository/pillbot_provider.dart';
 import 'package:pillbin/features/pillbot/presentation/widgets/pillbot_widgets.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
@@ -14,7 +13,8 @@ import 'package:pillbin/network/utils/connectivity_banner.dart';
 import 'package:provider/provider.dart';
 
 class PillBotScreen extends StatefulWidget {
-  const PillBotScreen({Key? key}) : super(key: key);
+  final bool isVendor;
+  const PillBotScreen({Key? key, this.isVendor = false}) : super(key: key);
 
   @override
   State<PillBotScreen> createState() => _PillBotScreenState();
@@ -334,6 +334,7 @@ class _PillBotScreenState extends State<PillBotScreen>
 
     if (provider.messages.isEmpty && !provider.isQuerying) {
       return EmptyStateView(
+        isVendor: widget.isVendor,
         onSuggestionTap: (label) {
           _inputCtrl.text = label;
           _sendMessage();
@@ -368,13 +369,12 @@ class _PillBotScreenState extends State<PillBotScreen>
         if (i >= messages.length) return const SizedBox.shrink();
 
         final msg = messages[messages.length - 1 - i];
-        final isStreamingSlot =
-            provider.isQuerying && msg.role == MessageRole.agent && i == 0;
 
         return MessageBubble(
+          key: ValueKey(msg.id),
           message: msg,
           userInitial: _userInitial,
-          isStreaming: isStreamingSlot,
+          animateIn: i == 0,
         );
       },
     );

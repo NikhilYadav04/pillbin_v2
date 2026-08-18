@@ -29,6 +29,26 @@ class VendorService extends ApiService {
         fromJson: (d) => d as Map<String, dynamic>);
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> getDonatedMedicines(
+      {int page = 1, int limit = 20}) async {
+    return get(ApiEndpoints.vendorDonatedMedicines(page: page, limit: limit),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
+  Future<ApiResponse<Map<String, dynamic>>> getCenterReviews(String centerId,
+      {int page = 1, int limit = 10, int? rating}) async {
+    return get(
+        ApiEndpoints.centerReviews(centerId,
+            page: page, limit: limit, rating: rating),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
+  Future<ApiResponse<Map<String, dynamic>>> getAnalytics(
+      {int months = 6}) async {
+    return get(ApiEndpoints.vendorAnalytics(months: months),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> getRequests(
       {String? status, int page = 1, int limit = 10}) async {
     return get(ApiEndpoints.vendorRequests(status: status, page: page, limit: limit),

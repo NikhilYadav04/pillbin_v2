@@ -57,6 +57,11 @@ dependencies:
   image: ^4.7.2
   image_cropper: ^11.0.0
   cached_network_image: ^3.4.1
+  fl_chart: ^1.2.0
+  firebase_core: ^4.13.0
+  firebase_messaging: ^16.0.4
+  device_info_plus: ^11.3.0
+  package_info_plus: ^8.3.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

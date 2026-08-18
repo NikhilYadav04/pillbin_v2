@@ -1,0 +1,157 @@
+{
+  "info": {
+    "name": "PillBin Agent API v3.0",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000" },
+    { "key": "token", "value": "test_user_123" },
+    { "key": "jwt", "value": "YOUR_JWT_HERE" }
+  ],
+  "item": [
+    {
+      "name": "Health Check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/health"
+      }
+    },
+    {
+      "name": "Query — General (Web Search)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "What is paracetamol used for?" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query — Directory (Nearby Hospitals)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "Find hospitals near me" },
+            { "key": "latitude", "value": "19.076" },
+            { "key": "longitude", "value": "72.877" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query — Inventory (Active Medicines)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "Show my active medicines" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query — Inventory (Expiry Check)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{jwt}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "Which medicines are expiring soon?" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query — Knowledge (Upload PDF + Ask)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "What does my report say about cholesterol?" },
+            { "key": "file", "type": "file", "src": "" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Query — Follow-up (History)",
+      "request": {
+        "method": "POST",
+        "url": "{{base_url}}/query",
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "user_message", "value": "Tell me more about that" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get History",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{base_url}}/history?token={{token}}&page=1&limit=20",
+          "host": ["{{base_url}}"],
+          "path": ["history"],
+          "query": [
+            { "key": "token", "value": "{{token}}" },
+            { "key": "page", "value": "1" },
+            { "key": "limit", "value": "20" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Clear History",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{base_url}}/history?token={{token}}",
+          "host": ["{{base_url}}"],
+          "path": ["history"],
+          "query": [
+            { "key": "token", "value": "{{token}}" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Clear Knowledge Base",
+      "request": {
+        "method": "DELETE",
+        "url": {
+          "raw": "{{base_url}}/knowledge?token={{token}}",
+          "host": ["{{base_url}}"],
+          "path": ["knowledge"],
+          "query": [
+            { "key": "token", "value": "{{token}}" }
+          ]
+        }
+      }
+    }
+  ]
+}

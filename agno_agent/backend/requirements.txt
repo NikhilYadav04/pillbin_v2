@@ -1,7 +1,11 @@
 fastapi
 uvicorn[standard]
-supabase
-python-multipart
 python-dotenv
-agno
-pydantic-settings
+python-multipart
+agno[google,groq]
+httpx
+redis
+aiosqlite
+chromadb
+pypdf
+ddgs

@@ -17,7 +17,7 @@ class MedicineStatCardShimmer extends StatelessWidget {
     final bool isTablet = sw > 600;
 
     return Shimmer.fromColors(
-      baseColor: Color.fromARGB(255, 118, 190, 242),
+      baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
       child: Container(
         width: isTablet ? sw * 0.15 : null,

@@ -1,11 +1,17 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:logger/logger.dart';
+import 'package:pillbin/app.dart';
 import 'package:pillbin/config/cache/cache_manager.dart';
+import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:pillbin/config/notifications/notification_config.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/network/utils/http_client.dart';
+import 'package:provider/provider.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({Key? key}) : super(key: key);
@@ -36,7 +42,7 @@ class _SplashScreenState extends State<SplashScreen>
     super.initState();
 
     //* Notification Service Initialize-
-    NotificationConfig().init(context);
+    _initNotifications();
 
     _logoController = AnimationController(
       duration: const Duration(milliseconds: 1500),
@@ -55,6 +61,24 @@ class _SplashScreenState extends State<SplashScreen>
 
     _setupAnimations();
     _startAnimations();
+  }
+
+  Future<void> _initNotifications() async {
+    await NotificationConfig().init(navKey);
+
+    NotificationConfig().onMessageReceived = () {
+      if (!mounted) return;
+      context
+          .read<NotificationProvider>()
+          .fetchNotifications(context: context, forceRefresh: true);
+    };
+
+    final authed = await _httpClient.isAuthenticated();
+    _logger.i('FCM: splash init — authenticated: $authed');
+
+    if (authed) {
+      unawaited(FcmService().initialize());
+    }
   }
 
   void _setupAnimations() {

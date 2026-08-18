@@ -25,6 +25,11 @@ const medicineSchema = new mongoose.Schema(
       enum: ["active", "expiring_soon", "expired"],
       default: "active",
     },
+    lastNotifiedStatus: {
+      type: String,
+      enum: ["expiring_soon", "expired", null],
+      default: null,
+    },
     addedDate: {
       type: Date,
       default: Date.now,
@@ -77,6 +82,7 @@ const medicineSchema = new mongoose.Schema(
 //* Index for efficient querying
 medicineSchema.index({ userId: 1, status: 1 });
 medicineSchema.index({ expiryDate: 1 });
+medicineSchema.index({ status: 1, lastNotifiedStatus: 1, isDeleted: 1 });
 
 //* Method to update medicine status based on expiry date
 medicineSchema.methods.updateStatus = function () {
@@ -97,16 +103,26 @@ medicineSchema.methods.updateStatus = function () {
 
 //* Static method to update all medicines status
 medicineSchema.statics.updateAllStatuses = async function () {
-  const medicines = await this.find({});
+  const medicines = await this.find({ isDeleted: false });
+  const transitions = [];
 
   for (let medicine of medicines) {
-    const oldStatus = medicine.status;
+    const previousStatus = medicine.status;
     medicine.updateStatus();
 
-    if (oldStatus !== medicine.status) {
+    if (previousStatus !== medicine.status) {
       await medicine.save();
+      transitions.push({
+        medicineId: medicine._id,
+        userId: medicine.userId,
+        name: medicine.name,
+        previousStatus,
+        status: medicine.status,
+      });
     }
   }
+
+  return transitions;
 };
 
 //* Static method to clean up expired medicines (remove after 2 days of expiry)

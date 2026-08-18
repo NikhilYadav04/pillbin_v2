@@ -76,6 +76,14 @@ class ApiEndpoints {
 
   //* Notification
   static String get Notification => '${ApiConfig.baseUrl}/api/notifications';
+  static String get markNotificationRead =>
+      '${ApiConfig.baseUrl}/api/notifications/read';
+  static String get notificationUnreadCount =>
+      '${ApiConfig.baseUrl}/api/notifications/unread-count';
+  static String get registerDeviceToken =>
+      '${ApiConfig.baseUrl}/api/notifications/tokens/register';
+  static String get deactivateDeviceToken =>
+      '${ApiConfig.baseUrl}/api/notifications/tokens/deactivate';
   static String deleteNotification(String notificationId) =>
       '${ApiConfig.baseUrl}/api/notifications/${notificationId}';
   static String get deleteAllNotification =>
@@ -151,6 +159,12 @@ class ApiEndpoints {
       '${ApiConfig.baseUrl}/api/vendor/inventory';
   static String get vendorCenterImages =>
       '${ApiConfig.baseUrl}/api/vendor/my-center/images';
+  static String vendorDonatedMedicines({int page = 1, int limit = 20}) =>
+      '${ApiConfig.baseUrl}/api/vendor/analytics/medicines?page=$page&limit=$limit';
+
+  static String vendorAnalytics({int months = 6}) =>
+      '${ApiConfig.baseUrl}/api/vendor/analytics?months=$months';
+
   static String vendorRequests({String? status, int page = 1, int limit = 10}) {
     final q = status != null ? '&status=$status' : '';
     return '${ApiConfig.baseUrl}/api/vendor/requests?page=$page&limit=$limit$q';
@@ -185,25 +199,33 @@ class ApiEndpoints {
   static String donationById(String id) =>
       '${ApiConfig.baseUrl}/api/donations/$id';
 
+  static String reviewDonation(String id) =>
+      '${ApiConfig.baseUrl}/api/donations/$id/review';
+
+  static String centerReviews(String centerId,
+          {int page = 1, int limit = 10, int? rating}) =>
+      '${ApiConfig.baseUrl}/api/donations/center/$centerId/reviews'
+      '?page=$page&limit=$limit${rating != null ? '&rating=$rating' : ''}';
+
+  static String deleteReview(String reviewId) =>
+      '${ApiConfig.baseUrl}/api/donations/review/$reviewId';
+
   //* Medical center inventory (public)
   static String medicalCenterInventory(String centerId) =>
       '${ApiConfig.baseUrl}/api/medical-center/$centerId/inventory';
 
   //* Agent Endpoints
-  static String get queryAgent => 'http://10.0.2.2:8000/query';
+  static String get queryAgent => '${ApiConfig.agentBaseUrl}/query';
 
   static String getHistory(
-          {int page = 1, int limit = 20, required String token}) =>
-      'http://10.0.2.2:8000/history?token=$token&page=$page&limit=$limit';
+          {int page = 1, int limit = 40, required String token}) =>
+      '${ApiConfig.agentBaseUrl}/history?token=$token&page=$page&limit=$limit';
 
   static String clearHistory(String token) =>
-      'http://10.0.2.2:8000/history?token=$token';
+      '${ApiConfig.agentBaseUrl}/history?token=$token';
 
   static String clearKnowledge(String token) =>
-      'http://10.0.2.2:8000/knowledge/clear?token=$token';
+      '${ApiConfig.agentBaseUrl}/knowledge?token=$token';
 
-  static String clearMemory(String token) =>
-      'http://10.0.2.2:8000/memory/clear?token=$token';
-
-  static String get health => 'http://10.0.2.2:8000/health';
+  static String get health => '${ApiConfig.agentBaseUrl}/health';
 }

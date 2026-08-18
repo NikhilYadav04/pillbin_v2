@@ -31,13 +31,6 @@ class NotificationHelper {
     "has expired. Please remove it from your inventory to keep it accurate and safe.",
   ];
 
-  //* Utility to calculate hours left
-  static int getDurationNotification(DateTime time) {
-    final now = DateTime.now();
-    final difference = time.difference(now);
-    return difference.isNegative ? 0 : difference.inHours;
-  }
-
   //* Get random expiring soon message
   static Map<String, String> getExpiringSoon(String medicineName) {
     final random = Random();

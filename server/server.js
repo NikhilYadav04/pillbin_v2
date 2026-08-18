@@ -17,6 +17,7 @@ const vendorRoutes = require("./routes/vendor");
 const donationRoutes = require("./routes/donation");
 const adminRoutes = require("./routes/admin");
 const { connectDB } = require("./config/database");
+const { scheduleExpiryJob } = require("./jobs/expiryJob");
 const morgan = require("morgan");
 
 //* Middleware
@@ -64,4 +65,5 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  scheduleExpiryJob();
 });

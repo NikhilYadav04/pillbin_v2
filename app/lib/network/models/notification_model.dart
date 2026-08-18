@@ -36,6 +36,10 @@ class NotificationModel {
   final String title;
   final String description;
   NotificationStatus status;
+  final String type;
+  final String? entityType;
+  final String? entityId;
+  final String? groupKey;
   bool isRead;
   final DateTime createdAt;
   DateTime updatedAt;
@@ -46,11 +50,37 @@ class NotificationModel {
     required this.title,
     required this.description,
     this.status = NotificationStatus.normal,
+    this.type = "",
+    this.entityType,
+    this.entityId,
+    this.groupKey,
     this.isRead = false,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : createdAt = createdAt ?? DateTime.now(),
         updatedAt = updatedAt ?? DateTime.now();
+
+  NotificationModel copyWith({bool? isRead}) {
+    return NotificationModel(
+      id: id,
+      userId: userId,
+      title: title,
+      description: description,
+      status: status,
+      type: type,
+      entityType: entityType,
+      entityId: entityId,
+      groupKey: groupKey,
+      isRead: isRead ?? this.isRead,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+    );
+  }
+
+  static DateTime _parseLocal(dynamic value) {
+    if (value == null) return DateTime.now();
+    return (DateTime.tryParse(value.toString()) ?? DateTime.now()).toLocal();
+  }
 
   factory NotificationModel.fromJson(Map<String, dynamic> json) {
     return NotificationModel(
@@ -61,13 +91,13 @@ class NotificationModel {
       status: json["status"] != null
           ? NotificationStatusExtension.fromString(json["status"])
           : NotificationStatus.normal,
+      type: json["type"] ?? "",
+      entityType: json["entityType"],
+      entityId: json["entityId"]?.toString(),
+      groupKey: json["groupKey"],
       isRead: json["isRead"] ?? false,
-      createdAt: json["createdAt"] != null
-          ? DateTime.parse(json["createdAt"])
-          : DateTime.now(),
-      updatedAt: json["updatedAt"] != null
-          ? DateTime.parse(json["updatedAt"])
-          : DateTime.now(),
+      createdAt: _parseLocal(json["createdAt"]),
+      updatedAt: _parseLocal(json["updatedAt"]),
     );
   }
 
@@ -78,6 +108,10 @@ class NotificationModel {
       "title": title,
       "description": description,
       "status": status.value,
+      "type": type,
+      "entityType": entityType,
+      "entityId": entityId,
+      "groupKey": groupKey,
       "isRead": isRead,
       "createdAt": createdAt.toIso8601String(),
       "updatedAt": updatedAt.toIso8601String(),

@@ -3,7 +3,7 @@ import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/inventoryShimmerCard.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
+import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_detail_display.dart';
@@ -366,6 +366,73 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
     );
   }
 
+  Widget _buildDonateBanner(double sw, double sh, List<Medicine> expiring) {
+    return Container(
+      margin: EdgeInsets.fromLTRB(sw * 0.04, sh * 0.008, sw * 0.04, 0),
+      padding: EdgeInsets.all(sw * 0.035),
+      decoration: BoxDecoration(
+        color: PillBinColors.warning.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border:
+            Border.all(color: PillBinColors.warning.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.volunteer_activism_outlined,
+              color: PillBinColors.warning, size: sw * 0.055),
+          SizedBox(width: sw * 0.03),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${expiring.length} medicine${expiring.length == 1 ? '' : 's'} expiring soon',
+                  style: PillBinMedium.style(
+                      fontSize: sw * 0.035, color: PillBinColors.textPrimary),
+                ),
+                SizedBox(height: sh * 0.003),
+                Text('Donate them before they expire',
+                    style: PillBinRegular.style(
+                        fontSize: sw * 0.029,
+                        color: PillBinColors.textSecondary)),
+              ],
+            ),
+          ),
+          SizedBox(width: sw * 0.02),
+          ElevatedButton(
+            onPressed: () => _startDonation(expiring),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PillBinColors.warning,
+              padding: EdgeInsets.symmetric(
+                  horizontal: sw * 0.04, vertical: sh * 0.012),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+            child: Text('Donate',
+                style: PillBinMedium.style(
+                    fontSize: sw * 0.032, color: PillBinColors.textWhite)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _startDonation(List<Medicine> expiring) {
+    context.read<DonationProvider>().stageMedicines(expiring);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+            'Pick a center to donate ${expiring.length} medicine${expiring.length == 1 ? '' : 's'}'),
+        backgroundColor: PillBinColors.primary,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+
+    Navigator.pushNamed(context, '/location-screen');
+  }
+
   Widget _buildTabBarView(
       double sw, double sh, bool isTablet, MedicineProvider provider) {
     return TabBarView(
@@ -394,12 +461,21 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 onRefresh: () async {
                   _refresh();
                 },
-                child: _buildMedicinesList(
-                    provider.expiringSoonMedicinesInventory,
-                    sw,
-                    sh,
-                    isTablet,
-                    'No medicines expiring soon'),
+                child: Column(
+                  children: [
+                    if (provider.expiringSoonMedicinesInventory.isNotEmpty)
+                      _buildDonateBanner(
+                          sw, sh, provider.expiringSoonMedicinesInventory),
+                    Expanded(
+                      child: _buildMedicinesList(
+                          provider.expiringSoonMedicinesInventory,
+                          sw,
+                          sh,
+                          isTablet,
+                          'No medicines expiring soon'),
+                    ),
+                  ],
+                ),
               ),
         provider.isFetching
             ? InventoryListShimmer(
@@ -538,22 +614,10 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                       onPressed: () async {
                         MedicineProvider _provider =
                             context.read<MedicineProvider>();
-                        NotificationProvider _notificationProvider =
-                            context.read<NotificationProvider>();
 
-                        //* 1] First, delete the medicine
                         await _provider.deleteMedicine(
                           medicineId: medicines[index].id,
                           userModel: context.read<UserProvider>().user,
-                        );
-
-                        //* 2] Then, add notification BEFORE closing dialog
-                        await _notificationProvider.addNotification(
-                          context: context,
-                          title: "${medicines[index].name.trim()} removed",
-                          description:
-                              "${medicines[index].name.trim()} has been removed from your tracker. No further reminders will be sent.",
-                          status: 'alert',
                         );
 
                         Navigator.pop(context);

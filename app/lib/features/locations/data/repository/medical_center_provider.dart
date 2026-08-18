@@ -290,7 +290,7 @@ class MedicalCenterProvider extends ChangeNotifier {
   }
 
   //* Get All Medical Centers
-  Future<String> getAllMedicalCenters() async {
+  Future<String> getAllMedicalCenters({bool forceRefresh = false}) async {
     try {
       _lastError = null;
       _isLoading = true;
@@ -301,7 +301,8 @@ class MedicalCenterProvider extends ChangeNotifier {
       // Priority 1: serve from cache on first page when offline or cache valid
       if (_page == 1 &&
           (!isOnline ||
-              await _cacheManager.hasValidMedicalCentersAllCache())) {
+              (!forceRefresh &&
+                  await _cacheManager.hasValidMedicalCentersAllCache()))) {
         final cached = await _cacheManager.getCachedMedicalCentersAll();
         if (cached != null) {
           _allCenters = cached
@@ -605,6 +606,23 @@ class MedicalCenterProvider extends ChangeNotifier {
   }
 
   //* Get medical center by Id
+  Future<MedicalCenter?> fetchCenterById(String medicalCenterId) async {
+    if (medicalCenterId.isEmpty) return null;
+    try {
+      final response = await _medicalCenterServices.getMedicalCenterbyID(
+          medicalCenterId: medicalCenterId);
+      if (response.statusCode == 200) {
+        final raw = response.data?['medicalCenter'];
+        if (raw != null) {
+          return MedicalCenter.fromJson(raw as Map<String, dynamic>);
+        }
+      }
+    } catch (e) {
+      _lastError = 'Error getting details!';
+    }
+    return null;
+  }
+
   Future<String> getMedicalCenterbyId({required String medicalCenterId}) async {
     try {
       _lastError = null;
