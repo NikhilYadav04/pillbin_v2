@@ -3,27 +3,42 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 class Settings:
-    SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")
-    SUPABASE_KEY: str = os.getenv("SUPABASE_KEY", "")
-    PINECONE_API_KEY: str = os.getenv("PINECONE_API_KEY", "")
-    INDEX_NAME: str = os.getenv("INDEX_NAME", "")
-    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    AZURE_API_KEY: str = os.getenv("API_KEY", "")
-    # gpt-4o-mini — cheap/fast model for Lead, Inventory, Directory agents
-    AZURE_ENDPOINT_MINI: str = os.getenv(
-        "AZURE_ENDPOINT_MINI",
-        "https://crraj-mmagy8m8-eastus2.cognitiveservices.azure.com/openai/deployments/gpt-4o/chat/completions?api-version=2025-01-01-preview"
+    NODE_JS_BASE_URL: str = os.getenv(
+        "NODE_JS_BASE_URL", "https://pillbin-v2.onrender.com/api"
     )
-    # gpt-5-nano — high-reasoning model for Researcher agent
-    AZURE_ENDPOINT_NANO: str = os.getenv(
-        "AZURE_ENDPOINT_NANO",
-        "https://storyboardiac.cognitiveservices.azure.com/openai/deployments/gpt-5-nano/chat/completions?api-version=2025-01-01-preview"
-    )
-    MEMORY_DB_FILE: str = os.getenv("MEMORY_DB_FILE", "tmp/memory.db")
-    MAX_MEMORY_ROWS: int = 10
     HISTORY_CONTEXT_LIMIT: int = 5
-    # Space-separated list of allowed CORS origins; defaults to localhost dev server
-    CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:3000").split()
+    CORS_ORIGINS: list[str] = os.getenv(
+        "CORS_ORIGINS", "http://localhost:3000"
+    ).split()
+
+    # LLM Provider: "gemini" or "groq"
+    LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "gemini")
+
+    # Gemini
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_ROUTER_MODEL: str = os.getenv("GEMINI_ROUTER_MODEL", "gemini-2.0-flash-lite")
+    GEMINI_AGENT_MODEL: str = os.getenv("GEMINI_AGENT_MODEL", "gemini-2.5-flash")
+
+    # Groq
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    GROQ_ROUTER_MODEL: str = os.getenv("GROQ_ROUTER_MODEL", "llama-3.1-8b-instant")
+    GROQ_AGENT_MODEL: str = os.getenv("GROQ_AGENT_MODEL", "llama-3.3-70b-versatile")
+
+    # Redis
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
+    REDIS_HISTORY_TTL: int = 86400
+    REDIS_MAX_MESSAGES: int = 20
+
+    # SQLite
+    SQLITE_PATH: str = os.getenv("SQLITE_PATH", "tmp/pillbin.db")
+
+    # ChromaDB
+    CHROMA_PATH: str = os.getenv("CHROMA_PATH", "tmp/chromadb")
+    CHROMA_COLLECTION: str = os.getenv("CHROMA_COLLECTION", "pillbin_docs")
+    CHUNK_SIZE: int = 1500
+    CHUNK_OVERLAP: int = 200
+
 
 settings = Settings()
