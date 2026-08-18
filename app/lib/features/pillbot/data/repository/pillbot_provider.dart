@@ -28,11 +28,6 @@ class PillBotProvider extends ChangeNotifier {
   bool _isQuerying = false;
   bool get isQuerying => _isQuerying;
 
-  bool _isStreamingResponse = false;
-  bool get isStreamingResponse => _isStreamingResponse;
-  String? _streamingMessageId;
-  String? get streamingMessageId => _streamingMessageId;
-
   bool _isLoadingMessages = false;
   bool get isLoadingMessages => _isLoadingMessages;
 
@@ -52,7 +47,7 @@ class PillBotProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  int _pageLimit = 20;
+  int _pageLimit = 40;
   int get pageLimit => _pageLimit;
   set pageLimit(int value) {
     _pageLimit = value;
@@ -66,7 +61,7 @@ class PillBotProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  static const int _timeoutSeconds = 50;
+  static const int _timeoutSeconds = 95;
   Timer? _requestTimer;
 
   void _startTimer(void Function() onTimeout) {
@@ -146,15 +141,6 @@ class PillBotProvider extends ChangeNotifier {
       final agentMsg = ChatMessage.fromJson(data);
       _messages.add(agentMsg);
       _isQuerying = false;
-      _isStreamingResponse = true;
-      _streamingMessageId = agentMsg.id;
-      notifyListeners();
-
-      final delay = (agentMsg.message.length * 18).clamp(800, 8000);
-      await Future.delayed(Duration(milliseconds: delay));
-
-      _isStreamingResponse = false;
-      _streamingMessageId = null;
     } else {
       _errorMessage = result['error']?.toString() ?? 'Something went wrong.';
       _isQuerying = false;
@@ -208,9 +194,8 @@ class PillBotProvider extends ChangeNotifier {
           .map((e) => ChatMessage.fromJson(e as Map<String, dynamic>))
           .toList();
 
-      if (fetched.length < _pageLimit) {
-        _hasMorePages = false;
-      }
+      final pagination = data['pagination'] as Map<String, dynamic>?;
+      _hasMorePages = pagination?['hasMore'] as bool? ?? fetched.length >= _pageLimit;
 
       if (reset) {
         _messages = fetched;
@@ -280,18 +265,6 @@ class PillBotProvider extends ChangeNotifier {
     return true;
   }
 
-  Future<bool> clearMemory({String? userId}) async {
-    final token = await _resolveToken(userId);
-
-    final result = await _service.clearMemory(token);
-    if (result['success'] != true) {
-      _errorMessage = result['error']?.toString() ?? 'Failed to clear memory.';
-      notifyListeners();
-      return false;
-    }
-    return true;
-  }
-
   Future<bool> checkHealth() async {
     final result = await _service.checkHealth();
     return result['success'] == true;
@@ -314,8 +287,6 @@ class PillBotProvider extends ChangeNotifier {
     _cancelTimer();
     _messages = [];
     _isQuerying = false;
-    _isStreamingResponse = false;
-    _streamingMessageId = null;
     _isLoadingMessages = false;
     _isClearingHistory = false;
     _isTimedOut = false;

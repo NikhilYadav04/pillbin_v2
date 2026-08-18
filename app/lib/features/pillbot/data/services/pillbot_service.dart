@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:pillbin/network/config/api_config.dart';
 import 'package:pillbin/network/utils/api_endpoint.dart';
 import 'package:pillbin/network/utils/http_client.dart';
 
@@ -15,11 +16,14 @@ class PillbotService {
     File? file,
   }) async {
     try {
+      final String role = await HttpClient().getRole();
+
       FormData formData = FormData.fromMap({
         "token": token,
         "user_message": userMessage,
         "latitude": latitude,
         "longitude": longitude,
+        "role": role.isEmpty ? "user" : role,
       });
 
       if (file != null) {
@@ -39,6 +43,9 @@ class PillbotService {
         data: formData,
         options: Options(
           contentType: 'multipart/form-data',
+          receiveTimeout:
+              Duration(milliseconds: ApiConfig.agentReceiveTimeout),
+          sendTimeout: Duration(milliseconds: ApiConfig.agentReceiveTimeout),
         ),
       );
 
@@ -69,7 +76,7 @@ class PillbotService {
   Future<Map<String, dynamic>> getHistory({
     required String token,
     int page = 1,
-    int limit = 20,
+    int limit = 40,
   }) async {
     try {
       final response = await _dio.get(ApiEndpoints.getHistory(
@@ -132,35 +139,7 @@ class PillbotService {
   //* Clear RAG Knowledge (Maintenance)
   Future<Map<String, dynamic>> clearKnowledge(String token) async {
     try {
-      final response = await _dio.post(ApiEndpoints.clearKnowledge(token));
-
-      bool isSuccess = response.statusCode != null &&
-          response.statusCode! >= 200 &&
-          response.statusCode! < 300;
-
-      return {
-        "success": isSuccess,
-        "data": response.data,
-        "statusCode": response.statusCode,
-      };
-    } on DioException catch (e) {
-      return {
-        "success": false,
-        "error": e.response?.data ?? e.message,
-        "statusCode": e.response?.statusCode,
-      };
-    } catch (e) {
-      return {
-        "success": false,
-        "error": e.toString(),
-      };
-    }
-  }
-
-  //* Clear sqlite memory (Maintenance)
-  Future<Map<String, dynamic>> clearMemory(String token) async {
-    try {
-      final response = await _dio.post(ApiEndpoints.clearMemory(token));
+      final response = await _dio.delete(ApiEndpoints.clearKnowledge(token));
 
       bool isSuccess = response.statusCode != null &&
           response.statusCode! >= 200 &&
