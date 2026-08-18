@@ -49,3 +49,12 @@ app.*.map.json
 
 /app/.env
 .env
+
+# Firebase config — project keys, kept out of the repo.
+# A fresh clone must regenerate these with `flutterfire configure`.
+/android/app/google-services.json
+/ios/Runner/GoogleService-Info.plist
+/macos/Runner/GoogleService-Info.plist
+/lib/firebase_options.dart
+/firebase.json
+/.firebaserc

@@ -1,13 +1,17 @@
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
-import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
+import 'package:pillbin/core/widgets/notification_bell.dart';
+import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/vendor/data/models/vendor_models.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
+import 'package:pillbin/features/vendor/presentation/widgets/vendor_analytics_section.dart';
+import 'package:pillbin/features/vendor/presentation/widgets/vendor_center_sheets.dart';
+import 'package:pillbin/features/vendor/presentation/widgets/vendor_reviews_section.dart';
 import 'package:provider/provider.dart';
 
 class VendorDashboardScreen extends StatefulWidget {
@@ -18,13 +22,14 @@ class VendorDashboardScreen extends StatefulWidget {
 }
 
 class _VendorDashboardScreenState extends State<VendorDashboardScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -34,13 +39,26 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
     );
     _animationController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<VendorProvider>().fetchMyCenter();
-      context.read<VendorProvider>().fetchRequests(status: 'pending');
+      final provider = context.read<VendorProvider>();
+      provider.fetchMyCenter().then((_) => provider.fetchReviews());
+      provider.ensureRequests(status: 'pending');
+      provider.fetchAnalytics();
+      context.read<NotificationProvider>().fetchNotifications(context: context);
     });
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context
+          .read<NotificationProvider>()
+          .fetchNotifications(context: context, forceRefresh: true);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
     super.dispose();
   }
@@ -61,8 +79,10 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: () async {
-                  await provider.fetchMyCenter();
-                  await provider.fetchRequests(status: 'pending');
+                  await provider.fetchMyCenter(forceRefresh: true);
+                  await provider.refreshRequests(status: 'pending');
+                  await provider.fetchAnalytics(forceRefresh: true);
+                  await provider.fetchReviews(forceRefresh: true);
                 },
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -71,6 +91,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeader(sw, sh, center),
+                      SizedBox(height: sh * 0.018),
                       _buildVerificationBanner(sw, sh, center),
                       if (center != null && center.images.isNotEmpty) ...[
                         SizedBox(height: sh * 0.02),
@@ -80,6 +101,20 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
                       _buildStatCards(sw, sh, provider),
                       SizedBox(height: sh * 0.025),
                       _buildQuickActions(sw, sh, center),
+                      SizedBox(height: sh * 0.025),
+                      VendorAnalyticsSection(
+                        analytics: provider.analytics,
+                        isLoading: provider.isLoadingAnalytics,
+                      ),
+                      SizedBox(height: sh * 0.025),
+                      VendorReviewsSection(
+                        rating: provider.analytics?.rating ?? 0,
+                        totalReviews: provider.analytics?.totalReviews ?? 0,
+                        reviews: provider.reviews,
+                        breakdown:
+                            provider.analytics?.ratingBreakdown ?? const {},
+                        isLoading: provider.isLoadingReviews,
+                      ),
                       SizedBox(height: sh * 0.025),
                       _buildPendingRequests(sw, sh, provider),
                     ],
@@ -132,10 +167,11 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
                 Text(
                   center?.name ?? 'Your Center',
                   style: PillBinBold.style(
-                      fontSize: sw * 0.048, color: Colors.white),
-                  maxLines: 1,
+                      fontSize: sw * 0.044, color: Colors.white),
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
+                SizedBox(height: sh * 0.002),
                 if (facilityType.isNotEmpty)
                   Text(
                     facilityType[0].toUpperCase() +
@@ -171,6 +207,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
               ),
             ),
           ),
+          const NotificationBell(compact: true),
         ],
       ),
     );
@@ -178,9 +215,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
 
   Widget _buildStatCards(
       double sw, double sh, VendorProvider provider) {
-    final pending = provider.requests
-        .where((r) => r.status == 'pending')
-        .length;
+    final pending = provider.pendingCount;
     final donations = provider.center?.donationCount ?? 0;
     final inventory = provider.inventory.length;
 
@@ -239,7 +274,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
                 () => Navigator.pushNamed(context, '/vendor-requests-screen')),
             SizedBox(width: sw * 0.03),
             _actionBtn(sw, sh, Icons.info_outline, 'Details',
-                () => _showDetailsSheet(center)),
+                () => showVendorCenterDetailsSheet(context, center)),
           ],
         ),
       ],
@@ -275,8 +310,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
 
   Widget _buildPendingRequests(
       double sw, double sh, VendorProvider provider) {
-    final pending =
-        provider.requests.where((r) => r.status == 'pending').toList();
+    final pending = provider.requestsFor('pending');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -497,521 +531,12 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
     );
   }
 
-  void _showDetailsSheet(VendorCenter? center) {
-    if (center == null) return;
-    final sw = MediaQuery.of(context).size.width;
-    final sh = MediaQuery.of(context).size.height;
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: PillBinColors.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(sw * 0.06, sh * 0.025, sw * 0.06, sh * 0.035),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: sw * 0.1,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: PillBinColors.greyLight,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              SizedBox(height: sh * 0.02),
-              Text('Center Details',
-                  style: PillBinBold.style(fontSize: sw * 0.05, color: PillBinColors.textPrimary)),
-              SizedBox(height: sh * 0.02),
-              _detailRow(sw, sh, Icons.business_outlined, 'Name', center.name),
-              _detailRow(sw, sh, Icons.local_hospital_outlined, 'Type', center.facilityType),
-              _detailRow(sw, sh, Icons.location_on_outlined, 'Address', center.address),
-              _detailRow(sw, sh, Icons.phone_outlined, 'Phone', center.phoneNumber),
-              if (center.email != null && center.email!.isNotEmpty)
-                _detailRow(sw, sh, Icons.email_outlined, 'Email', center.email),
-              if (center.website != null && center.website!.isNotEmpty)
-                _detailRow(sw, sh, Icons.language_outlined, 'Website', center.website),
-              if (center.images.isNotEmpty) ...[
-                SizedBox(height: sh * 0.014),
-                Text('Photos',
-                    style: PillBinRegular.style(
-                        fontSize: sw * 0.028, color: PillBinColors.textSecondary)),
-                SizedBox(height: sh * 0.008),
-                SizedBox(
-                  height: sw * 0.25,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: center.images.length,
-                    separatorBuilder: (_, __) => SizedBox(width: sw * 0.025),
-                    itemBuilder: (_, i) => ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: CachedNetworkImage(
-                        imageUrl: center.images[i].url,
-                        width: sw * 0.25,
-                        height: sw * 0.25,
-                        fit: BoxFit.cover,
-                        placeholder: (_, __) => Container(
-                          width: sw * 0.25,
-                          height: sw * 0.25,
-                          color: PillBinColors.greyLight,
-                          child: const Center(
-                              child: CircularProgressIndicator(strokeWidth: 2)),
-                        ),
-                        errorWidget: (_, __, ___) => Container(
-                          width: sw * 0.25,
-                          height: sw * 0.25,
-                          color: PillBinColors.greyLight,
-                          child: Icon(Icons.broken_image_outlined,
-                              color: PillBinColors.textSecondary),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-              SizedBox(height: sh * 0.025),
-              Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [PillBinColors.primary, PillBinColors.primaryLight],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: PillBinColors.primary.withValues(alpha: 0.35),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: () {
-                      Navigator.pop(ctx);
-                      _showEditSheet(center);
-                    },
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(vertical: sh * 0.018),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Icon(Icons.edit_outlined,
-                              color: Colors.white, size: 20),
-                          SizedBox(width: sw * 0.02),
-                          Text('Edit Details',
-                              style: PillBinMedium.style(
-                                  fontSize: sw * 0.042, color: Colors.white)),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _detailRow(double sw, double sh, IconData icon, String label, dynamic value) {
-    if (value == null || value.toString().isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: EdgeInsets.only(bottom: sh * 0.014),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: sw * 0.045, color: PillBinColors.primary),
-          SizedBox(width: sw * 0.03),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label,
-                    style: PillBinRegular.style(
-                        fontSize: sw * 0.028, color: PillBinColors.textSecondary)),
-                Text(value.toString(),
-                    style: PillBinMedium.style(
-                        fontSize: sw * 0.036, color: PillBinColors.textPrimary)),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _pickCenterImage(
-      List<File> images, void Function(void Function()) setSheetState) async {
-    final picker = ImagePicker();
-    final xfile =
-        await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
-    if (xfile == null) return;
-    final cropped = await ImageCropper().cropImage(
-      sourcePath: xfile.path,
-      uiSettings: [
-        AndroidUiSettings(
-          toolbarTitle: 'Crop Image',
-          toolbarColor: PillBinColors.primary,
-          toolbarWidgetColor: Colors.white,
-          lockAspectRatio: false,
-        ),
-        IOSUiSettings(title: 'Crop Image'),
-      ],
-    );
-    if (cropped != null) {
-      setSheetState(() => images.add(File(cropped.path)));
-    }
-  }
-
-  void _showEditSheet(VendorCenter center) {
-    final sw = MediaQuery.of(context).size.width;
-    final sh = MediaQuery.of(context).size.height;
-
-    final nameCtrl = TextEditingController(text: center.name);
-    final addressCtrl = TextEditingController(text: center.address);
-    final phoneCtrl = TextEditingController(text: center.phoneNumber);
-    final emailCtrl = TextEditingController(text: center.email ?? '');
-    final websiteCtrl = TextEditingController(text: center.website ?? '');
-    String facilityType = center.facilityType.isNotEmpty ? center.facilityType : 'pharmacy';
-    final formKey = GlobalKey<FormState>();
-    final List<File> newImages = [];
-    // Keep full objects so we can pass publicIds to the backend on save
-    final List<Map<String, String>> existingImages = center.images
-        .map((img) => {'url': img.url, 'publicId': img.publicId})
-        .toList();
-
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: PillBinColors.surface,
-      shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) {
-        return StatefulBuilder(builder: (ctx, setSheetState) {
-          return Padding(
-            padding: EdgeInsets.only(
-              left: sw * 0.06,
-              right: sw * 0.06,
-              top: sh * 0.025,
-              bottom: MediaQuery.of(ctx).viewInsets.bottom + sh * 0.03,
-            ),
-            child: SingleChildScrollView(
-              child: Form(
-                key: formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: sw * 0.1,
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: PillBinColors.greyLight,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: sh * 0.02),
-                    Text('Edit Center Details',
-                        style: PillBinBold.style(
-                            fontSize: sw * 0.05, color: PillBinColors.textPrimary)),
-                    SizedBox(height: sh * 0.02),
-                    _editField(nameCtrl, 'Center Name', Icons.business_outlined,
-                        isRequired: true,
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null),
-                    SizedBox(height: sh * 0.02),
-                    _editField(addressCtrl, 'Address', Icons.location_on_outlined,
-                        isRequired: true,
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null),
-                    SizedBox(height: sh * 0.02),
-                    _editField(phoneCtrl, 'Phone Number', Icons.phone_outlined,
-                        isRequired: true,
-                        keyboardType: TextInputType.phone,
-                        validator: (v) => v == null || v.isEmpty ? 'Required' : null),
-                    SizedBox(height: sh * 0.02),
-                    _editField(emailCtrl, 'Email (optional)', Icons.email_outlined,
-                        keyboardType: TextInputType.emailAddress),
-                    SizedBox(height: sh * 0.02),
-                    _editField(websiteCtrl, 'Website (optional)', Icons.language_outlined),
-                    SizedBox(height: sh * 0.015),
-                    Text('Facility Type',
-                        style: PillBinMedium.style(
-                            fontSize: sw * 0.036, color: PillBinColors.textPrimary)),
-                    SizedBox(height: sh * 0.008),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
-                      decoration: BoxDecoration(
-                        color: PillBinColors.background,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: PillBinColors.greyLight),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: facilityType,
-                          isExpanded: true,
-                          items: ['pharmacy', 'hospital', 'clinic', 'health_center']
-                              .map((t) => DropdownMenuItem(
-                                    value: t,
-                                    child: Text(t,
-                                        style: PillBinRegular.style(
-                                            fontSize: sw * 0.036,
-                                            color: PillBinColors.textDark)),
-                                  ))
-                              .toList(),
-                          onChanged: (v) => setSheetState(() => facilityType = v!),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: sh * 0.025),
-                    // ── Center Images ──
-                    Row(
-                      children: [
-                        Text('Center Photos',
-                            style: PillBinMedium.style(
-                                fontSize: sw * 0.036,
-                                color: PillBinColors.textPrimary)),
-                        SizedBox(width: sw * 0.015),
-                        Text('(max 3)',
-                            style: PillBinRegular.style(
-                                fontSize: sw * 0.03,
-                                color: PillBinColors.textSecondary)),
-                      ],
-                    ),
-                    SizedBox(height: sh * 0.012),
-                    Builder(builder: (_) {
-                      final totalCount =
-                          existingImages.length + newImages.length;
-                      return Row(
-                        children: [
-                          // Existing network images
-                          ...existingImages.map((img) => Padding(
-                                padding: EdgeInsets.only(right: sw * 0.025),
-                                child: Stack(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: CachedNetworkImage(
-                                        imageUrl: img['url']!,
-                                        width: sw * 0.22,
-                                        height: sw * 0.22,
-                                        fit: BoxFit.cover,
-                                        placeholder: (_, __) => Container(
-                                          width: sw * 0.22,
-                                          height: sw * 0.22,
-                                          color: PillBinColors.greyLight,
-                                          child: const Center(
-                                              child: CircularProgressIndicator(
-                                                  strokeWidth: 2)),
-                                        ),
-                                        errorWidget: (_, __, ___) => Container(
-                                          width: sw * 0.22,
-                                          height: sw * 0.22,
-                                          color: PillBinColors.greyLight,
-                                          child: Icon(Icons.broken_image_outlined,
-                                              color: PillBinColors.textSecondary),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 2,
-                                      right: 2,
-                                      child: GestureDetector(
-                                        onTap: () => setSheetState(() =>
-                                            existingImages.remove(img)),
-                                        child: Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.close,
-                                              size: 12, color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                          // New local images
-                          ...newImages.map((file) => Padding(
-                                padding: EdgeInsets.only(right: sw * 0.025),
-                                child: Stack(
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(10),
-                                      child: Image.file(
-                                        file,
-                                        width: sw * 0.22,
-                                        height: sw * 0.22,
-                                        fit: BoxFit.cover,
-                                      ),
-                                    ),
-                                    Positioned(
-                                      top: 2,
-                                      right: 2,
-                                      child: GestureDetector(
-                                        onTap: () => setSheetState(
-                                            () => newImages.remove(file)),
-                                        child: Container(
-                                          width: 20,
-                                          height: 20,
-                                          decoration: const BoxDecoration(
-                                            color: Colors.black54,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(Icons.close,
-                                              size: 12, color: Colors.white),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
-                          // Add button (shown when < 3 total)
-                          if (totalCount < 3)
-                            GestureDetector(
-                              onTap: () => _pickCenterImage(
-                                  newImages, setSheetState),
-                              child: Container(
-                                width: sw * 0.22,
-                                height: sw * 0.22,
-                                decoration: BoxDecoration(
-                                  color: PillBinColors.background,
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                      color: PillBinColors.greyLight,
-                                      width: 1.5),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.add_a_photo_outlined,
-                                        color: PillBinColors.primary,
-                                        size: sw * 0.06),
-                                    SizedBox(height: 4),
-                                    Text('Add',
-                                        style: PillBinRegular.style(
-                                            fontSize: sw * 0.028,
-                                            color: PillBinColors.primary)),
-                                  ],
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    }),
-                    SizedBox(height: sh * 0.025),
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [
-                            PillBinColors.primary,
-                            PillBinColors.primaryLight
-                          ],
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: PillBinColors.primary.withValues(alpha: 0.35),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(12),
-                          onTap: () async {
-                            if (!formKey.currentState!.validate()) return;
-                            Navigator.pop(ctx);
-                            final vp = context.read<VendorProvider>();
-                            final centerOk = await vp.updateCenter({
-                              'name': nameCtrl.text.trim(),
-                              'address': addressCtrl.text.trim(),
-                              'phoneNumber': phoneCtrl.text.trim(),
-                              if (emailCtrl.text.trim().isNotEmpty)
-                                'email': emailCtrl.text.trim(),
-                              if (websiteCtrl.text.trim().isNotEmpty)
-                                'website': websiteCtrl.text.trim(),
-                              'facilityType': facilityType,
-                            });
-                            if (!context.mounted) return;
-                            if (centerOk) {
-                              CustomSnackBar.show(
-                                  context: context,
-                                  icon: Icons.check_circle_outline,
-                                  title: 'Center updated successfully');
-                            } else {
-                              CustomSnackBar.show(
-                                  context: context,
-                                  icon: Icons.error_outline,
-                                  title: vp.lastError ?? 'Failed to update center');
-                            }
-                            // Upload if there are new images OR if existing images
-                            // were removed (so the backend can delete the right ones)
-                            final originalCount = center.images.length;
-                            final imagesChanged = newImages.isNotEmpty ||
-                                existingImages.length != originalCount;
-                            if (imagesChanged) {
-                              final keepIds = existingImages
-                                  .map((img) => img['publicId']!)
-                                  .toList();
-                              final imgOk = await vp.updateCenterImages(
-                                  newImages, keepPublicIds: keepIds);
-                              if (!context.mounted) return;
-                              if (imgOk) {
-                                CustomSnackBar.show(
-                                    context: context,
-                                    icon: Icons.check_circle_outline,
-                                    title: 'Center images updated');
-                              } else {
-                                CustomSnackBar.show(
-                                    context: context,
-                                    icon: Icons.error_outline,
-                                    title: vp.lastError ?? 'Failed to update images');
-                              }
-                            }
-                          },
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(vertical: sh * 0.018),
-                            child: Center(
-                              child: Text('Save Changes',
-                                  style: PillBinMedium.style(
-                                      fontSize: sw * 0.042,
-                                      color: Colors.white)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        });
-      },
-    );
-  }
-
   Widget _buildVerificationBanner(
       double sw, double sh, VendorCenter? center) {
     final status = center?.verificationStatus ?? 'unverified';
-    if (status == 'approved') return const SizedBox.shrink();
+    if (status == 'approved') {
+      return _buildVerifiedBadge(sw, sh, center?.verifiedAt);
+    }
 
     final Color bgColor;
     final Color borderColor;
@@ -1047,9 +572,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
         subtitle = 'Upload your registration docs to earn the verified badge.';
     }
 
-    return Padding(
-      padding: EdgeInsets.only(top: sh * 0.018),
-      child: Container(
+    return Container(
         width: double.infinity,
         padding: EdgeInsets.all(sw * 0.04),
         decoration: BoxDecoration(
@@ -1108,7 +631,6 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
             ],
           ],
         ),
-      ),
     );
   }
 
@@ -1278,62 +800,88 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
     );
   }
 
-  Widget _editField(
-    TextEditingController ctrl,
-    String label,
-    IconData icon, {
-    bool isRequired = false,
-    TextInputType? keyboardType,
-    String? Function(String?)? validator,
-  }) {
-    final sw = MediaQuery.of(context).size.width;
-    final sh = MediaQuery.of(context).size.height;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
+  Widget _buildVerifiedBadge(double sw, double sh, String? verifiedAt) {
+    String? when;
+    if (verifiedAt != null) {
+      final parsed = DateTime.tryParse(verifiedAt);
+      if (parsed != null) {
+        const months = [
+          'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+          'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        ];
+        final d = parsed.toLocal();
+        when = '${months[d.month - 1]} ${d.day}, ${d.year}';
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: PillBinColors.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: PillBinColors.greyLight),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(label,
-                style: PillBinMedium.style(
-                    fontSize: sw * 0.038, color: PillBinColors.textPrimary)),
-            if (isRequired) ...[
-              SizedBox(width: sw * 0.01),
-              Text('*',
-                  style: PillBinMedium.style(
-                      fontSize: sw * 0.038, color: PillBinColors.error)),
-            ],
+            Container(
+              width: sw * 0.013,
+              decoration: BoxDecoration(
+                color: PillBinColors.success,
+                borderRadius:
+                    const BorderRadius.horizontal(left: Radius.circular(13)),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                    horizontal: sw * 0.04, vertical: sh * 0.018),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(sw * 0.021),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.success.withValues(alpha: 0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.verified_rounded,
+                          size: sw * 0.048, color: PillBinColors.success),
+                    ),
+                    SizedBox(width: sw * 0.035),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Verified Center',
+                              style: PillBinMedium.style(
+                                  fontSize: sw * 0.038,
+                                  color: PillBinColors.textDark)),
+                          SizedBox(height: sh * 0.004),
+                          Text(
+                            when != null
+                                ? 'Approved $when'
+                                : 'Visible to donors nearby',
+                            style: PillBinRegular.style(
+                                fontSize: sw * 0.031,
+                                color: PillBinColors.textSecondary),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
-        SizedBox(height: sh * 0.008),
-        TextFormField(
-          controller: ctrl,
-          keyboardType: keyboardType,
-          validator: validator,
-          decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: PillBinColors.textSecondary),
-            filled: true,
-            fillColor: PillBinColors.background,
-            contentPadding: EdgeInsets.all(sw * 0.04),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: PillBinColors.greyLight)),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: PillBinColors.greyLight)),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: PillBinColors.primary, width: 2)),
-            errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: PillBinColors.error, width: 1)),
-            focusedErrorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide(color: PillBinColors.error, width: 2)),
-          ),
-          style: PillBinRegular.style(
-              fontSize: sw * 0.036, color: PillBinColors.textDark),
-        ),
-      ],
+      ),
     );
   }
 
@@ -1458,6 +1006,7 @@ class _VendorDashboardScreenState extends State<VendorDashboardScreen>
                             : null,
                       );
                       if (!context.mounted) return;
+                      if (ok) vp.ensureRequests(status: 'pending');
                       CustomSnackBar.show(
                         context: context,
                         icon: ok

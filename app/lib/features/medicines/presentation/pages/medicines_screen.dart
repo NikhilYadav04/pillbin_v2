@@ -9,7 +9,6 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/dateFormatter.dart';
 import 'package:pillbin/core/utils/medicineDescriptionShimmer.dart';
 import 'package:pillbin/core/utils/medicineShimmerCard.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pillbin/network/models/medicine_model.dart' as medicine;
@@ -309,15 +308,6 @@ class _InventoryScreenState extends State<InventoryScreen>
                   await provider.deleteAllExpiredMedicines();
 
               if (response == 'success') {
-                NotificationProvider _notificationProvider =
-                    context.read<NotificationProvider>();
-                _notificationProvider.addNotification(
-                    context: context,
-                    title: "Expired Medicines Cleared",
-                    description:
-                        "✅ All expired medicines have been successfully removed from your tracker. Your list is now up-to-date and clutter-free!",
-                    status: "important");
-
                 //* send instant notification to user
                 final random = Random();
 

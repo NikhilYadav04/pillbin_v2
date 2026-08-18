@@ -38,18 +38,18 @@ Widget homeStatsShimmer({
 }
 
 Widget _buildStatCardShimmer(double sw, double sh, bool isTablet) {
-  return Shimmer.fromColors(
-    baseColor: Color.fromARGB(255, 118, 190, 242), // Light blue base
-    highlightColor: const Color(0xFFF8FDFF), // Lightest blue/white highlight
-    period: const Duration(milliseconds: 1200),
-    child: Container(
-      width: isTablet ? sw * 0.25 : double.infinity,
-      padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.02),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-        border: Border.all(color: const Color(0xFFE1F5FE), width: 1),
-      ),
+  return Container(
+    width: isTablet ? sw * 0.25 : double.infinity,
+    padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.02),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+      border: Border.all(color: const Color(0xFFEEEEEE), width: 1),
+    ),
+    child: Shimmer.fromColors(
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
+      period: const Duration(milliseconds: 1200),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -58,7 +58,7 @@ Widget _buildStatCardShimmer(double sw, double sh, bool isTablet) {
             height: isTablet ? sw * 0.045 : sw * 0.08,
             width: sw * 0.08,
             decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
+              color: const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(6),
             ),
           ),
@@ -68,7 +68,7 @@ Widget _buildStatCardShimmer(double sw, double sh, bool isTablet) {
             height: isTablet ? sw * 0.022 : sw * 0.035,
             width: sw * 0.18,
             decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
+              color: const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(3),
             ),
           ),
@@ -78,7 +78,7 @@ Widget _buildStatCardShimmer(double sw, double sh, bool isTablet) {
             height: isTablet ? sw * 0.022 : sw * 0.035,
             width: sw * 0.15,
             decoration: BoxDecoration(
-              color: const Color(0xFFE3F2FD),
+              color: const Color(0xFFE0E0E0),
               borderRadius: BorderRadius.circular(3),
             ),
           ),

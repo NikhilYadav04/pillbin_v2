@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:mailer/mailer.dart';
@@ -26,6 +28,12 @@ class AuthProvider extends ChangeNotifier {
 
   void setSelectedRole(String role) {
     _selectedRole = role;
+    notifyListeners();
+  }
+
+  void reset() {
+    _selectedRole = 'user';
+    _lastError = null;
     notifyListeners();
   }
 
@@ -261,6 +269,8 @@ The PillBin Team
         await _httpClient.saveRole(role);
         await _httpClient.saveVendorCenterId(vendorCenterId);
 
+        unawaited(FcmService().autoRegister(force: true));
+
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {
         _lastError = response.message;
@@ -316,6 +326,8 @@ The PillBin Team
         final vendorCenterId = userData["vendorCenterId"] as String?;
         await _httpClient.saveRole(role);
         await _httpClient.saveVendorCenterId(vendorCenterId);
+
+        unawaited(FcmService().autoRegister(force: true));
 
         return 'success';
       } else if (response.statusCode == 400 || response.statusCode == 404) {

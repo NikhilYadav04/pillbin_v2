@@ -8,8 +8,6 @@ import 'package:pillbin/features/blog/data/services/blog_service.dart';
 import 'package:pillbin/network/models/api_response.dart';
 import 'package:pillbin/network/models/blog_model.dart';
 import 'package:pillbin/network/utils/http_client.dart';
-import 'package:provider/provider.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 
 class BlogProvider extends ChangeNotifier {
   //* ─── State ─────────────────────────────────────────────────────────────────
@@ -104,21 +102,6 @@ class BlogProvider extends ChangeNotifier {
       if (response.statusCode == 201) {
         Logger().d(response.data);
         Map<String, dynamic> blogData = response.data!;
-
-        NotificationProvider _notificationProvider =
-            context.read<NotificationProvider>();
-
-        //* Add Notification
-        String preview =
-            content.length > 40 ? content.substring(0, 40) + "..." : content;
-
-        _notificationProvider.addNotification(
-          context: context,
-          title: "New Blog Published ✍️",
-          description:
-              "\"$preview\" is now live. Readers can start engaging with your post!",
-          status: 'normal',
-        );
 
         BlogModel blog = BlogModel.fromJson(blogData);
         _userBlogs.insert(0, blog);
@@ -216,21 +199,6 @@ class BlogProvider extends ChangeNotifier {
       if (response.statusCode == 201) {
         Logger().d(response);
         Map<String, dynamic> blogData = response.data!;
-
-        NotificationProvider _notificationProvider =
-            context.read<NotificationProvider>();
-
-        //* Add Notification
-        String preview =
-            content.length > 40 ? content.substring(0, 40) + "..." : content;
-
-        _notificationProvider.addNotification(
-          context: context,
-          title: "New Blog Published ✍️",
-          description:
-              "\"$preview\" is now live. Readers can start engaging with your post!",
-          status: 'normal',
-        );
 
         BlogModel blog = BlogModel.fromJson(blogData);
         _userBlogs.insert(0, blog);

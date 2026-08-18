@@ -1,8 +1,10 @@
 import 'dart:io' as io;
 
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:pillbin/app.dart';
+import 'package:pillbin/firebase_options.dart';
 import 'package:pillbin/network/utils/http_client.dart';
 
 class MyHttpOverrides extends io.HttpOverrides {
@@ -22,7 +24,12 @@ void main() async {
 
   //* Initialize dotenv
   await dotenv.load();
-  //await dotenv.load(fileName: ".env");
+  //await dotenv.load(fileName: ".env")
+  //;
+
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
 
   await HttpClient().init();
 

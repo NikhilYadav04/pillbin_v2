@@ -32,7 +32,7 @@ class _BottomBarScreenState extends State<BottomBarScreen> {
       if (context.mounted) {
         context.read<UserProvider>().getProfile();
         // Load donations so nudge evaluator has data
-        context.read<DonationProvider>().fetchMyRequests();
+        context.read<DonationProvider>().ensureMyRequests();
         // Evaluate nudges after providers have had time to populate
         Future.delayed(const Duration(seconds: 3), _evaluateNudges);
       }
@@ -74,6 +74,9 @@ class _BottomBarScreenState extends State<BottomBarScreen> {
             setState(() {
               _currentIndex = index;
             });
+            if (index == 0 || index == 1) {
+              context.read<MedicineProvider>().getInventory(forceRefresh: true);
+            }
           },
         ),
       ),

@@ -4,6 +4,7 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/shimmerCard.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
+import 'package:pillbin/features/donation/presentation/widgets/status_timeline.dart';
 import 'package:pillbin/features/vendor/data/models/vendor_models.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
 import 'package:provider/provider.dart';
@@ -19,6 +20,9 @@ class VendorRequestsScreen extends StatefulWidget {
 class _VendorRequestsScreenState extends State<VendorRequestsScreen>
     with TickerProviderStateMixin {
   int _selectedIndex = 0;
+  final ScrollController _scrollController = ScrollController();
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final List<String> _statuses = ['pending', 'approved', 'completed', 'rejected'];
@@ -42,12 +46,26 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
     );
     _animationController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        final provider = context.read<VendorProvider>();
+        if (provider.hasMoreRequests(_status) && !provider.isLoading) {
+          provider.loadMoreRequests(status: _status);
+        }
+      }
+    });
   }
 
+  String get _status => _statuses[_selectedIndex];
+
   void _load() {
-    context.read<VendorProvider>().fetchRequests(
-          status: _statuses[_selectedIndex],
-        );
+    context.read<VendorProvider>().ensureRequests(status: _status);
+  }
+
+  Future<void> _refresh() {
+    return context.read<VendorProvider>().refreshRequests(status: _status);
   }
 
   void _selectFilter(int index) {
@@ -58,6 +76,8 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _searchController.dispose();
     _animationController.dispose();
     super.dispose();
   }
@@ -83,9 +103,14 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
         child: Column(
           children: [
             _buildFilterRow(sw, sh),
+            SizedBox(height: sh * 0.005),
+            _buildSearchBar(sw, sh),
             SizedBox(height: sh * 0.01),
             Expanded(
-              child: provider.isLoading
+              //* Full-screen shimmer only on a cold tab — a load-more must not
+              //* replace the list the user is scrolling
+              child: provider.isLoading &&
+                      provider.requestsFor(_status).isEmpty
                   ? ShimmerCards.buildDonationRequestListShimmer(sw, sh)
                   : _buildList(provider, sw, sh),
             ),
@@ -168,45 +193,137 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
     );
   }
 
+  //* Matches only what is already loaded — the endpoint has no search
+  //* parameter, so anything on an unfetched page will not appear
+  List<DonationRequest> _applySearch(List<DonationRequest> source) {
+    if (_searchQuery.isEmpty) return source;
+    return source.where((r) {
+      final donor = (r.user?.displayName ?? '').toLowerCase();
+      final medicines =
+          r.medicines.map((m) => m.name.toLowerCase()).join(' ');
+      return donor.contains(_searchQuery) || medicines.contains(_searchQuery);
+    }).toList();
+  }
+
+  Widget _buildSearchBar(double sw, double sh) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
+      child: TextField(
+        controller: _searchController,
+        onChanged: (v) => setState(() => _searchQuery = v.trim().toLowerCase()),
+        style: PillBinRegular.style(
+            fontSize: sw * 0.035, color: PillBinColors.textPrimary),
+        decoration: InputDecoration(
+          hintText: 'Search by medicine or donor…',
+          hintStyle: PillBinRegular.style(
+              fontSize: sw * 0.033, color: PillBinColors.textSecondary),
+          prefixIcon: Icon(Icons.search_rounded,
+              size: sw * 0.05, color: PillBinColors.textSecondary),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? GestureDetector(
+                  onTap: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                  child: Icon(Icons.close_rounded,
+                      size: sw * 0.045, color: PillBinColors.textSecondary),
+                )
+              : null,
+          filled: true,
+          fillColor: PillBinColors.surface,
+          contentPadding:
+              EdgeInsets.symmetric(horizontal: sw * 0.04, vertical: sh * 0.015),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: PillBinColors.greyLight, width: 1.5),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: PillBinColors.greyLight, width: 1.5),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(14),
+            borderSide: BorderSide(color: PillBinColors.primary, width: 1.5),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildList(VendorProvider provider, double sw, double sh) {
-    final status = _statuses[_selectedIndex];
-    final items = provider.requests.where((r) => r.status == status).toList();
+    final status = _status;
+    final items = _applySearch(provider.requestsFor(status));
 
     if (items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              padding: EdgeInsets.all(sw * 0.06),
-              decoration: BoxDecoration(
-                color: PillBinColors.primary.withValues(alpha: 0.07),
-                shape: BoxShape.circle,
+      return RefreshIndicator(
+        color: PillBinColors.primary,
+        onRefresh: _refresh,
+        child: LayoutBuilder(
+          builder: (context, constraints) => SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(sw * 0.06),
+                      decoration: BoxDecoration(
+                        color: PillBinColors.primary.withValues(alpha: 0.07),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.inbox_outlined,
+                          size: sw * 0.12,
+                          color: PillBinColors.primary.withValues(alpha: 0.5)),
+                    ),
+                    SizedBox(height: sh * 0.02),
+                    Text(
+                        _searchQuery.isEmpty
+                            ? 'No $status requests'
+                            : 'No matches in loaded $status requests',
+                        textAlign: TextAlign.center,
+                        style: PillBinMedium.style(
+                            fontSize: sw * 0.04,
+                            color: PillBinColors.textPrimary)),
+                    SizedBox(height: sh * 0.006),
+                    Text(
+                        _searchQuery.isEmpty
+                            ? 'Pull down to refresh'
+                            : 'Scroll further to load more, then search again',
+                        textAlign: TextAlign.center,
+                        style: PillBinRegular.style(
+                            fontSize: sw * 0.032,
+                            color: PillBinColors.textSecondary)),
+                  ],
+                ),
               ),
-              child: Icon(Icons.inbox_outlined,
-                  size: sw * 0.12,
-                  color: PillBinColors.primary.withValues(alpha: 0.5)),
             ),
-            SizedBox(height: sh * 0.02),
-            Text('No $status requests',
-                style: PillBinMedium.style(
-                    fontSize: sw * 0.04, color: PillBinColors.textPrimary)),
-            SizedBox(height: sh * 0.006),
-            Text('Pull down to refresh',
-                style: PillBinRegular.style(
-                    fontSize: sw * 0.032, color: PillBinColors.textSecondary)),
-          ],
+          ),
         ),
       );
     }
 
     return RefreshIndicator(
-      onRefresh: () async => _load(),
+      onRefresh: _refresh,
       child: ListView.separated(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.all(sw * 0.05),
-        itemCount: items.length,
+        itemCount: items.length + (provider.hasMoreRequests(status) ? 1 : 0),
         separatorBuilder: (_, __) => SizedBox(height: sh * 0.015),
-        itemBuilder: (_, i) => _requestCard(items[i], sw, sh, provider),
+        itemBuilder: (_, i) {
+          if (i == items.length) {
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: sh * 0.02),
+              child: Center(
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: PillBinColors.primary),
+              ),
+            );
+          }
+          return _requestCard(items[i], sw, sh, provider);
+        },
       ),
     );
   }
@@ -266,8 +383,20 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
             ],
           ),
           SizedBox(height: sh * 0.01),
-          // Medicines
-          Text('Medicines: $medicines',
+          Row(
+            children: [
+              Icon(Icons.medication_outlined,
+                  size: sw * 0.038, color: PillBinColors.primary),
+              SizedBox(width: sw * 0.015),
+              Text(
+                '${req.medicines.length} ${req.medicines.length == 1 ? 'medicine' : 'medicines'}',
+                style: PillBinMedium.style(
+                    fontSize: sw * 0.032, color: PillBinColors.primary),
+              ),
+            ],
+          ),
+          SizedBox(height: sh * 0.006),
+          Text(medicines,
               style: PillBinRegular.style(
                   fontSize: sw * 0.032, color: PillBinColors.textSecondary),
               maxLines: 3,
@@ -344,6 +473,12 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
                       color: PillBinColors.textSecondary)),
             ],
           ),
+          SizedBox(height: sh * 0.004),
+          StatusTimeline(
+            history: req.statusHistory,
+            currentStatus: status,
+            createdAt: req.createdAt,
+          ),
           // Actions
           if (status == 'pending') ...[
             SizedBox(height: sh * 0.015),
@@ -369,6 +504,7 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
                 PillBinColors.primary, PillBinColors.primaryLight, () async {
               final ok = await provider.completeRequest(req.id);
               if (!mounted) return;
+              if (ok) _load();
               CustomSnackBar.show(
                 context: context,
                 icon: ok ? Icons.check_circle_outline : Icons.error_outline,
@@ -557,6 +693,7 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
                             : null,
                       );
                       if (!mounted) return;
+                      if (ok) _load();
                       CustomSnackBar.show(
                         context: context,
                         icon: ok

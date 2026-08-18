@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/features/pillbot/presentation/pages/pillbot_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_dashboard_screen.dart';
-import 'package:pillbin/features/vendor/presentation/pages/vendor_inventory_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_requests_screen.dart';
 import 'package:provider/provider.dart';
 
@@ -21,19 +21,19 @@ class _VendorBottomBarScreenState extends State<VendorBottomBarScreen> {
   final List<Widget> _screens = const [
     VendorDashboardScreen(),
     VendorRequestsScreen(),
-    VendorInventoryScreen(),
+    PillBotScreen(isVendor: true),
     ProfileScreen(isVendor: true),
   ];
+
+  void _selectTab(int index) {
+    setState(() => _currentIndex = index);
+  }
 
   @override
   Widget build(BuildContext context) {
     final sw = MediaQuery.of(context).size.width;
     final sh = MediaQuery.of(context).size.height;
-    final pendingCount = context
-        .watch<VendorProvider>()
-        .requests
-        .where((r) => r.status == 'pending')
-        .length;
+    final pendingCount = context.watch<VendorProvider>().pendingCount;
 
     return Scaffold(
       body: IndexedStack(index: _currentIndex, children: _screens),
@@ -59,7 +59,7 @@ class _VendorBottomBarScreenState extends State<VendorBottomBarScreen> {
               children: [
                 _navItem(0, Icons.dashboard_outlined, 'Dashboard', sw, sh, 0),
                 _navItem(1, Icons.list_alt_outlined, 'Requests', sw, sh, pendingCount),
-                _navItem(2, Icons.inventory_2_outlined, 'Inventory', sw, sh, 0),
+                _navItem(2, Icons.smart_toy_outlined, 'PillBot', sw, sh, 0),
                 _navItem(3, Icons.person_outline, 'Profile', sw, sh, 0),
               ],
             ),
@@ -73,7 +73,7 @@ class _VendorBottomBarScreenState extends State<VendorBottomBarScreen> {
       int index, IconData icon, String label, double sw, double sh, int badge) {
     final selected = _currentIndex == index;
     return GestureDetector(
-      onTap: () => setState(() => _currentIndex = index),
+      onTap: () => _selectTab(index),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: EdgeInsets.symmetric(

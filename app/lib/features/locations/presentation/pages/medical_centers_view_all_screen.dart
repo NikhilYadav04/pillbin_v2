@@ -9,7 +9,6 @@ import 'package:pillbin/features/locations/data/repository/medical_center_provid
 import 'package:pillbin/features/locations/presentation/widgets/location_card.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/network/models/medical_center_model.dart';
-import 'package:pillbin/network/models/user_model.dart';
 import 'package:pillbin/network/utils/connectivity_banner.dart';
 import 'package:provider/provider.dart';
 
@@ -29,12 +28,13 @@ class _MedicalCentersViewAllScreenState
   double _maxDistance = 10.0; // in km
   double _minRating = 0.0;
 
-  double _getDistance(double lat, double long) {
-    UserProvider provider = context.read<UserProvider>();
-    UserModel user = provider.user!;
+  double? _getDistance(double lat, double long) {
+    final coordinates =
+        context.read<UserProvider>().user?.location?.coordinates;
+    final lat1 = coordinates?.latitude;
+    final long1 = coordinates?.longitude;
 
-    double lat1 = user.location!.coordinates!.latitude!;
-    double long1 = user.location!.coordinates!.longitude!;
+    if (lat1 == null || long1 == null) return null;
 
     //* Distance in meters
     double distanceInMeters = Geolocator.distanceBetween(
@@ -78,7 +78,7 @@ class _MedicalCentersViewAllScreenState
     final provider = context.read<MedicalCenterProvider>();
     if (!provider.isLoading) {
       provider.resetAllCenters();
-      provider.getAllMedicalCenters();
+      provider.getAllMedicalCenters(forceRefresh: true);
     }
   }
 
@@ -91,8 +91,11 @@ class _MedicalCentersViewAllScreenState
   void _applyFilters() {
     final provider = context.read<MedicalCenterProvider>();
     List<MedicalCenter> _filtered = provider.allCenters.where((center) {
-      return _getDistance(center.coordinates.last, center.coordinates.first) <=
-              _maxDistance &&
+      //* Without a saved location there is no distance to filter on, so the
+      //* distance limit is skipped rather than excluding everything
+      final distance =
+          _getDistance(center.coordinates.last, center.coordinates.first);
+      return (distance == null || distance <= _maxDistance) &&
           center.rating >= _minRating;
     }).toList();
 

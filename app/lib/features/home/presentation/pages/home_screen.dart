@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
-import 'package:pillbin/features/blog/presentation/pages/all_blogs_screen.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_screen_carousel.dart';
 import 'package:pillbin/features/home/presentation/widgets/home_widgets.dart';
@@ -16,13 +15,15 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen>
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -40,7 +41,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      context
+          .read<NotificationProvider>()
+          .fetchNotifications(context: context, forceRefresh: true);
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _animationController.dispose();
     super.dispose();
   }
@@ -82,22 +93,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (context) => AllBlogsScreen()));
-                },
-                child: buildHomeHeader(sw, sh)),
+            buildHomeHeader(sw, sh),
             SizedBox(height: sh * 0.03),
             _buildStatsCards(sw, sh),
             SizedBox(height: sh * 0.04),
             _buildQuickActions(sw, sh),
             SizedBox(height: sh * 0.04),
             InfoCarouselWidget(sw: sw, sh: sh),
-            SizedBox(height: sh * 0.04),
-            buildRecentActivity(sw, sh, context),
             SizedBox(height: sh * 0.03),
           ],
         ),
@@ -132,8 +134,6 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
               _buildQuickActions(sw, sh),
               SizedBox(height: sh * 0.03),
               InfoCarouselWidget(sw: sw, sh: sh),
-              SizedBox(height: sh * 0.04),
-              buildRecentActivity(sw, sh, context),
               SizedBox(height: sh * 0.03),
             ],
           ),

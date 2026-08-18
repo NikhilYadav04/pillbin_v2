@@ -26,8 +26,29 @@ class CacheManager {
   static const String _medicalCentersNearbyKey =
       'CACHE_MEDICAL_CENTERS_NEARBY';
 
-  //* Cache Expiry (in hours)
-  static const int _cacheExpiryHours = 24;
+  static const Duration _defaultTtl = Duration(hours: 24);
+
+  static const Map<String, Duration> _ttls = {
+    _myDonationsKey: Duration(seconds: 45),
+    _notificationsKey: Duration(minutes: 2),
+    _medicinesKey: Duration(minutes: 15),
+    _medicinesHistoryKey: Duration(minutes: 15),
+    _userProfileKey: Duration(hours: 1),
+    _blogsKey: Duration(hours: 6),
+    _userBlogsKey: Duration(hours: 6),
+    _chatHistoryKey: Duration(minutes: 5),
+    _ragHistoryKey: Duration(hours: 1),
+    _medicalCentersAllKey: Duration(hours: 24),
+    _medicalCentersNearbyKey: Duration(hours: 6),
+  };
+
+  static Duration _ttlFor(String key) => _ttls[key] ?? _defaultTtl;
+
+  bool _isFresh(String key, String timestamp) {
+    final cacheTime = DateTime.tryParse(timestamp);
+    if (cacheTime == null) return false;
+    return DateTime.now().difference(cacheTime) < _ttlFor(key);
+  }
 
   //* Cache Limits
   static const int _maxBlogsCache = 10;
@@ -50,11 +71,7 @@ class CacheManager {
     try {
       final timestamp = await _secureStorage.read(key: '${key}_TIMESTAMP');
       if (timestamp != null) {
-        final cacheTime = DateTime.parse(timestamp);
-        final now = DateTime.now();
-        final difference = now.difference(cacheTime).inHours;
-
-        if (difference < _cacheExpiryHours) {
+        if (_isFresh(key, timestamp)) {
           return await _secureStorage.read(key: key);
         } else {
           //* Cache expired, delete it
@@ -81,10 +98,7 @@ class CacheManager {
     try {
       final timestamp = await _secureStorage.read(key: '${key}_TIMESTAMP');
       if (timestamp != null) {
-        final cacheTime = DateTime.parse(timestamp);
-        final now = DateTime.now();
-        final difference = now.difference(cacheTime).inHours;
-        return difference < _cacheExpiryHours;
+        return _isFresh(key, timestamp);
       }
     } catch (e) {
       _logger.e('Error checking cache validity for $key: $e');

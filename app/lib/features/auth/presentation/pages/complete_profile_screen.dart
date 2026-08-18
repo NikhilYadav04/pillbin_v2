@@ -9,7 +9,6 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/locationDialog.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/presentation/widgets/complete_profile_widgets.dart';
-import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/painting.dart' as painting;
@@ -910,16 +909,6 @@ class _UserRegistrationFormState extends State<UserRegistrationForm>
             'transition': TransitionType.bottomToTop,
             'duration': 300,
           },
-        );
-
-        NotificationProvider _notificationProvider =
-            context.read<NotificationProvider>();
-        _notificationProvider.addNotification(
-          context: context,
-          title: "Profile Completed",
-          description:
-              "🎉 Welcome to the PillBin app! Your profile is now complete and you can access all features like medicine tracking, dosage reminders, and expiry alerts.",
-          status: "important",
         );
 
         //* send instant notification to user
