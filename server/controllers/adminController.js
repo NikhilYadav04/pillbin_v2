@@ -1,6 +1,6 @@
 const MedicalCenter = require("../models/MedicalCenter");
 const { deleteImageService } = require("../services/clopudinaryService");
-const { NotificationHelper } = require("../middleware/notificationHelper");
+const { notify } = require("../services/notifyService");
 
 //* List all centers with pending verification
 const getPendingVerifications = async (req, res) => {
@@ -65,17 +65,22 @@ const approveVerification = async (req, res) => {
 
     center.verificationStatus = "approved";
     center.isVerified = true;
+    center.verifiedAt = new Date();
     center.verificationDocuments = [];
     center.verificationRejectionReason = null;
     await center.save();
 
     //* Notify the vendor
     if (center.vendorUserId) {
-      await NotificationHelper.createNotification(
-        center.vendorUserId,
-        "Center Verified",
-        `Your medical center "${center.name}" has been verified and is now live.`
-      );
+      notify({
+        recipientIds: [center.vendorUserId],
+        type: "center_verified",
+        title: "Center Verified",
+        description: `Your medical center "${center.name}" has been verified and is now live.`,
+        status: "important",
+        entityType: "medical_center",
+        entityId: center._id,
+      });
     }
 
     res.status(200).json({
@@ -132,11 +137,15 @@ const rejectVerification = async (req, res) => {
 
     //* Notify the vendor
     if (center.vendorUserId) {
-      await NotificationHelper.createNotification(
-        center.vendorUserId,
-        "Verification Not Approved",
-        `Your center "${center.name}" verification was not approved. Reason: ${reason.trim()}`
-      );
+      notify({
+        recipientIds: [center.vendorUserId],
+        type: "center_verification_rejected",
+        title: "Verification Not Approved",
+        description: `Your center "${center.name}" verification was not approved. Reason: ${reason.trim()}`,
+        status: "important",
+        entityType: "medical_center",
+        entityId: center._id,
+      });
     }
 
     res.status(200).json({

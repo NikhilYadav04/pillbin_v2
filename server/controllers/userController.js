@@ -158,6 +158,8 @@ const getProfile = async (req, res) => {
           badges: user.badges,
           savedMedicalCenters: user.savedMedicalCenters,
           profileCompleted: user.profileCompleted,
+          role: user.role,
+          vendorCenterId: user.vendorCenterId,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt,
         },

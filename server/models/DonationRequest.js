@@ -14,6 +14,10 @@ const donationRequestSchema = new mongoose.Schema(
     },
     medicines: [
       {
+        medicineId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Medicine",
+        },
         name: { type: String, required: true, trim: true },
         category: { type: String, trim: true },
         quantity: { type: String, trim: true },
@@ -27,9 +31,17 @@ const donationRequestSchema = new mongoose.Schema(
     ],
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "completed"],
+      enum: ["pending", "approved", "rejected", "completed", "cancelled"],
       default: "pending",
     },
+    statusHistory: [
+      {
+        status: { type: String, required: true },
+        at: { type: Date, default: Date.now },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        note: { type: String, trim: true },
+      },
+    ],
     userNote: {
       type: String,
       trim: true,
@@ -60,6 +72,11 @@ const donationRequestSchema = new mongoose.Schema(
 
 //* Index for fast lookups by center and status
 donationRequestSchema.index({ medicalCenterId: 1, status: 1 });
+donationRequestSchema.index({ medicalCenterId: 1, createdAt: -1 });
 donationRequestSchema.index({ userId: 1, createdAt: -1 });
+//* Status-filtered pages sort by date — without createdAt in the index the
+//* filtered tabs sort the whole matching set in memory on every page
+donationRequestSchema.index({ medicalCenterId: 1, status: 1, createdAt: -1 });
+donationRequestSchema.index({ userId: 1, status: 1, createdAt: -1 });
 
 module.exports = mongoose.model("DonationRequest", donationRequestSchema);

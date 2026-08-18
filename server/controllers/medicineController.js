@@ -256,6 +256,13 @@ const deleteMedicine = async (req, res) => {
 
     //* Delete the medicine
     if (checkDeletedMedicines.length > 100) {
+      if (medicine.image?.publicId) {
+        try {
+          await deleteImageService(medicine.image.publicId);
+        } catch (cloudinaryError) {
+          console.error("Cloudinary deletion error:", cloudinaryError);
+        }
+      }
       await Medicine.findByIdAndDelete(medicineId);
     } else {
       medicine.isDeleted = true;
@@ -323,11 +330,20 @@ const deleteAllExpiredMedicines = async (req, res) => {
 
     if (checkDeletedMedicines.length > 100) {
       //* Hard delete all expired medicines that are NOT already soft-deleted
-      await Medicine.deleteMany({
-        userId,
-        status: "expired",
-        isDeleted: false,
-      });
+      const filter = { userId, status: "expired", isDeleted: false };
+
+      const expiring = await Medicine.find(filter).select("image");
+      const publicIds = expiring.map((m) => m.image?.publicId).filter(Boolean);
+
+      for (const publicId of publicIds) {
+        try {
+          await deleteImageService(publicId);
+        } catch (cloudinaryError) {
+          console.error("Cloudinary deletion error:", cloudinaryError);
+        }
+      }
+
+      await Medicine.deleteMany(filter);
     } else {
       //* Soft delete all expired medicines that are NOT already soft-deleted
       await Medicine.updateMany(
@@ -534,39 +550,6 @@ const updateMedicine = async (req, res) => {
   }
 };
 
-//* Update all medicine statuses (can be called periodically)
-const updateAllStatuses = async (req, res) => {
-  try {
-    await Medicine.updateAllStatuses();
-
-    res.status(200).json({
-      statusCode: 200,
-      message: "All medicine statuses updated successfully",
-    });
-  } catch (error) {
-    console.error("Update statuses error:", error);
-    res.status(500).json({ statusCode: 500, message: "Server error" });
-  }
-};
-
-//* Clean up expired medicines (remove after 2 days of expiry)
-const cleanupExpiredMedicines = async (req, res) => {
-  try {
-    const deletedCount = await Medicine.cleanupExpiredMedicines();
-
-    res.status(200).json({
-      statusCode: 200,
-      message: `${deletedCount} expired medicines cleaned up successfully`,
-      data: {
-        deletedCount,
-      },
-    });
-  } catch (error) {
-    console.error("Cleanup expired medicines error:", error);
-    res.status(500).json({ statusCode: 500, message: "Server error" });
-  }
-};
-
 module.exports = {
   addMedicine,
   getInventory,
@@ -576,6 +559,4 @@ module.exports = {
   deleteMedicineHard,
   hardDeleteAllDeletedMedicines,
   updateMedicine,
-  updateAllStatuses,
-  cleanupExpiredMedicines,
 };

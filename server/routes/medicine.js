@@ -50,16 +50,4 @@ router.put(
   medicineController.updateMedicine
 );
 
-//* Admin/System Routes (JWT Required)
-router.post(
-  "/update-statuses",
-  authenticateToken,
-  medicineController.updateAllStatuses
-);
-router.post(
-  "/cleanup-expired",
-  authenticateToken,
-  medicineController.cleanupExpiredMedicines
-);
-
 module.exports = router;

@@ -18,6 +18,8 @@ router.put("/my-center/images", upload.array("images", 3), vendorController.upda
 router.post("/verify-documents", upload.array("documents", 5), vendorController.uploadVerificationDocs);
 
 //* Donation request management
+router.get("/analytics", vendorController.getAnalytics);
+router.get("/analytics/medicines", vendorController.getDonatedMedicines);
 router.get("/requests", vendorController.getRequests);
 router.put("/requests/:id", vendorController.updateRequestStatus);
 router.put("/requests/:id/complete", vendorController.completeRequest);
