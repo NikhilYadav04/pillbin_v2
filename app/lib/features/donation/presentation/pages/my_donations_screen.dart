@@ -5,6 +5,7 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/shimmerCard.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
+import 'package:pillbin/features/donation/presentation/widgets/status_timeline.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -18,31 +19,34 @@ class MyDonationsScreen extends StatefulWidget {
 class _MyDonationsScreenState extends State<MyDonationsScreen>
     with TickerProviderStateMixin {
   int _selectedIndex = 0;
+  final ScrollController _scrollController = ScrollController();
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
+  //* No "All" tab — grouping every status into one scroll fights pagination,
+  //* since a new page lands in the middle of the list instead of the end
   final List<String?> _filters = [
-    null,
     'pending',
     'approved',
     'completed',
-    'rejected'
+    'rejected',
+    'cancelled'
   ];
   final List<String> _labels = [
-    'All',
     'Pending',
     'Approved',
     'Completed',
-    'Rejected'
+    'Rejected',
+    'Cancelled'
   ];
   final List<IconData> _icons = [
-    Icons.list_alt_outlined,
     Icons.hourglass_empty_outlined,
     Icons.check_circle_outline,
     Icons.done_all_outlined,
     Icons.cancel_outlined,
+    Icons.block_outlined,
   ];
 
   @override
@@ -57,25 +61,37 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
     );
     _animationController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        final provider = context.read<DonationProvider>();
+        if (provider.hasMoreRequests(_filter) && !provider.isLoading) {
+          provider.loadMoreMyRequests(status: _filter);
+        }
+      }
+    });
   }
 
+  String? get _filter => _filters[_selectedIndex];
+
   void _load() {
-    context.read<DonationProvider>().fetchMyRequests(
-          status: _filters[_selectedIndex],
-        );
+    context.read<DonationProvider>().ensureMyRequests(status: _filter);
+  }
+
+  Future<void> _refresh() {
+    return context.read<DonationProvider>().refreshMyRequests(status: _filter);
   }
 
   void _selectFilter(int index) {
     if (_selectedIndex == index) return;
     setState(() => _selectedIndex = index);
-    // Only hit the API when switching to "All" tab with no data yet;
-    // other tabs filter in-memory from the already-loaded full list.
-    final provider = context.read<DonationProvider>();
-    if (provider.myRequests.isEmpty) _load();
+    _load();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _animationController.dispose();
     _searchController.dispose();
     super.dispose();
@@ -107,7 +123,10 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
             SizedBox(height: sh * 0.01),
             // Content
             Expanded(
-              child: provider.isLoading
+              //* Full-screen shimmer only on a cold tab — a load-more must not
+              //* replace the list the user is scrolling
+              child: provider.isLoading &&
+                      provider.requestsFor(_filter).isEmpty
                   ? ShimmerCards.buildDonationRequestListShimmer(sw, sh)
                   : _buildList(provider, sw, sh),
             ),
@@ -257,103 +276,54 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
   }
 
   Widget _buildList(DonationProvider provider, double sw, double sh) {
-    final filter = _filters[_selectedIndex];
-    final isAll = filter == null;
-
-    if (isAll) {
-      // Grouped sections
-      const statusOrder = ['pending', 'approved', 'completed', 'rejected'];
-      final statusLabels = {
-        'pending': 'Pending',
-        'approved': 'Approved',
-        'completed': 'Completed',
-        'rejected': 'Rejected',
-      };
-      final statusColors = {
-        'pending': Colors.orange,
-        'approved': Colors.green,
-        'completed': PillBinColors.primary,
-        'rejected': Colors.red,
-      };
-
-      // Build section list: only include sections with items
-      final sections = statusOrder.map((status) {
-        final items = _applySearch(
-            provider.myRequests.where((r) => r['status'] == status).toList());
-        return (status: status, items: items);
-      }).where((s) => s.items.isNotEmpty).toList();
-
-      if (sections.isEmpty) return _buildEmpty(sw, sh);
-
-      // Flatten into a list of widgets
-      final widgets = <Widget>[];
-      for (final section in sections) {
-        final color = statusColors[section.status]!;
-        widgets.add(
-          Padding(
-            padding: EdgeInsets.fromLTRB(
-                sw * 0.05, widgets.isEmpty ? sh * 0.01 : sh * 0.02, sw * 0.05, sh * 0.01),
-            child: Row(
-              children: [
-                Container(
-                  width: sw * 0.012,
-                  height: sw * 0.038,
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                SizedBox(width: sw * 0.025),
-                Text(
-                  '${statusLabels[section.status]!} (${section.items.length})',
-                  style: PillBinMedium.style(
-                      fontSize: sw * 0.038, color: PillBinColors.textPrimary),
-                ),
-              ],
-            ),
-          ),
-        );
-        for (final item in section.items) {
-          widgets.add(
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                  sw * 0.05, 0, sw * 0.05, sh * 0.015),
-              child: _donationCard(item, sw, sh, provider),
-            ),
-          );
-        }
-      }
-
-      return RefreshIndicator(
-        onRefresh: () async => _load(),
-        color: PillBinColors.primary,
-        child: ListView(
-          padding: EdgeInsets.only(bottom: sh * 0.02),
-          children: widgets,
-        ),
-      );
-    }
-
-    // Single-status tab
-    final items = _applySearch(
-        provider.myRequests.where((r) => r['status'] == filter).toList());
+    final filter = _filter;
+    final items = _applySearch(provider.requestsFor(filter));
 
     if (items.isEmpty) return _buildEmpty(sw, sh);
 
     return RefreshIndicator(
-      onRefresh: () async => _load(),
+      onRefresh: _refresh,
       color: PillBinColors.primary,
       child: ListView.separated(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
             horizontal: sw * 0.05, vertical: sh * 0.01),
-        itemCount: items.length,
+        itemCount: items.length + (provider.hasMoreRequests(filter) ? 1 : 0),
         separatorBuilder: (_, __) => SizedBox(height: sh * 0.015),
-        itemBuilder: (_, i) => _donationCard(items[i], sw, sh, provider),
+        itemBuilder: (_, i) {
+          if (i == items.length) {
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: sh * 0.02),
+              child: Center(
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: PillBinColors.primary),
+              ),
+            );
+          }
+          return _donationCard(items[i], sw, sh, provider);
+        },
       ),
     );
   }
 
   Widget _buildEmpty(double sw, double sh) {
+    return RefreshIndicator(
+      color: PillBinColors.primary,
+      onRefresh: _refresh,
+      child: LayoutBuilder(
+        builder: (context, constraints) => SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: constraints.maxHeight),
+            child: _emptyBody(sw, sh),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _emptyBody(double sw, double sh) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -388,6 +358,276 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
     );
   }
 
+  Widget _reviewSection(Map<String, dynamic> req, double sw, double sh,
+      DonationProvider provider, String centerName) {
+    final existing = req['myReview'] as Map?;
+
+    if (existing != null) {
+      final given = existing['rating'] as int? ?? 0;
+      return Container(
+        padding: EdgeInsets.all(sw * 0.03),
+        decoration: BoxDecoration(
+          color: PillBinColors.success.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(8),
+          border:
+              Border.all(color: PillBinColors.success.withValues(alpha: 0.2)),
+        ),
+        child: Row(
+          children: [
+            Text('You rated',
+                style: PillBinRegular.style(
+                    fontSize: sw * 0.031,
+                    color: PillBinColors.textSecondary)),
+            SizedBox(width: sw * 0.02),
+            ...List.generate(
+              5,
+              (i) => Icon(
+                i < given ? Icons.star_rounded : Icons.star_outline_rounded,
+                size: sw * 0.042,
+                color: i < given ? Colors.amber : PillBinColors.greyLight,
+              ),
+            ),
+            const Spacer(),
+            if (existing['_id'] != null)
+              GestureDetector(
+                onTap: () => _confirmDeleteReview(
+                    existing['_id'].toString(), centerName, provider),
+                behavior: HitTestBehavior.opaque,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: sw * 0.01),
+                  child: Icon(Icons.delete_outline_rounded,
+                      size: sw * 0.045, color: PillBinColors.error),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () =>
+            _openReviewSheet(req['_id'] as String, centerName, provider),
+        icon: Icon(Icons.star_outline_rounded,
+            size: sw * 0.045, color: Colors.amber),
+        label: Text('Rate this center',
+            style: PillBinMedium.style(
+                fontSize: sw * 0.033, color: PillBinColors.textPrimary)),
+        style: OutlinedButton.styleFrom(
+          padding: EdgeInsets.symmetric(vertical: sh * 0.013),
+          side: BorderSide(color: Colors.amber.withValues(alpha: 0.5)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _confirmDeleteReview(
+      String reviewId, String centerName, DonationProvider provider) async {
+    final sw = MediaQuery.of(context).size.width;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text('Delete your review',
+            style: PillBinBold.style(
+                fontSize: sw * 0.045, color: PillBinColors.textDark)),
+        content: Text(
+            'This removes your rating from $centerName. '
+            'You can rate this donation again afterwards.',
+            style: PillBinRegular.style(
+                fontSize: sw * 0.035, color: PillBinColors.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Cancel',
+                style: PillBinMedium.style(
+                    fontSize: sw * 0.038,
+                    color: PillBinColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text('Delete',
+                style: PillBinBold.style(
+                    fontSize: sw * 0.038, color: PillBinColors.error)),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true || !mounted) return;
+
+    final success = await provider.deleteReview(reviewId);
+    if (!mounted) return;
+
+    CustomSnackBar.show(
+      context: context,
+      icon: success ? Icons.check_circle_outline : Icons.error_outline,
+      title: success
+          ? 'Review deleted'
+          : provider.lastError ?? 'Could not delete review',
+    );
+  }
+
+  Future<void> _openReviewSheet(
+      String requestId, String centerName, DonationProvider provider) async {
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    final commentCtrl = TextEditingController();
+    int selected = 0;
+    bool submitting = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(sheetContext).viewInsets.bottom),
+        child: StatefulBuilder(
+          builder: (sheetContext, setSheetState) => Container(
+            padding: EdgeInsets.all(sw * 0.055),
+            decoration: BoxDecoration(
+              color: PillBinColors.surface,
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: sw * 0.12,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: PillBinColors.greyLight,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+                SizedBox(height: sh * 0.025),
+                Text('How was your donation?',
+                    style: PillBinBold.style(
+                        fontSize: sw * 0.045,
+                        color: PillBinColors.textPrimary)),
+                SizedBox(height: sh * 0.005),
+                Text(centerName,
+                    style: PillBinRegular.style(
+                        fontSize: sw * 0.033,
+                        color: PillBinColors.textSecondary)),
+                SizedBox(height: sh * 0.025),
+                Center(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(5, (i) {
+                      final filled = i < selected;
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => selected = i + 1),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: sw * 0.015),
+                          child: Icon(
+                            filled
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            size: sw * 0.1,
+                            color: filled
+                                ? Colors.amber
+                                : PillBinColors.greyLight,
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+                SizedBox(height: sh * 0.025),
+                TextField(
+                  controller: commentCtrl,
+                  maxLines: 3,
+                  maxLength: 500,
+                  decoration: InputDecoration(
+                    hintText: 'Add a comment (optional)',
+                    hintStyle: PillBinRegular.style(
+                        fontSize: sw * 0.033,
+                        color: PillBinColors.textLight),
+                    filled: true,
+                    fillColor: PillBinColors.background,
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: PillBinColors.greyLight)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide:
+                            BorderSide(color: PillBinColors.greyLight)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                            color: PillBinColors.primary, width: 2)),
+                  ),
+                  style: PillBinRegular.style(
+                      fontSize: sw * 0.034, color: PillBinColors.textDark),
+                ),
+                SizedBox(height: sh * 0.01),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: selected == 0 || submitting
+                        ? null
+                        : () async {
+                            setSheetState(() => submitting = true);
+                            final ok = await provider.submitReview(requestId,
+                                rating: selected,
+                                comment: commentCtrl.text.trim());
+                            if (!sheetContext.mounted) return;
+                            Navigator.pop(sheetContext);
+                            if (!mounted) return;
+                            if (ok) {
+                              CustomSnackBar.show(
+                                  context: context,
+                                  icon: Icons.star_rounded,
+                                  title: 'Thanks for your feedback!');
+                            } else {
+                              CustomSnackBar.show(
+                                  context: context,
+                                  icon: Icons.error_outline,
+                                  title: provider.lastError ??
+                                      'Could not submit review');
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PillBinColors.primary,
+                      padding: EdgeInsets.symmetric(vertical: sh * 0.018),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: submitting
+                        ? SizedBox(
+                            width: sw * 0.045,
+                            height: sw * 0.045,
+                            child: const CircularProgressIndicator(
+                                strokeWidth: 2, color: Colors.white),
+                          )
+                        : Text('Submit Review',
+                            style: PillBinMedium.style(
+                                fontSize: sw * 0.037,
+                                color: PillBinColors.textWhite)),
+                  ),
+                ),
+                SizedBox(height: sh * 0.01),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    commentCtrl.dispose();
+  }
+
   Widget _donationCard(Map<String, dynamic> req, double sw, double sh,
       DonationProvider provider) {
     final status = req['status'] as String;
@@ -397,11 +637,16 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
         : 'Medical Center';
     final centerPhone =
         center is Map ? center['phoneNumber'] as String? : null;
-    final medicines = (req['medicines'] as List?)
-            ?.map((m) => m['name'] as String? ?? '')
-            .where((n) => n.isNotEmpty)
-            .join(', ') ??
-        '';
+    final medicineList = (req['medicines'] as List?) ?? [];
+    final medicines = medicineList
+        .map((m) {
+          final name = m['name'] as String? ?? '';
+          final qty = (m['quantity'] as String? ?? '').trim();
+          return qty.isEmpty ? name : '$name ($qty)';
+        })
+        .where((n) => n.isNotEmpty)
+        .join(', ');
+    final medicineCount = medicineList.length;
     final vendorNote = req['vendorNote'] as String?;
     final scheduled = req['scheduledDate'] as String?;
     final photos = (req['medicinePhotos'] as List?)
@@ -415,6 +660,7 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
       'approved': Colors.green,
       'completed': PillBinColors.primary,
       'rejected': Colors.red,
+      'cancelled': PillBinColors.textSecondary,
     }[status] ??
         PillBinColors.textSecondary;
 
@@ -423,6 +669,7 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
       'approved': 'Approved',
       'completed': 'Completed',
       'rejected': 'Rejected',
+      'cancelled': 'Cancelled',
     }[status] ??
         status;
 
@@ -477,6 +724,19 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
             ],
           ),
           SizedBox(height: sh * 0.012),
+          Row(
+            children: [
+              Icon(Icons.medication_outlined,
+                  size: sw * 0.038, color: PillBinColors.primary),
+              SizedBox(width: sw * 0.015),
+              Text(
+                '$medicineCount ${medicineCount == 1 ? 'medicine' : 'medicines'}',
+                style: PillBinMedium.style(
+                    fontSize: sw * 0.032, color: PillBinColors.primary),
+              ),
+            ],
+          ),
+          SizedBox(height: sh * 0.006),
           Text(medicines,
               style: PillBinRegular.style(
                   fontSize: sw * 0.033,
@@ -560,6 +820,16 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
                     .toList(),
               ),
             ),
+          ],
+          SizedBox(height: sh * 0.006),
+          StatusTimeline(
+            history: req['statusHistory'] as List?,
+            currentStatus: status,
+            createdAt: req['createdAt'] as String?,
+          ),
+          if (status == 'completed') ...[
+            SizedBox(height: sh * 0.008),
+            _reviewSection(req, sw, sh, provider, centerName),
           ],
           // Actions
           if (status == 'pending' || status == 'approved') ...[
@@ -696,6 +966,7 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
                         Navigator.pop(ctx);
                         final ok = await provider.cancelRequest(id);
                         if (!mounted) return;
+                        if (ok) _load();
                         CustomSnackBar.show(
                           context: context,
                           icon: ok

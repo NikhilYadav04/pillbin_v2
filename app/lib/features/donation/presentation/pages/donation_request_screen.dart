@@ -7,6 +7,8 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:pillbin/network/models/medicine_model.dart';
 import 'package:provider/provider.dart';
 
 class DonationRequestScreen extends StatefulWidget {
@@ -50,9 +52,56 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
     );
     _animationController.forward();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<DonationProvider>().loadCenterInventory(widget.centerId);
+      final provider = context.read<DonationProvider>();
+      provider.loadCenterInventory(widget.centerId);
+
+      final staged = provider.consumeStagedMedicines();
+      if (staged.isNotEmpty) {
+        _addFromInventory(staged);
+      }
     });
-    _addMedicine(); // start with one row
+    _addMedicine();
+  }
+
+  int _rowSeed = 0;
+
+  Map<String, dynamic> _blankRow() => {
+        'uid': 'row-${_rowSeed++}',
+        'medicineId': null,
+        'name': '',
+        'category': '',
+        'quantity': '',
+        'condition': 'unknown',
+        'expiryDate': null,
+      };
+
+  String _titleCase(String value) => value
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) => w[0].toUpperCase() + w.substring(1).toLowerCase())
+      .join(' ');
+
+  bool _isBlank(Map<String, dynamic> row) =>
+      row['medicineId'] == null && (row['name'] as String).trim().isEmpty;
+
+  void _addFromInventory(List<Medicine> selected) {
+    if (selected.isEmpty) return;
+    setState(() {
+      _medicines.removeWhere(_isBlank);
+      for (final med in selected) {
+        _medicines.add({
+          'uid': 'row-${_rowSeed++}',
+          'medicineId': med.id,
+          'name': med.name,
+          'category': med.type ?? '',
+          'quantity': '',
+          'condition': 'sealed',
+          'expiryDate': med.expiryDate.toIso8601String(),
+        });
+      }
+      if (_medicines.isEmpty) _medicines.add(_blankRow());
+    });
   }
 
   @override
@@ -63,14 +112,7 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
   }
 
   void _addMedicine() {
-    setState(() {
-      _medicines.add({
-        'name': '',
-        'category': '',
-        'quantity': '',
-        'condition': 'unknown',
-      });
-    });
+    setState(() => _medicines.add(_blankRow()));
   }
 
   void _removeMedicine(int i) {
@@ -168,6 +210,14 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
 
     final validMeds = _medicines
         .where((m) => (m['name'] as String).trim().isNotEmpty)
+        .map((m) => {
+              'name': _titleCase(m['name'] as String),
+              'category': m['category'],
+              'quantity': m['quantity'],
+              'condition': m['condition'],
+              if (m['medicineId'] != null) 'medicineId': m['medicineId'],
+              if (m['expiryDate'] != null) 'expiryDate': m['expiryDate'],
+            })
         .toList();
 
     if (validMeds.isEmpty) {
@@ -198,7 +248,7 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
       Navigator.pushNamedAndRemoveUntil(
         context,
         '/my-donations-screen',
-        (route) => route.settings.name == '/bottom-bar-screen',
+        (route) => route.isFirst || route.settings.name == '/bottom-bar-screen',
         arguments: {'transition': TransitionType.rightToLeft, 'duration': 300},
       );
     } else {
@@ -378,7 +428,27 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
                   ),
                 ],
               ),
-              SizedBox(height: sh * 0.01),
+              SizedBox(height: sh * 0.012),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: _openInventoryPicker,
+                  icon: Icon(Icons.inventory_2_outlined,
+                      size: sw * 0.045, color: PillBinColors.primary),
+                  label: Text('Select from my inventory',
+                      style: PillBinMedium.style(
+                          fontSize: sw * 0.035,
+                          color: PillBinColors.primary)),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.symmetric(vertical: sh * 0.016),
+                    side: BorderSide(
+                        color: PillBinColors.primary.withValues(alpha: 0.5)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              SizedBox(height: sh * 0.015),
 
               ..._medicines.asMap().entries.map((e) =>
                   _buildMedicineRow(e.key, sw, sh)),
@@ -657,18 +727,23 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
               borderSide: BorderSide(color: PillBinColors.error, width: 2)),
         );
 
+    final fromInventory = med['medicineId'] != null;
+
     return Container(
+      key: ValueKey(med['uid']),
       margin: EdgeInsets.only(bottom: sh * 0.015),
       padding: EdgeInsets.all(sw * 0.04),
       decoration: BoxDecoration(
         color: PillBinColors.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: PillBinColors.greyLight),
+        border: Border.all(
+            color: fromInventory
+                ? PillBinColors.primary.withValues(alpha: 0.4)
+                : PillBinColors.greyLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Medicine Name row
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -687,19 +762,54 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
                             style: PillBinMedium.style(
                                 fontSize: sw * 0.035,
                                 color: PillBinColors.error)),
+                        if (fromInventory) ...[
+                          SizedBox(width: sw * 0.02),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                                horizontal: sw * 0.02, vertical: sh * 0.003),
+                            decoration: BoxDecoration(
+                              color: PillBinColors.primary
+                                  .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text('From inventory',
+                                style: PillBinMedium.style(
+                                    fontSize: sw * 0.026,
+                                    color: PillBinColors.primary)),
+                          ),
+                        ],
                       ],
                     ),
                     SizedBox(height: sh * 0.006),
-                    TextFormField(
-                      initialValue: med['name'] as String,
-                      decoration: _fieldDecoration('e.g. Paracetamol'),
-                      style: PillBinRegular.style(
-                          fontSize: sw * 0.035, color: PillBinColors.textDark),
-                      validator: i == 0
-                          ? (v) => v == null || v.isEmpty ? 'Required' : null
-                          : null,
-                      onChanged: (v) => med['name'] = v,
-                    ),
+                    if (fromInventory)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                            horizontal: sw * 0.03, vertical: sh * 0.015),
+                        decoration: BoxDecoration(
+                          color: PillBinColors.background,
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: PillBinColors.greyLight),
+                        ),
+                        child: Text(med['name'] as String,
+                            style: PillBinRegular.style(
+                                fontSize: sw * 0.035,
+                                color: PillBinColors.textDark)),
+                      )
+                    else
+                      TextFormField(
+                        initialValue: med['name'] as String,
+                        textCapitalization: TextCapitalization.words,
+                        decoration: _fieldDecoration('e.g. Paracetamol'),
+                        style: PillBinRegular.style(
+                            fontSize: sw * 0.035,
+                            color: PillBinColors.textDark),
+                        validator: i == 0
+                            ? (v) => v == null || v.isEmpty ? 'Required' : null
+                            : null,
+                        onChanged: (v) => med['name'] = v,
+                      ),
                   ],
                 ),
               ),
@@ -782,6 +892,182 @@ class _DonationRequestScreenState extends State<DonationRequestScreen>
         ],
       ),
     );
+  }
+
+  Future<void> _openInventoryPicker() async {
+    final medicineProvider = context.read<MedicineProvider>();
+    final alreadyAdded = _medicines
+        .map((m) => m['medicineId'])
+        .whereType<String>()
+        .toSet();
+
+    final available = [
+      ...medicineProvider.activeMedicinesInventory,
+      ...medicineProvider.expiringSoonMedicinesInventory,
+    ].where((m) => !alreadyAdded.contains(m.id)).toList()
+      ..sort((a, b) => a.expiryDate.compareTo(b.expiryDate));
+
+    final sw = MediaQuery.of(context).size.width;
+    final sh = MediaQuery.of(context).size.height;
+    final Set<String> picked = {};
+
+    final confirmed = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) => Container(
+          height: sh * 0.7,
+          decoration: BoxDecoration(
+            color: PillBinColors.surface,
+            borderRadius:
+                const BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: sh * 0.015),
+              Container(
+                width: sw * 0.12,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: PillBinColors.greyLight,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(sw * 0.045),
+                child: Row(
+                  children: [
+                    Icon(Icons.inventory_2_outlined,
+                        color: PillBinColors.primary, size: sw * 0.055),
+                    SizedBox(width: sw * 0.025),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Select from Inventory',
+                              style: PillBinBold.style(
+                                  fontSize: sw * 0.042,
+                                  color: PillBinColors.textPrimary)),
+                          Text('Expired medicines cannot be donated',
+                              style: PillBinRegular.style(
+                                  fontSize: sw * 0.03,
+                                  color: PillBinColors.textSecondary)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: available.isEmpty
+                    ? Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(sw * 0.08),
+                          child: Text(
+                            alreadyAdded.isEmpty
+                                ? 'No medicines in your inventory yet.'
+                                : 'All your medicines are already added.',
+                            textAlign: TextAlign.center,
+                            style: PillBinRegular.style(
+                                fontSize: sw * 0.035,
+                                color: PillBinColors.textSecondary),
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.symmetric(horizontal: sw * 0.045),
+                        itemCount: available.length,
+                        itemBuilder: (_, i) {
+                          final med = available[i];
+                          final isPicked = picked.contains(med.id);
+                          final days = med.expiryDate
+                              .difference(DateTime.now())
+                              .inDays;
+                          final isExpiringSoon = days <= 5;
+
+                          return Container(
+                            margin: EdgeInsets.only(bottom: sh * 0.012),
+                            decoration: BoxDecoration(
+                              color: isPicked
+                                  ? PillBinColors.primary
+                                      .withValues(alpha: 0.06)
+                                  : PillBinColors.background,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isPicked
+                                    ? PillBinColors.primary
+                                    : PillBinColors.greyLight,
+                                width: isPicked ? 1.5 : 1,
+                              ),
+                            ),
+                            child: CheckboxListTile(
+                              value: isPicked,
+                              activeColor: PillBinColors.primary,
+                              controlAffinity:
+                                  ListTileControlAffinity.leading,
+                              onChanged: (v) => setSheetState(() {
+                                if (v == true) {
+                                  picked.add(med.id);
+                                } else {
+                                  picked.remove(med.id);
+                                }
+                              }),
+                              title: Text(med.name,
+                                  style: PillBinMedium.style(
+                                      fontSize: sw * 0.036,
+                                      color: PillBinColors.textDark)),
+                              subtitle: Text(
+                                isExpiringSoon
+                                    ? 'Expires in $days ${days == 1 ? 'day' : 'days'}'
+                                    : 'Expires ${med.expiryDate.day}/${med.expiryDate.month}/${med.expiryDate.year}',
+                                style: PillBinRegular.style(
+                                  fontSize: sw * 0.03,
+                                  color: isExpiringSoon
+                                      ? PillBinColors.warning
+                                      : PillBinColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(sw * 0.045),
+                child: SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: picked.isEmpty
+                        ? null
+                        : () => Navigator.pop(sheetContext, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PillBinColors.primary,
+                      padding: EdgeInsets.symmetric(vertical: sh * 0.018),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                    ),
+                    child: Text(
+                      picked.isEmpty
+                          ? 'Select medicines'
+                          : 'Add ${picked.length} medicine${picked.length == 1 ? '' : 's'}',
+                      style: PillBinMedium.style(
+                          fontSize: sw * 0.037,
+                          color: PillBinColors.textWhite),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (confirmed == true) {
+      _addFromInventory(
+          available.where((m) => picked.contains(m.id)).toList());
+    }
   }
 
   Widget _contactChip(String value, String label, double sw) {

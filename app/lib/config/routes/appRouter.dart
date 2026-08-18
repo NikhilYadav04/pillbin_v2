@@ -23,14 +23,19 @@ import 'package:pillbin/features/medicines/presentation/pages/medicine_history_s
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.dart';
+import 'package:pillbin/features/profile/presentation/pages/impact_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
+import 'package:pillbin/features/donation/presentation/pages/center_reviews_screen.dart';
 import 'package:pillbin/features/donation/presentation/pages/donation_request_screen.dart';
 import 'package:pillbin/features/donation/presentation/pages/my_donations_screen.dart';
 import 'package:pillbin/features/splash_screen.dart';
+import 'package:pillbin/features/vendor/presentation/pages/vendor_analytics_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_bottom_bar_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_claim_center_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_dashboard_screen.dart';
+import 'package:pillbin/features/vendor/presentation/pages/vendor_donated_medicines_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_inventory_screen.dart';
+import 'package:pillbin/features/vendor/presentation/pages/vendor_reviews_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_onboarding_screen.dart';
 import 'package:pillbin/features/vendor/presentation/pages/vendor_requests_screen.dart';
 import 'package:pillbin/network/models/blog_model.dart';
@@ -50,8 +55,10 @@ PageRouteBuilder<dynamic> buildPageRoute(
   Widget child, {
   TransitionType type = TransitionType.rightToLeft,
   Duration duration = const Duration(milliseconds: 200),
+  RouteSettings? settings,
 }) {
   return PageRouteBuilder(
+    settings: settings,
     pageBuilder: (_, __, ___) => child,
     transitionDuration: duration,
     transitionsBuilder: (_, animation, __, child) {
@@ -214,6 +221,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case '/profile-screen':
       page = ProfileScreen();
       break;
+    case '/impact-screen':
+      page = const ImpactScreen();
+      break;
     case '/notification-screen':
       page = ViewAllNotificationsScreen();
       break;
@@ -261,6 +271,15 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case '/vendor-bottom-bar-screen':
       page = const VendorBottomBarScreen();
       break;
+    case '/vendor-reviews-screen':
+      page = const VendorReviewsScreen();
+      break;
+    case '/vendor-analytics-screen':
+      page = const VendorAnalyticsScreen();
+      break;
+    case '/vendor-donated-medicines-screen':
+      page = const VendorDonatedMedicinesScreen();
+      break;
     case '/vendor-inventory-screen':
       page = const VendorInventoryScreen();
       break;
@@ -277,6 +296,12 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case '/my-donations-screen':
       page = const MyDonationsScreen();
       break;
+    case '/center-reviews-screen':
+      page = CenterReviewsScreen(
+        centerId: args?['centerId'] as String? ?? '',
+        centerName: args?['centerName'] as String? ?? 'Medical Center',
+      );
+      break;
 
     //* Error Handling
     default:
@@ -288,6 +313,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     page,
     type: type ?? TransitionType.rightToLeft,
     duration: duration ?? const Duration(milliseconds: 200),
+    settings: settings,
   );
 }
 

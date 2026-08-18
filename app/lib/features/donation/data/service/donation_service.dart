@@ -48,6 +48,30 @@ class DonationService extends ApiService {
         fromJson: (d) => d as Map<String, dynamic>);
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> submitReview(String requestId,
+      {required int rating, String? comment}) async {
+    return post(ApiEndpoints.reviewDonation(requestId),
+        data: {
+          'rating': rating,
+          if (comment != null && comment.trim().isNotEmpty) 'comment': comment,
+        },
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
+  Future<ApiResponse<Map<String, dynamic>>> getCenterReviews(String centerId,
+      {int page = 1, int limit = 10, int? rating}) async {
+    return get(
+        ApiEndpoints.centerReviews(centerId,
+            page: page, limit: limit, rating: rating),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
+  Future<ApiResponse<Map<String, dynamic>>> deleteReview(
+      String reviewId) async {
+    return delete(ApiEndpoints.deleteReview(reviewId),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> getCenterInventory(
       String centerId) async {
     return get(ApiEndpoints.medicalCenterInventory(centerId),
