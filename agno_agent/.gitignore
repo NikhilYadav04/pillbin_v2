@@ -2,5 +2,5 @@ venv
 .env
 tmp
 __pycache__
-tools
-backend/services/agents/llm_factory.py
+# anchored: the scratch folder at agno_agent/tools, NOT backend/tools
+/tools
