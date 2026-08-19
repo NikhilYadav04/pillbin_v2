@@ -117,9 +117,10 @@ class _ViewAllNotificationsScreenState
     );
   }
 
+  final ScrollController _scrollController = ScrollController();
+
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
 
     NotificationProvider provider = context.read<NotificationProvider>();
@@ -127,6 +128,19 @@ class _ViewAllNotificationsScreenState
     if (provider.notifications.isEmpty) {
       provider.fetchNotifications(context: context);
     }
+
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
+        context.read<NotificationProvider>().loadMoreNotifications();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
   void _refresh() {
@@ -246,12 +260,24 @@ class _ViewAllNotificationsScreenState
         _refresh();
       },
       child: ListView.builder(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: EdgeInsets.symmetric(
           horizontal: isTablet ? sw * 0.05 : sw * 0.04,
           vertical: sh * 0.02,
         ),
-        itemCount: provider.notifications.length,
+        itemCount: provider.notifications.length +
+            (provider.hasMoreNotifications ? 1 : 0),
         itemBuilder: (context, index) {
+          if (index == provider.notifications.length) {
+            return Padding(
+              padding: EdgeInsets.symmetric(vertical: sh * 0.02),
+              child: Center(
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: PillBinColors.primary),
+              ),
+            );
+          }
           final notification = provider.notifications[index];
           return DismissibleNotificationItem(
             notification: notification,

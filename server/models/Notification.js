@@ -61,6 +61,11 @@ const notificationSchema = new mongoose.Schema(
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ dedupKey: 1 }, { unique: true, sparse: true });
 notificationSchema.index({ userId: 1, groupKey: 1 });
+//* Notifications age out on their own so the feed stays bounded
+notificationSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 60 }
+);
 
 //* Update the updatedAt field before saving
 notificationSchema.pre("save", function (next) {

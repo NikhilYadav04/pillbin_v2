@@ -94,6 +94,20 @@ const userSchema = new mongoose.Schema(
       enum: ["user", "vendor", "admin"],
       default: "user",
     },
+    googleId: {
+      type: String,
+      sparse: true,
+      unique: true,
+    },
+    //* An account reached by both OTP and Google carries both
+    authProviders: {
+      type: [{ type: String, enum: ["otp", "google"] }],
+      default: ["otp"],
+    },
+    avatarUrl: {
+      type: String,
+      trim: true,
+    },
     vendorCenterId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "MedicalCenter",

@@ -4,8 +4,9 @@ import 'package:pillbin/network/utils/api_endpoint.dart';
 
 class NotificationService extends ApiService {
   //* get notifications
-  Future<ApiResponse<Map<String, dynamic>>> getNotifications() async {
-    return get(ApiEndpoints.Notification,
+  Future<ApiResponse<Map<String, dynamic>>> getNotifications(
+      {int page = 1, int limit = 20}) async {
+    return get(ApiEndpoints.notificationsPaged(page: page, limit: limit),
         fromJson: (data) => data as Map<String, dynamic>);
   }
 

@@ -1,26 +1,20 @@
-# Use an official lightweight Node.js runtime (Alpine)
-FROM node:20-alpine
+# firebase-admin@14 declares engines node >=22 — Node 20 loads the messaging
+# entrypoint but crashes on anything that pulls firebase-admin/auth
+FROM node:22-alpine
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the package.json and package-lock.json from the current directory (server/)
-# We copy these first to take advantage of Docker's layer caching.
-# The 'package-lock.json*' wildcard ensures it copies if it exists.
-COPY package.json package-lock.json* ./
+# Copied first so a source-only change does not reinstall dependencies
+COPY package.json package-lock.json ./
 
-# Install only the production dependencies
-RUN npm install --production
+# ci installs exactly what the lockfile pins and fails loudly if the two drift
+RUN npm ci --omit=dev
 
-# Copy all the source code from the current directory (server/)
-# into the container's working directory
 COPY . .
 
-# Your server.js listens on process.env.PORT || 5000.
-# Railway will automatically set the PORT environment variable.
-# We expose 5000 as a fallback, but Railway will handle the mapping.
+ENV NODE_ENV=production
+
+# server.js listens on process.env.PORT || 5000; the platform sets PORT
 EXPOSE 5000
 
-# The command to run your application in production.
-# We use 'node server.js' instead of 'nodemon' for a production environment.
 CMD ["node", "server.js"]

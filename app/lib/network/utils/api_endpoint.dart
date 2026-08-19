@@ -4,6 +4,8 @@ class ApiEndpoints {
   //* Auth
   static String get signUp => '${ApiConfig.baseUrl}/api/auth/signup';
   static String get signin => '${ApiConfig.baseUrl}/api/auth/signin';
+  static String get googleAuth =>
+      '${ApiConfig.baseUrl}/api/auth/google';
 
   //* OTP
   static String get verifyOTPsignUp =>
@@ -76,6 +78,9 @@ class ApiEndpoints {
 
   //* Notification
   static String get Notification => '${ApiConfig.baseUrl}/api/notifications';
+
+  static String notificationsPaged({int page = 1, int limit = 20}) =>
+      '${ApiConfig.baseUrl}/api/notifications?page=$page&limit=$limit';
   static String get markNotificationRead =>
       '${ApiConfig.baseUrl}/api/notifications/read';
   static String get notificationUnreadCount =>
