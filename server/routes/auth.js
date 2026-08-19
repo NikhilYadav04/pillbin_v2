@@ -19,6 +19,7 @@ router.post("/signup", otpLimiter, authController.signup);
 router.post("/verify-signup", authController.verifySignup);
 router.post("/signin", otpLimiter, authController.signin);
 router.post("/verify-signin", authController.verifySignin);
+router.post("/google", authController.googleAuth);
 router.post("/refresh-token", authController.refreshToken);
 
 module.exports = router;

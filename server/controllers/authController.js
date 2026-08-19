@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const sendOTP = require("../services/fast2SMS");
 const { generateToken, generateRefreshToken } = require("../utils/jwt");
+const { OAuth2Client } = require("google-auth-library");
 // const {Resend} = require("resend")
 
 // const resend = new Resend(process.env.RESEND_API_KEY);
@@ -378,10 +379,136 @@ const refreshToken = async (req, res) => {
   }
 };
 
+//* Accepts the web client id plus any platform ids, comma separated
+const googleAudience = (process.env.GOOGLE_CLIENT_ID || "")
+  .split(",")
+  .map((id) => id.trim())
+  .filter(Boolean);
+
+const googleClient = new OAuth2Client();
+
+const buildAuthResponse = (user, message, res) => {
+  res.status(200).json({
+    statusCode: 200,
+    message,
+    data: {
+      accessToken: generateToken(user._id),
+      refreshToken: generateRefreshToken(user._id),
+      user: {
+        id: user._id,
+        phoneNumber: user.phoneNumber,
+        profileCompleted: user.profileCompleted,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+        vendorCenterId: user.vendorCenterId,
+      },
+    },
+  });
+};
+
+//* Sign in or sign up with a Google ID token
+const googleAuth = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res
+        .status(400)
+        .json({ message: "idToken is required", statusCode: 400 });
+    }
+
+    if (googleAudience.length === 0) {
+      console.error("GOOGLE_CLIENT_ID is not set");
+      return res
+        .status(500)
+        .json({ message: "Google sign-in is not configured", statusCode: 500 });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken,
+        audience: googleAudience,
+      });
+      payload = ticket.getPayload();
+    } catch (error) {
+      return res
+        .status(401)
+        .json({ message: "Invalid Google token", statusCode: 401 });
+    }
+
+    const email = payload.email ? payload.email.toLowerCase() : null;
+
+    if (!email || payload.email_verified === false) {
+      return res.status(401).json({
+        message: "Google account has no verified email",
+        statusCode: 401,
+      });
+    }
+
+    const allowedRoles = ["user", "vendor"];
+    const requestedRole =
+      req.body.role && allowedRoles.includes(req.body.role)
+        ? req.body.role
+        : "user";
+
+    //* Look up by email, never by googleId — email is what the OTP flow already
+    //* stored, so keying on anything else would create a second account
+    let user = await User.findOne({ email });
+    const isNewUser = !user;
+
+    if (user) {
+      if (!user.googleId) user.googleId = payload.sub;
+      if (!user.authProviders.includes("google")) {
+        user.authProviders.push("google");
+      }
+      if (!user.fullName && payload.name) user.fullName = payload.name;
+      if (!user.avatarUrl && payload.picture) user.avatarUrl = payload.picture;
+      user.isVerified = true;
+      user.otp = undefined;
+    } else {
+      //* Role only applies to a brand new account — an existing vendor keeps
+      //* their role no matter what the picker said
+      user = new User({
+        email,
+        googleId: payload.sub,
+        fullName: payload.name,
+        avatarUrl: payload.picture,
+        isVerified: true,
+        role: requestedRole,
+        authProviders: ["google"],
+      });
+    }
+
+    try {
+      await user.save();
+    } catch (error) {
+      //* Two taps can both miss the lookup above and race to insert
+      if (error.code === 11000) {
+        user = await User.findOne({ email });
+        if (!user) throw error;
+      } else {
+        throw error;
+      }
+    }
+
+    buildAuthResponse(
+      user,
+      isNewUser ? "Signed up with Google" : "Login successful",
+      res
+    );
+  } catch (error) {
+    console.error("Google auth error:", error);
+    res.status(500).json({ message: "Server error", statusCode: 500 });
+  }
+};
+
 module.exports = {
   signup,
   verifySignup,
   signin,
   verifySignin,
   refreshToken,
+  googleAuth,
 };

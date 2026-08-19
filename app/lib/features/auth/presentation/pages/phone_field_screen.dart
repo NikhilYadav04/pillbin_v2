@@ -5,6 +5,7 @@ import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
 import 'package:provider/provider.dart';
+import 'package:pillbin/network/utils/http_client.dart';
 
 class EmailAuthScreen extends StatefulWidget {
   final bool isLogin;
@@ -19,6 +20,7 @@ class _EmailAuthScreenState extends State<EmailAuthScreen>
     with TickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
+  bool _isGoogleLoading = false;
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _scaleAnimation;
@@ -85,6 +87,10 @@ class _EmailAuthScreenState extends State<EmailAuthScreen>
                         _buildEmailInputSection(sw, sh, isTablet),
                         SizedBox(height: sh * 0.04),
                         _buildActionButton(sw, sh, isTablet),
+                        SizedBox(height: sh * 0.025),
+                        _buildDivider(sw, sh, isTablet),
+                        SizedBox(height: sh * 0.025),
+                        _buildGoogleButton(sw, sh, isTablet),
                         Expanded(child: Container()),
                         _buildFooter(sw, sh, isTablet),
                         SizedBox(height: sh * 0.03),
@@ -352,6 +358,121 @@ class _EmailAuthScreenState extends State<EmailAuthScreen>
             ),
           ),
         );
+      },
+    );
+  }
+
+  Widget _buildDivider(double sw, double sh, bool isTablet) {
+    return Row(
+      children: [
+        Expanded(child: Divider(color: PillBinColors.greyLight, thickness: 1)),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: sw * 0.03),
+          child: Text('or',
+              style: PillBinRegular.style(
+                fontSize: isTablet ? sw * 0.02 : sw * 0.032,
+                color: PillBinColors.textLight,
+              )),
+        ),
+        Expanded(child: Divider(color: PillBinColors.greyLight, thickness: 1)),
+      ],
+    );
+  }
+
+  Widget _buildGoogleButton(double sw, double sh, bool isTablet) {
+    return SizedBox(
+      width: double.infinity,
+      child: Material(
+        color: PillBinColors.surface,
+        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+          onTap: _isGoogleLoading || _isLoading ? null : _handleGoogleAuth,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
+              border: Border.all(color: PillBinColors.greyLight, width: 1.5),
+            ),
+            padding: EdgeInsets.symmetric(
+              vertical: isTablet ? sh * 0.02 : sh * 0.018,
+              horizontal: isTablet ? sw * 0.03 : sw * 0.05,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_isGoogleLoading)
+                  SizedBox(
+                    width: isTablet ? sw * 0.025 : sw * 0.04,
+                    height: isTablet ? sw * 0.025 : sw * 0.04,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor:
+                          AlwaysStoppedAnimation<Color>(PillBinColors.primary),
+                    ),
+                  )
+                else
+                  Image.asset(
+                    'assets/images/google_logo.png',
+                    width: isTablet ? sw * 0.025 : sw * 0.05,
+                    height: isTablet ? sw * 0.025 : sw * 0.05,
+                    errorBuilder: (_, __, ___) => Icon(
+                      Icons.g_mobiledata_rounded,
+                      size: isTablet ? sw * 0.032 : sw * 0.06,
+                      color: PillBinColors.textDark,
+                    ),
+                  ),
+                SizedBox(width: sw * 0.03),
+                Text(
+                  _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
+                  style: PillBinMedium.style(
+                    fontSize: isTablet ? sw * 0.025 : sw * 0.042,
+                    color: PillBinColors.textDark,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleGoogleAuth() async {
+    setState(() => _isGoogleLoading = true);
+
+    final authProvider = context.read<AuthProvider>();
+    final result = await authProvider.signInWithGoogle();
+
+    if (!mounted) return;
+    setState(() => _isGoogleLoading = false);
+
+    if (result == 'cancelled') return;
+
+    if (result != 'success') {
+      CustomSnackBar.show(
+          context: context,
+          icon: Icons.error_outline,
+          title: authProvider.lastError ?? 'Google sign-in failed');
+      return;
+    }
+
+    final role = await HttpClient().getRole();
+    final vendorCenterId = await HttpClient().getVendorCenterId();
+    if (!mounted) return;
+
+    final destination = role == 'vendor'
+        ? ((vendorCenterId != null && vendorCenterId.isNotEmpty)
+            ? '/vendor-bottom-bar-screen'
+            : '/vendor-onboarding-screen')
+        : '/bottom-bar-screen';
+
+    Navigator.pushNamedAndRemoveUntil(
+      context,
+      destination,
+      (Route<dynamic> route) => false,
+      arguments: {
+        'transition': TransitionType.rightToLeft,
+        'duration': 300,
       },
     );
   }

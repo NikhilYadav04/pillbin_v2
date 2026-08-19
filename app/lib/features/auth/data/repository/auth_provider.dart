@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
@@ -35,6 +36,79 @@ class AuthProvider extends ChangeNotifier {
     _selectedRole = 'user';
     _lastError = null;
     notifyListeners();
+  }
+
+  //* <-------------- GOOGLE SIGN IN --------------------->
+
+  bool _googleInitialized = false;
+
+  Future<void> _initGoogle() async {
+    if (_googleInitialized) return;
+    await GoogleSignIn.instance.initialize(
+      serverClientId: dotenv.env["GOOGLE_SERVER_CLIENT_ID"],
+    );
+    _googleInitialized = true;
+  }
+
+  //* Returns 'success', 'cancelled' or 'error'
+  Future<String> signInWithGoogle() async {
+    try {
+      _lastError = null;
+      await _initGoogle();
+
+      final GoogleSignInAccount account =
+          await GoogleSignIn.instance.authenticate();
+      final String? idToken = account.authentication.idToken;
+
+      if (idToken == null || idToken.isEmpty) {
+        _lastError = 'Google did not return a token. Try again.';
+        return 'error';
+      }
+
+      final ApiResponse<Map<String, dynamic>> response =
+          await _authService.googleAuth(idToken: idToken, role: _selectedRole);
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = response.data!;
+
+        await _httpClient.saveTokens(data["accessToken"], data["refreshToken"]);
+
+        final Map<String, dynamic> userData = data["user"];
+        await _httpClient.saveUserData(userData["fullName"] ?? "",
+            userData["phoneNumber"] ?? "", userData["email"] ?? "");
+
+        await _httpClient.saveRole(userData["role"] as String? ?? 'user');
+        await _httpClient
+            .saveVendorCenterId(userData["vendorCenterId"] as String?);
+
+        unawaited(FcmService().autoRegister(force: true));
+
+        return 'success';
+      }
+
+      _lastError = response.message.isNotEmpty
+          ? response.message
+          : 'Google sign-in failed. Try again.';
+      return 'error';
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) return 'cancelled';
+      logger.e(e);
+      _lastError = 'Google sign-in failed. Try again.';
+      return 'error';
+    } catch (e) {
+      logger.e(e);
+      _lastError = 'Google sign-in failed. Try again.';
+      return 'error';
+    }
+  }
+
+  Future<void> signOutGoogle() async {
+    try {
+      await _initGoogle();
+      await GoogleSignIn.instance.signOut();
+    } catch (_) {
+      //* Never block logout on the Google SDK
+    }
   }
 
   //* <-------------- EMAIL SERVICE --------------------->

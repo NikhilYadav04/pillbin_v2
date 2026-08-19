@@ -767,6 +767,7 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                         context.read<DonationProvider>().reset();
                         context.read<VendorProvider>().reset();
                         context.read<SavedCentersProvider>().reset();
+                        await context.read<AuthProvider>().signOutGoogle();
                         context.read<AuthProvider>().reset();
                         await CacheManager().clearAllCache();
                         await FcmService().deactivate();

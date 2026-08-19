@@ -34,4 +34,12 @@ class AuthService extends ApiService {
         data: {"email": email, "otp": otp},
         fromJson: (data) => data as Map<String, dynamic>);
   }
+
+  //* exchange a Google ID token for our own tokens
+  Future<ApiResponse<Map<String, dynamic>>> googleAuth(
+      {required String idToken, String role = 'user'}) async {
+    return post(ApiEndpoints.googleAuth,
+        data: {"idToken": idToken, "role": role},
+        fromJson: (data) => data as Map<String, dynamic>);
+  }
 }

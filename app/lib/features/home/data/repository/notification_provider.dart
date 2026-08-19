@@ -15,10 +15,30 @@ class NotificationProvider extends ChangeNotifier {
   final CacheManager _cacheManager = CacheManager();
   final HttpClient _httpClient = HttpClient();
 
-  int get unreadCount => _notifications.where((n) => !n.isRead).length;
+  //* Server count, not the loaded rows — with paging the list only ever
+  //* holds a page, so counting it would cap the badge
+  int _unreadCount = 0;
+  int get unreadCount => _unreadCount;
+
+  int _totalCount = 0;
+  int get totalCount => _totalCount;
+
+  int _page = 1;
+  bool _hasMore = true;
+  bool get hasMoreNotifications => _hasMore;
+
+  bool _isLoadingMore = false;
+  bool get isLoadingMore => _isLoadingMore;
+
+  static const int _pageSize = 20;
 
   void deleteNotificationFromList(String notificationId) {
+    final removed = _notifications.where((n) => n.id == notificationId);
+    if (removed.isNotEmpty && !removed.first.isRead && _unreadCount > 0) {
+      _unreadCount -= 1;
+    }
     _notifications.removeWhere((n) => n.id == notificationId);
+    if (_totalCount > 0) _totalCount -= 1;
     notifyListeners();
   }
 
@@ -55,6 +75,10 @@ class NotificationProvider extends ChangeNotifier {
               .toList();
 
           _notifications = notificationsData;
+          _unreadCount = notificationsData.where((n) => !n.isRead).length;
+          _totalCount = notificationsData.length;
+          _page = 1;
+          _hasMore = false;
           _isLoading = false;
           notifyListeners();
 
@@ -72,12 +96,13 @@ class NotificationProvider extends ChangeNotifier {
 
       if (isOnline || forceRefresh) {
         ApiResponse<Map<String, dynamic>> response =
-            await _notificationService.getNotifications();
+            await _notificationService.getNotifications(
+                page: 1, limit: _pageSize);
 
         if (response.statusCode == 200) {
           Map<String, dynamic> notiData = response.data!;
 
-          //* Cache notifications
+          //* Only page one is cached — it is all the offline view needs
           await _cacheManager.cacheNotifications(notiData['notifications']);
 
           List<NotificationModel> notificationsData =
@@ -86,6 +111,15 @@ class NotificationProvider extends ChangeNotifier {
                   .toList();
 
           _notifications = notificationsData;
+          _unreadCount = (notiData['unreadCount'] as num?)?.toInt() ?? 0;
+          _totalCount = (notiData['totalCount'] as num?)?.toInt() ??
+              notificationsData.length;
+
+          final pagination = notiData['pagination'] as Map? ?? const {};
+          final totalPages = (pagination['totalPages'] as num?)?.toInt() ?? 1;
+          _page = 1;
+          _hasMore = 1 < totalPages;
+
           _isLoading = false;
           notifyListeners();
 
@@ -116,9 +150,41 @@ class NotificationProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> loadMoreNotifications() async {
+    if (_isLoadingMore || _isLoading || !_hasMore) return;
+
+    _isLoadingMore = true;
+    notifyListeners();
+
+    try {
+      final response = await _notificationService.getNotifications(
+          page: _page + 1, limit: _pageSize);
+
+      if (response.statusCode == 200) {
+        final data = response.data!;
+        final incoming = (data['notifications'] as List<dynamic>? ?? [])
+            .map((element) => NotificationModel.fromJson(element))
+            .toList();
+
+        final pagination = data['pagination'] as Map? ?? const {};
+        final totalPages = (pagination['totalPages'] as num?)?.toInt() ?? 1;
+
+        _notifications = [..._notifications, ...incoming];
+        _page += 1;
+        _hasMore = _page < totalPages;
+      }
+    } catch (e) {
+      Logger().e(e.toString());
+    }
+
+    _isLoadingMore = false;
+    notifyListeners();
+  }
+
   //* mark read
   Future<String> markRead({String? notificationId}) async {
     final previous = List<NotificationModel>.from(_notifications);
+    final previousUnread = _unreadCount;
 
     final int index = _notifications.indexWhere((n) => n.id == notificationId);
     if (notificationId != null && index == -1) return 'error';
@@ -133,6 +199,17 @@ class NotificationProvider extends ChangeNotifier {
       if (n.id == notificationId) return n.copyWith(isRead: true);
       return n;
     }).toList();
+
+    //* Marking all clears the badge; a single tap only shifts it by the rows
+    //* that actually changed here
+    if (notificationId == null) {
+      _unreadCount = 0;
+    } else {
+      final stillUnread = _notifications.where((n) => !n.isRead).length;
+      final wasUnread = previous.where((n) => !n.isRead).length;
+      _unreadCount = (_unreadCount - (wasUnread - stillUnread))
+          .clamp(0, _unreadCount);
+    }
     notifyListeners();
 
     try {
@@ -146,10 +223,12 @@ class NotificationProvider extends ChangeNotifier {
       }
 
       _notifications = previous;
+      _unreadCount = previousUnread;
       notifyListeners();
       return 'error';
     } catch (e) {
       _notifications = previous;
+      _unreadCount = previousUnread;
       notifyListeners();
       Logger().e(e.toString());
       return 'error';

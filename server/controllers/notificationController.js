@@ -92,11 +92,17 @@ const getNotifications = async (req, res) => {
   try {
     const userId = req.user.id;
 
-    const notifications = await Notification.find({ userId }).sort({
-      createdAt: -1,
-    });
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 20, 1), 50);
 
-    const unreadCount = await NotificationHelper.getUnreadCount(userId);
+    const [notifications, totalCount, unreadCount] = await Promise.all([
+      Notification.find({ userId })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      Notification.countDocuments({ userId }),
+      NotificationHelper.getUnreadCount(userId),
+    ]);
 
     res.status(200).json({
       statusCode: 200,
@@ -104,8 +110,14 @@ const getNotifications = async (req, res) => {
       message: "Notifications fetched successfully",
       data: {
         notifications,
-        totalCount: notifications.length,
+        totalCount,
         unreadCount,
+        pagination: {
+          currentPage: page,
+          totalPages: Math.ceil(totalCount / limit) || 1,
+          total: totalCount,
+          limit,
+        },
       },
     });
   } catch (error) {
