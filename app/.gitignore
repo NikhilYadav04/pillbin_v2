@@ -42,11 +42,6 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-/android/app/src/debug
-/android/app/src/main
-/android/app/src/profile
-/android/gradle
-
 /app/.env
 .env
 

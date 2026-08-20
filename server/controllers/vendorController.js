@@ -6,6 +6,7 @@ const Medicine = require("../models/Medicine");
 const CenterReview = require("../models/CenterReview");
 const { notify } = require("../services/notifyService");
 const { verifyHandoffToken } = require("../utils/jwt");
+const { runInTransaction } = require("../utils/transaction");
 const {
   uploadImageService,
   deleteImageService,
@@ -373,56 +374,73 @@ const updateRequestStatus = async (req, res) => {
 };
 
 //* Mark a request as completed (after pickup)
-//* Shared by the manual button and the QR scan so the two can never drift
+//* Shared by the manual button and the QR scan so the two can never drift.
+//* The four writes move together or not at all — a half-applied completion
+//* leaves the donor's medicines in their inventory with no way to notice.
 const finalizeCompletion = async (request, vendorUserId, vendorCenterId) => {
-    request.status = "completed";
-    request.statusHistory.push({ status: "completed", by: vendorUserId });
-    await request.save();
+  const { disposedCount, centerName } = await runInTransaction(
+    async (session) => {
+      request.status = "completed";
+      request.statusHistory.push({ status: "completed", by: vendorUserId });
+      await request.save({ session });
 
-    //* Remove the donated medicines from the donor's inventory
-    const donatedIds = request.medicines
-      .map((m) => m.medicineId)
-      .filter(Boolean);
+      //* Remove the donated medicines from the donor's inventory
+      const donatedIds = request.medicines
+        .map((m) => m.medicineId)
+        .filter(Boolean);
 
-    if (donatedIds.length > 0) {
-      await Medicine.updateMany(
-        { _id: { $in: donatedIds }, userId: request.userId, isDeleted: false },
-        { $set: { isDeleted: true } }
+      if (donatedIds.length > 0) {
+        await Medicine.updateMany(
+          {
+            _id: { $in: donatedIds },
+            userId: request.userId,
+            isDeleted: false,
+          },
+          { $set: { isDeleted: true } },
+          { session }
+        );
+      }
+
+      //* Increment center's donation count
+      const center = await MedicalCenter.findByIdAndUpdate(
+        vendorCenterId,
+        { $inc: { donationCount: 1 } },
+        { new: true, session }
+      ).select("name");
+
+      //* Count actual units where quantity is numeric, else one per entry
+      const units = request.medicines.reduce((sum, m) => {
+        const parsed = parseInt(m.quantity, 10);
+        return sum + (Number.isNaN(parsed) || parsed < 1 ? 1 : parsed);
+      }, 0);
+
+      await User.findByIdAndUpdate(
+        request.userId,
+        { $inc: { "stats.medicinesDisposedCount": units } },
+        { session }
       );
+
+      return { disposedCount: units, centerName: center ? center.name : null };
     }
+  );
 
-    //* Increment center's donation count
-    await MedicalCenter.findByIdAndUpdate(vendorCenterId, {
-      $inc: { donationCount: 1 },
-    });
+  //* Outside the transaction on purpose — withTransaction retries its callback,
+  //* and a retry here would push the same notification twice
+  notify({
+    recipientIds: [request.userId],
+    type: "donation_completed",
+    title: "Donation Completed",
+    description: `Your donation to ${
+      centerName || "the medical center"
+    } is complete. ${disposedCount} ${
+      disposedCount === 1 ? "medicine has" : "medicines have"
+    } been removed from your inventory.`,
+    status: "normal",
+    entityType: "donation_request",
+    entityId: request._id,
+  });
 
-    //* Count actual units where quantity is numeric, else one per entry
-    const disposedCount = request.medicines.reduce((sum, m) => {
-      const parsed = parseInt(m.quantity, 10);
-      return sum + (Number.isNaN(parsed) || parsed < 1 ? 1 : parsed);
-    }, 0);
-
-    await User.findByIdAndUpdate(request.userId, {
-      $inc: { "stats.medicinesDisposedCount": disposedCount },
-    });
-
-    const center = await MedicalCenter.findById(vendorCenterId).select("name");
-
-    notify({
-      recipientIds: [request.userId],
-      type: "donation_completed",
-      title: "Donation Completed",
-      description: `Your donation to ${
-        center ? center.name : "the medical center"
-      } is complete. ${disposedCount} ${
-        disposedCount === 1 ? "medicine has" : "medicines have"
-      } been removed from your inventory.`,
-      status: "normal",
-      entityType: "donation_request",
-      entityId: request._id,
-    });
-
-    return { request, disposedCount };
+  return { request, disposedCount };
 };
 
 //* Guard shared by both completion paths
