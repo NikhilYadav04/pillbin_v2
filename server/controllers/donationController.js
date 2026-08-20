@@ -11,6 +11,7 @@ const {
   deleteImageService,
 } = require("../services/clopudinaryService");
 const { buildReceiptNumber, countUnits } = require("../utils/receipt");
+const { runInTransaction } = require("../utils/transaction");
 
 const MAX_PENDING_PER_CENTER = 3;
 
@@ -292,7 +293,7 @@ const NEUTRAL_PRIOR = 3.5;
 //* Applies one review's arrival (+1) or removal (-1) as running totals, then
 //* derives the averages from them. No aggregation, so cost is flat no matter
 //* how many reviews the center has.
-const applyRatingDelta = async (medicalCenterId, rating, direction) => {
+const applyRatingDelta = async (medicalCenterId, rating, direction, session) => {
   const center = await MedicalCenter.findByIdAndUpdate(
     medicalCenterId,
     {
@@ -302,7 +303,7 @@ const applyRatingDelta = async (medicalCenterId, rating, direction) => {
         [`ratingBreakdown.${rating}`]: direction,
       },
     },
-    { new: true }
+    { new: true, session }
   );
 
   if (!center) return;
@@ -314,12 +315,16 @@ const applyRatingDelta = async (medicalCenterId, rating, direction) => {
   const weighted =
     (RATING_CONFIDENCE * NEUTRAL_PRIOR + sum) / (RATING_CONFIDENCE + count);
 
-  await MedicalCenter.findByIdAndUpdate(medicalCenterId, {
-    rating: Math.round(average * 10) / 10,
-    totalReviews: count,
-    ratingSum: sum,
-    weightedRating: Math.round(weighted * 100) / 100,
-  });
+  await MedicalCenter.findByIdAndUpdate(
+    medicalCenterId,
+    {
+      rating: Math.round(average * 10) / 10,
+      totalReviews: count,
+      ratingSum: sum,
+      weightedRating: Math.round(weighted * 100) / 100,
+    },
+    { session }
+  );
 };
 
 //* Review a completed donation
@@ -364,15 +369,31 @@ const submitReview = async (req, res) => {
       });
     }
 
-    const review = await CenterReview.create({
-      userId: req.user.id,
-      medicalCenterId: request.medicalCenterId,
-      donationRequestId: id,
-      rating: numericRating,
-      comment,
-    });
+    //* The row and the center's counters move together, otherwise a failure
+    //* between them leaves a visible review the star average never counted
+    const review = await runInTransaction(async (session) => {
+      const [created] = await CenterReview.create(
+        [
+          {
+            userId: req.user.id,
+            medicalCenterId: request.medicalCenterId,
+            donationRequestId: id,
+            rating: numericRating,
+            comment,
+          },
+        ],
+        { session }
+      );
 
-    await applyRatingDelta(request.medicalCenterId, numericRating, 1);
+      await applyRatingDelta(
+        request.medicalCenterId,
+        numericRating,
+        1,
+        session
+      );
+
+      return created;
+    });
 
     res.status(201).json({
       statusCode: 201,
@@ -453,8 +474,11 @@ const deleteReview = async (req, res) => {
     }
 
     const { medicalCenterId, rating } = review;
-    await CenterReview.findByIdAndDelete(reviewId);
-    await applyRatingDelta(medicalCenterId, rating, -1);
+
+    await runInTransaction(async (session) => {
+      await CenterReview.findByIdAndDelete(reviewId, { session });
+      await applyRatingDelta(medicalCenterId, rating, -1, session);
+    });
 
     res.status(200).json({
       statusCode: 200,

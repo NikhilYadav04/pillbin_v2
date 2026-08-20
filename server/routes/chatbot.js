@@ -12,7 +12,6 @@ const { authenticateToken } = require("../middleware/auth.js");
 const chatBotLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  keyGenerator: (req, res) => req.ip,
   message: {
     success: false,
     message: "Too many chatbot requests. Try again later.",

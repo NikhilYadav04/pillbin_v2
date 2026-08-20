@@ -58,6 +58,12 @@ android {
         versionCode = flutterVersionCode.toInteger()
         versionName = flutterVersionName
         multiDexEnabled true
+
+        // Maps key comes from local.properties so it stays out of the repo.
+        // A fresh clone must add: MAPS_API_KEY=<key>
+        manifestPlaceholders += [
+            MAPS_API_KEY: localProperties.getProperty("MAPS_API_KEY") ?: ""
+        ]
     }
 
     signingConfigs {

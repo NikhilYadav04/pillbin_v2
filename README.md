@@ -523,6 +523,14 @@ GMAIL_PASSWORD=...
 GOOGLE_SERVER_CLIENT_ID="xxxxx.apps.googleusercontent.com"
 ```
 
+The Google Maps key is read from `app/android/local.properties` (gitignored) and injected into the manifest as a placeholder, so it never enters the repo. Add:
+
+```properties
+MAPS_API_KEY=AIza...
+```
+
+Without it the app still builds, but the map renders blank.
+
 Backend URLs live in [`lib/network/config/api_config.dart`](app/lib/network/config/api_config.dart) — flip one line to switch the whole app between local and deployed:
 
 ```dart
