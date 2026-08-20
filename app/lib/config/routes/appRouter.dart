@@ -26,6 +26,9 @@ import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.
 import 'package:pillbin/features/profile/presentation/pages/impact_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/profile_screen.dart';
 import 'package:pillbin/features/donation/presentation/pages/center_reviews_screen.dart';
+import 'package:pillbin/features/donation/presentation/pages/donation_qr_screen.dart';
+import 'package:pillbin/features/donation/presentation/pages/donation_receipt_screen.dart';
+import 'package:pillbin/features/vendor/presentation/pages/vendor_scan_screen.dart';
 import 'package:pillbin/features/donation/presentation/pages/donation_request_screen.dart';
 import 'package:pillbin/features/donation/presentation/pages/my_donations_screen.dart';
 import 'package:pillbin/features/splash_screen.dart';
@@ -295,6 +298,20 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/my-donations-screen':
       page = const MyDonationsScreen();
+      break;
+    case '/donation-qr-screen':
+      page = DonationQrScreen(
+        requestId: args?['requestId'] as String? ?? '',
+        centerName: args?['centerName'] as String? ?? 'the center',
+      );
+      break;
+    case '/vendor-scan-screen':
+      page = const VendorScanScreen();
+      break;
+    case '/donation-receipt-screen':
+      page = DonationReceiptScreen(
+        data: args?['data'] as DonationReceiptData,
+      );
       break;
     case '/center-reviews-screen':
       page = CenterReviewsScreen(

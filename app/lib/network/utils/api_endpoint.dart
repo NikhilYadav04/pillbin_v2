@@ -201,6 +201,11 @@ class ApiEndpoints {
     return '${ApiConfig.baseUrl}/api/donations/my-requests?page=$page&limit=$limit$q';
   }
 
+  static String handoffToken(String id) =>
+      '${ApiConfig.baseUrl}/api/donations/$id/handoff-token';
+
+  static String get vendorScan => '${ApiConfig.baseUrl}/api/vendor/scan';
+
   static String donationById(String id) =>
       '${ApiConfig.baseUrl}/api/donations/$id';
 

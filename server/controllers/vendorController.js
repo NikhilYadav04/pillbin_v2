@@ -5,6 +5,7 @@ const DonationRequest = require("../models/DonationRequest");
 const Medicine = require("../models/Medicine");
 const CenterReview = require("../models/CenterReview");
 const { notify } = require("../services/notifyService");
+const { verifyHandoffToken } = require("../utils/jwt");
 const {
   uploadImageService,
   deleteImageService,
@@ -372,35 +373,10 @@ const updateRequestStatus = async (req, res) => {
 };
 
 //* Mark a request as completed (after pickup)
-const completeRequest = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const request = await DonationRequest.findById(id);
-    if (!request) {
-      return res
-        .status(404)
-        .json({ statusCode: 404, message: "Request not found" });
-    }
-
-    if (
-      request.medicalCenterId.toString() !==
-      req.user.vendorCenterId.toString()
-    ) {
-      return res
-        .status(403)
-        .json({ statusCode: 403, message: "Not authorized" });
-    }
-
-    if (request.status !== "approved") {
-      return res.status(400).json({
-        statusCode: 400,
-        message: "Only approved requests can be marked as completed",
-      });
-    }
-
+//* Shared by the manual button and the QR scan so the two can never drift
+const finalizeCompletion = async (request, vendorUserId, vendorCenterId) => {
     request.status = "completed";
-    request.statusHistory.push({ status: "completed", by: req.user.id });
+    request.statusHistory.push({ status: "completed", by: vendorUserId });
     await request.save();
 
     //* Remove the donated medicines from the donor's inventory
@@ -416,7 +392,7 @@ const completeRequest = async (req, res) => {
     }
 
     //* Increment center's donation count
-    await MedicalCenter.findByIdAndUpdate(req.user.vendorCenterId, {
+    await MedicalCenter.findByIdAndUpdate(vendorCenterId, {
       $inc: { donationCount: 1 },
     });
 
@@ -430,9 +406,7 @@ const completeRequest = async (req, res) => {
       $inc: { "stats.medicinesDisposedCount": disposedCount },
     });
 
-    const center = await MedicalCenter.findById(req.user.vendorCenterId).select(
-      "name"
-    );
+    const center = await MedicalCenter.findById(vendorCenterId).select("name");
 
     notify({
       recipientIds: [request.userId],
@@ -448,6 +422,34 @@ const completeRequest = async (req, res) => {
       entityId: request._id,
     });
 
+    return { request, disposedCount };
+};
+
+//* Guard shared by both completion paths
+const loadCompletableRequest = async (id, vendorCenterId) => {
+  const request = await DonationRequest.findById(id);
+  if (!request) return { error: [404, "Request not found"] };
+  if (request.medicalCenterId.toString() !== vendorCenterId.toString()) {
+    return { error: [403, "This request belongs to another center"] };
+  }
+  if (request.status !== "approved") {
+    return { error: [400, "Only approved requests can be marked as completed"] };
+  }
+  return { request };
+};
+
+const completeRequest = async (req, res) => {
+  try {
+    const { request, error } = await loadCompletableRequest(
+      req.params.id,
+      req.user.vendorCenterId
+    );
+    if (error) {
+      return res.status(error[0]).json({ statusCode: error[0], message: error[1] });
+    }
+
+    await finalizeCompletion(request, req.user.id, req.user.vendorCenterId);
+
     res.status(200).json({
       statusCode: 200,
       message: "Request marked as completed",
@@ -455,6 +457,59 @@ const completeRequest = async (req, res) => {
     });
   } catch (error) {
     console.error("Complete request error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
+//* Vendor scans the donor's QR — verifies the short-lived token, then runs the
+//* exact same completion path as the button
+const scanHandoff = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: "token is required" });
+    }
+
+    const payload = verifyHandoffToken(token);
+    if (!payload) {
+      return res.status(401).json({
+        statusCode: 401,
+        message: "This QR code is invalid or has expired",
+      });
+    }
+
+    const { request, error } = await loadCompletableRequest(
+      payload.rid,
+      req.user.vendorCenterId
+    );
+    if (error) {
+      //* Already scanned is the common case, so name it rather than 400
+      const message =
+        error[0] === 400 ? "This donation was already completed" : error[1];
+      return res.status(error[0]).json({ statusCode: error[0], message });
+    }
+
+    if (request.userId.toString() !== payload.uid) {
+      return res
+        .status(401)
+        .json({ statusCode: 401, message: "This QR code is invalid" });
+    }
+
+    const { disposedCount } = await finalizeCompletion(
+      request,
+      req.user.id,
+      req.user.vendorCenterId
+    );
+
+    res.status(200).json({
+      statusCode: 200,
+      message: "Donation completed",
+      data: { request, disposedCount },
+    });
+  } catch (error) {
+    console.error("Scan handoff error:", error);
     res.status(500).json({ statusCode: 500, message: "Server error" });
   }
 };
@@ -891,6 +946,7 @@ module.exports = {
   getRequests,
   updateRequestStatus,
   completeRequest,
+  scanHandoff,
   getAnalytics,
   getDonatedMedicines,
 };

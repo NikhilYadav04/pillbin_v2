@@ -23,5 +23,6 @@ router.get("/analytics/medicines", vendorController.getDonatedMedicines);
 router.get("/requests", vendorController.getRequests);
 router.put("/requests/:id", vendorController.updateRequestStatus);
 router.put("/requests/:id/complete", vendorController.completeRequest);
+router.post("/scan", vendorController.scanHandoff);
 
 module.exports = router;

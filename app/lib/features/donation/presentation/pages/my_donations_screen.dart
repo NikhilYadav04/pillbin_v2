@@ -1,11 +1,14 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/shimmerCard.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
+import 'package:pillbin/features/donation/presentation/pages/donation_receipt_screen.dart';
 import 'package:pillbin/features/donation/presentation/widgets/status_timeline.dart';
+import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -828,10 +831,56 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
             createdAt: req['createdAt'] as String?,
           ),
           if (status == 'completed') ...[
+            SizedBox(height: sh * 0.015),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () => _openReceipt(req),
+                icon: Icon(Icons.receipt_long_rounded,
+                    size: sw * 0.045, color: PillBinColors.primary),
+                label: Text('Share Receipt',
+                    style: PillBinMedium.style(
+                        fontSize: sw * 0.035, color: PillBinColors.primary)),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: PillBinColors.primary),
+                  padding: EdgeInsets.symmetric(vertical: sh * 0.013),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
             SizedBox(height: sh * 0.008),
             _reviewSection(req, sw, sh, provider, centerName),
           ],
           // Actions
+          if (status == 'approved') ...[
+            SizedBox(height: sh * 0.015),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => Navigator.pushNamed(
+                  context,
+                  '/donation-qr-screen',
+                  arguments: {
+                    'requestId': req['_id'],
+                    'centerName': centerName,
+                    'transition': TransitionType.bottomToTop,
+                  },
+                ),
+                icon: Icon(Icons.qr_code_2_rounded, size: sw * 0.05),
+                label: Text('Show Handover Code',
+                    style: PillBinMedium.style(
+                        fontSize: sw * 0.035, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PillBinColors.primary,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.symmetric(vertical: sh * 0.014),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+          ],
           if (status == 'pending' || status == 'approved') ...[
             SizedBox(height: sh * 0.015),
             Row(
@@ -880,6 +929,24 @@ class _MyDonationsScreenState extends State<MyDonationsScreen>
           ],
         ),
       ),
+    );
+  }
+
+  void _openReceipt(Map<String, dynamic> req) {
+    final user = context.read<UserProvider>().user;
+
+    Navigator.pushNamed(
+      context,
+      '/donation-receipt-screen',
+      arguments: {
+        'data': DonationReceiptData.fromRequestMap(
+          req,
+          donorName: user?.fullName ?? user?.email ?? 'PillBin user',
+          donorEmail: user?.email,
+          donorPhone: user?.phoneNumber,
+        ),
+        'transition': TransitionType.bottomToTop,
+      },
     );
   }
 

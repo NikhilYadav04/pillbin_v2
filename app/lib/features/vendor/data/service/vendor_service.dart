@@ -62,6 +62,11 @@ class VendorService extends ApiService {
         fromJson: (d) => d as Map<String, dynamic>);
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> scanHandoff(String token) async {
+    return post(ApiEndpoints.vendorScan,
+        data: {'token': token}, fromJson: (d) => d as Map<String, dynamic>);
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> completeRequest(
       String requestId) async {
     return put(ApiEndpoints.vendorRequestComplete(requestId),

@@ -4,7 +4,7 @@
 
 ### Smart, offline-first medicine management — track, donate, and dispose responsibly
 
-[![Flutter](https://img.shields.io/badge/Flutter-3.4.4-02569B?logo=flutter)](https://flutter.dev) [![Node.js](https://img.shields.io/badge/Node.js-20-339933?logo=nodedotjs)](https://nodejs.org) [![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi)](https://fastapi.tiangolo.com) [![MongoDB](https://img.shields.io/badge/MongoDB-8.x-47A248?logo=mongodb)](https://mongodb.com) [![Agno](https://img.shields.io/badge/Agno-Multi--Agent-FF6B35?logo=openai)](https://github.com/agno-agi/agno) [![Azure](https://img.shields.io/badge/Azure-Hosted-0078D4?logo=microsoftazure)](https://azure.microsoft.com)
+[![Flutter](https://img.shields.io/badge/Flutter-3.4.4-02569B?logo=flutter)](https://flutter.dev) [![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs)](https://nodejs.org) [![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi)](https://fastapi.tiangolo.com) [![MongoDB](https://img.shields.io/badge/MongoDB-8.x-47A248?logo=mongodb)](https://mongodb.com) [![Agno](https://img.shields.io/badge/Agno-Multi--Agent-FF6B35?logo=openai)](https://github.com/agno-agi/agno) [![ChromaDB](https://img.shields.io/badge/ChromaDB-Hybrid%20RAG-FFB300)](https://trychroma.com) [![Firebase](https://img.shields.io/badge/FCM-Push-FFCA28?logo=firebase)](https://firebase.google.com) [![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?logo=render)](https://render.com)
 
 </div>
 
@@ -63,6 +63,18 @@ Once approved, the user is notified and can call the center directly from the ap
 
 ---
 
+### QR Handover & Shareable Receipts
+
+The last two steps of a donation happen at the counter, so both are built around a QR code.
+
+**Handover.** An approved donor taps *Show Handover Code* and the server mints a JWT carrying a `typ: "handoff"` claim, the request id, and the donor id. It lives **5 minutes** and the app silently re-mints it every 4, so the code on screen always works but a screenshot stops working almost immediately. The vendor scans it and the donation completes — the scan path and the manual *Mark as Completed* button call the same `finalizeCompletion()`, so the two can never drift. Scanning runs with `DetectionSpeed.noDuplicates` behind an in-flight guard, and a second scan of the same code is rejected because the request has already left `approved`.
+
+**Receipt.** Either side can open a completed donation and share a receipt. It is painted entirely on-device — a `RepaintBoundary` over a fixed 720px canvas, captured to PNG and handed to the platform share sheet — so there is no upload, no storage, and no link that can rot. Because it is an image it previews inline in WhatsApp rather than arriving as a file to download.
+
+The receipt stays verifiable anyway: it carries a QR pointing at a **public** verification page, `GET /api/donations/verify/:id`, which renders the receiving center, collection date and item counts for anyone the receipt is forwarded to. Nothing about the donor is exposed, and nothing is stored to support it — the receipt number (`PB-<year>-<id tail>`) is derived from the request id by the same formula on both the app and the server.
+
+---
+
 ### 🏢 Vendor Portal
 
 Medical centers onboard as **Vendors**. After registration, a center goes through admin verification before appearing in the user-facing location list. The vendor dashboard provides:
@@ -72,8 +84,43 @@ Medical centers onboard as **Vendors**. After registration, a center goes throug
 - **Verification document upload** — up to 5 documents for admin review
 - **Inventory management** — what medicine types the center currently accepts
 - **Donation request inbox** — view all incoming requests, approve / reject with a note, mark as completed
+- **QR scanner** — complete a handover by scanning the donor's code instead of tapping through the list
 
 Vendor routes are guarded by the `requireVendor` middleware — the `role` field on the `User` model must be `"vendor"`.
+
+---
+
+### ⭐ Ratings & Reviews
+
+Once a donation is **completed**, the donor can rate the center 1–5 with an optional comment — one review per donation, enforced by a unique index on `donationRequestId`. Reviews are deletable by their author, which frees that donation to be rated again.
+
+Centers carry two numbers: a plain **average** shown as stars, and a **Bayesian weighted rating** used for ranking, so one 5★ review can't outrank a center with fifty 4.8★ ones:
+
+```
+weighted = (C × 3.5 + ratingSum) / (C + totalReviews)     // C = 5
+```
+
+Both are maintained as **running counters** (`ratingSum`, `totalReviews`, `ratingBreakdown`) updated with a single `$inc` per write — no aggregation, so the cost is flat whether a center has 10 reviews or 10 million. Reviews paginate with a **server-side star filter**, so filtering searches every review rather than the loaded page.
+
+---
+
+### 📊 Vendor Analytics
+
+A dedicated analytics screen with a **6M / 1Y / 2Y / 5Y** period selector. Bucket granularity follows the range so the chart never exceeds ~12 bars:
+
+| Range | Bucket | Label |
+|---|---|---|
+| ≤ 12 months | monthly | `Aug` |
+| 13–36 months | quarterly | `Q3 '26` |
+| > 36 months | yearly | `2026` |
+
+Surfaces total requests, fulfilment rate, average approval latency (computed from the `statusHistory` audit trail), a status-breakdown donut, most-donated medicines, and the busiest period. The dashboard keeps a compact preview that links through.
+
+---
+
+### 📈 Donation Impact
+
+Donors get an impact screen summarising what they've contributed — medicines donated, centers helped, and completion streaks — plus a per-request **status timeline** rendered from `statusHistory`, so every state change is visible with its timestamp.
 
 ---
 
@@ -83,11 +130,12 @@ PillBot is built on the **Agno** multi-agent framework and is the most technical
 
 The agent pipeline:
 1. **Query intake** — user message received by FastAPI, `userId` resolved to a Redis chat history key
-2. **RAG retrieval** — query embedded and searched against a **Pinecone** vector index containing chunked medical PDFs, returning the top-k relevant passages
-3. **Web search** — DuckDuckGo search tool activated for real-time health information not covered by static PDFs
-4. **MCP tooling** — Model Context Protocol server tools extend the agent with structured capabilities
-5. **LLM reasoning** — Agno orchestrates the above context sources and sends a final prompt to **OpenAI** models for a grounded, safe response
-6. **Response + caching** — the response is streamed back to the app and the turn is appended to the **Redis**-backed chat history for the session
+2. **Intent routing** — a fast, cheap model classifies the query and picks exactly one specialist path, so a simple question never pays for the full toolchain
+3. **RAG retrieval** — query embedded with Gemini and searched against a **ChromaDB** hybrid index (vector + keyword, RRF-fused) over chunked medical PDFs
+4. **Live tools** — inventory, directory, donation, vendor and notification tools call the Node API so answers reflect the user's real data
+5. **Web search** — DuckDuckGo for health information not covered by the indexed PDFs
+6. **LLM reasoning** — Agno composes the context and answers via **Gemini** (or **Groq**, switchable through `LLM_PROVIDER`)
+7. **Two-tier history** — recent turns live in **Redis** with a 24h TTL, older ones fall back to **SQLite**, paged 40 messages at a time
 
 Chat history is persisted per `userId`, providing continuity across app sessions.
 
@@ -107,15 +155,16 @@ Users can **save** centers to a personal list (`savedMedicalCenters` on the `Use
 
 ### 🔔 Smart Notification System
 
-PillBin has a server-side notification model (`Notification` collection) with 4 priority levels — `Normal`, `Important`, `Urgent`, `Alert`. Notifications are delivered in-app and via **Flutter Local Notifications**:
+PillBin has a server-side notification model (`Notification` collection) with 4 priority levels — `Normal`, `Important`, `Urgent`, `Alert`. Delivery is **Firebase Cloud Messaging** push plus an in-app inbox, with device tokens registered per install (`DeviceToken`) and deactivated on logout.
 
 | Type | Trigger | Schedule | Priority |
 |---|---|---|---|
 | Welcome | Signup completion | Instant | Normal |
-| Medicine Expiry | Expires within 5 days | Daily 9 AM | Urgent |
+| Medicine Expiry | Expires within 5 days | Daily 9 AM (`node-cron`) | Urgent |
+| Donation Updates | Submitted / approved / completed / cancelled | Instant | Important |
 | Custom Alerts | Admin / system events | Instant | Varies |
 
-The inbox stores the **last 50 notifications** with auto-cleanup. Users can dismiss individually or bulk-clear with one tap.
+The inbox is **paginated 20 at a time** with infinite scroll, and a **60-day TTL index** ages rows out automatically. The unread badge reads a server-side `countDocuments` rather than the loaded page, so it stays correct past page one.
 
 ---
 
@@ -187,10 +236,13 @@ This makes PillBin not just a utility app but an awareness platform for responsi
 
 ### 🔐 Authentication & Role System
 
-PillBin uses **passwordless email OTP** authentication:
-1. User enters email → OTP sent via `Nodemailer` / `Resend`
-2. OTP verified → JWT **access token** (3h) + **refresh token** issued
-3. Refresh endpoint rotates both tokens transparently
+PillBin supports **passwordless email OTP** and **Google Sign-In**, both landing on the same session:
+
+1. **OTP** — user enters email → code sent via `Nodemailer` / `Resend` → verified
+2. **Google** — native account picker returns an ID token, verified server-side with `google-auth-library`
+3. Either path issues a JWT **access token** (3h) + **refresh token**, rotated transparently by the refresh endpoint
+
+Google is only ever an *identity check* — the app's own JWT still runs the session, so every protected route is unchanged. Accounts are matched **by email**, so signing in with Google on an existing OTP account **links** the two providers instead of creating a duplicate: the same `_id`, role, and donation history are kept.
 
 OTP requests are rate-limited to **10 per 10 minutes** per email / IP via `express-rate-limit`. Three roles exist — `user`, `vendor`, `admin` — each enforced by dedicated middleware (`requireVendor`, `requireAdmin`) on all sensitive routes.
 
@@ -246,13 +298,16 @@ pillbin/
     └── backend/
         ├── config/
         │   ├── redis_client.py
-        │   └── vector_store.py
+        │   ├── redis_client.py
+        │   ├── sqlite_client.py
+        │   └── chat_repository.py    # Redis hot tier → SQLite archive
         ├── models/schemas.py
         ├── routes/
+        ├── tools/                    # inventory, directory, donation, vendor
         └── services/
-            ├── agent_service.py      # Agno multi-agent logic
-            ├── redis_service.py      # Chat history caching
-            └── vector_store.py       # Pinecone operations
+            ├── agent_service.py      # two-stage intent router
+            ├── knowledge_service.py  # ChromaDB hybrid RAG
+            └── llm_factory.py        # Gemini / Groq switch
 ```
 
 ---
@@ -272,15 +327,19 @@ pillbin/
 | Connectivity | Connectivity Plus |
 | Media Uploads | Image Picker / Cropper |
 | Notifications | Flutter Local Notifications |
+| QR | `qr_flutter` (render) · `mobile_scanner` (scan) |
+| Sharing | `share_plus` + `path_provider` (receipt PNG) |
 | Typography | Poppins (custom font) |
 
 ### Backend
 | Layer | Technology |
 |---|---|
-| Runtime | Node.js 20 |
+| Runtime | Node.js 22 |
 | Framework | Express 5.1 |
 | Database | MongoDB 8.x + Mongoose |
-| Auth | JWT (access + refresh tokens) |
+| Auth | JWT (access + refresh) · Google via `google-auth-library` |
+| Push | Firebase Admin (FCM) |
+| Scheduling | `node-cron` (daily expiry job) |
 | File Storage | Cloudinary + Multer |
 | Email OTP | Nodemailer / Resend |
 | AI (blog images) | Gemini via `@google/genai` |
@@ -289,24 +348,24 @@ pillbin/
 ### AI Agent
 | Layer | Technology |
 |---|---|
-| Runtime | Python 3.10+ |
+| Runtime | Python 3.11 |
 | API Server | FastAPI + Uvicorn |
-| Agent Framework | Agno (multi-agent orchestration) |
-| LLM | OpenAI models |
-| Vector Search | Pinecone (RAG over medical PDFs) |
-| Chat Cache | Redis |
+| Agent Framework | Agno (two-stage intent router) |
+| LLM | Gemini or Groq (`LLM_PROVIDER`) |
+| Embeddings | Gemini |
+| Vector Search | ChromaDB — hybrid vector + keyword, RRF-fused |
+| Chat History | Redis (hot, 24h TTL) → SQLite (archive) |
 | Web Search | DuckDuckGo Search tool |
-| Production Server | Gunicorn |
 
 ### Data & Infrastructure
 | Service | Purpose |
 |---|---|
 | MongoDB | Primary DB with geospatial indexing |
-| Pinecone | Vector store for RAG |
-| Redis | Agent session / chat history cache |
-| Cloudinary | Medical center image CDN |
-| Azure | Backend + AI agent hosting |
-| Docker | Containerization |
+| ChromaDB | Vector store for RAG (persistent, disk-backed) |
+| Redis | Agent chat history cache |
+| Cloudinary | Medical center & medicine image CDN |
+| Firebase | Cloud Messaging + Google Sign-In |
+| Render | Server + agent hosting (Docker) |
 
 ---
 
@@ -337,15 +396,15 @@ pillbin/
 │              ┌───────────────┼───────────────┐             │
 │              ▼               ▼               ▼             │
 │       ┌──────────┐   ┌──────────────┐  ┌─────────┐        │
-│       │  Agno    │   │   Pinecone   │  │  Redis  │        │
-│       │ (Agents) │   │ Vector Store │  │ (Cache) │        │
+│       │  Agno    │   │   ChromaDB   │  │  Redis  │        │
+│       │ (Router) │   │ Hybrid Vector│  │ + SQLite│        │
 │       └────┬─────┘   └──────────────┘  └─────────┘        │
 │            │                                                │
 │     ┌──────┴──────┐                                        │
 │     ▼             ▼                                        │
 │  ┌───────┐  ┌──────────┐                                   │
-│  │OpenAI │  │MCP Server│                                   │
-│  │Models │  │ Tooling  │                                   │
+│  │Gemini │  │  Node    │                                   │
+│  │/ Groq │  │API Tools │                                   │
 │  └───────┘  └──────────┘                                   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
@@ -357,8 +416,8 @@ pillbin/
 
 ### Prerequisites
 - **Flutter SDK** 3.4.4+, **Dart** 3.x
-- **Node.js** 20.x+
-- **Python** 3.10+
+- **Node.js** 22.x+ (`firebase-admin` requires ≥22)
+- **Python** 3.11+
 - **MongoDB** 8.x (local or Atlas)
 - **Docker** (optional, for containerized deployment)
 
@@ -390,6 +449,17 @@ CLOUDINARY_CLOUD_NAME="your_cloud_name"
 CLOUDINARY_API_KEY="your_cloudinary_key"
 CLOUDINARY_API_SECRET="your_cloudinary_secret"
 ADMIN="your_admin_secret_key"
+
+# Google Sign-In — the OAuth **Web** client ID, not the Android one
+GOOGLE_CLIENT_ID="xxxxx.apps.googleusercontent.com"
+
+# Firebase Cloud Messaging
+FIREBASE_PROJECT_ID="your_project_id"
+FIREBASE_CLIENT_EMAIL="firebase-adminsdk@your-project.iam.gserviceaccount.com"
+FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
+...
+-----END PRIVATE KEY-----
+"
 ```
 
 ```bash
@@ -412,10 +482,16 @@ pip install -r backend/requirements.txt
 Edit `agno_agent/.env`:
 
 ```env
-OPENAI_API_KEY="your_openai_api_key"
-PINECONE_API_KEY="your_pinecone_api_key"
-PINECONE_INDEX_NAME="your_index_name"
-REDIS_URL="your_redis_url"
+LLM_PROVIDER=gemini                 # or "groq"
+GEMINI_API_KEY="your_gemini_api_key"
+GROQ_API_KEY="your_groq_api_key"    # only if LLM_PROVIDER=groq
+
+REDIS_URL="redis://localhost:6379"
+CHROMA_PATH="tmp/chromadb"          # /data/chromadb in Docker
+SQLITE_PATH="tmp/pillbin.db"        # /data/pillbin.db in Docker
+
+NODE_JS_BASE_URL="http://localhost:5000"
+CORS_ORIGINS="*"
 ```
 
 ```bash
@@ -436,8 +512,27 @@ flutter pub get
 Create `app/.env`:
 
 ```env
-BASE_URL=http://your-backend-url.com
-AGENT_URL=http://your-agent-url.com
+AUTH_TOKEN_KEY=...
+REFRESH_TOKEN_KEY=...
+USER_DATA_KEY=...
+SESSION=...
+GMAIL_MAIL=...
+GMAIL_PASSWORD=...
+
+# same Web client ID the server uses
+GOOGLE_SERVER_CLIENT_ID="xxxxx.apps.googleusercontent.com"
+```
+
+Backend URLs live in [`lib/network/config/api_config.dart`](app/lib/network/config/api_config.dart) — flip one line to switch the whole app between local and deployed:
+
+```dart
+static const String currentEnvironment = 'dev';   // 'dev' | 'prod'
+```
+
+Google Sign-In on Android also needs your debug **and** release SHA-1/SHA-256 fingerprints registered in the Firebase console, then `google-services.json` re-downloaded:
+
+```bash
+cd android && ./gradlew signingReport
 ```
 
 ```bash
@@ -448,7 +543,7 @@ flutter run
 
 ## 📡 REST API Reference
 
-All protected routes require `Authorization: Bearer <access_token>`.
+All protected routes require `Authorization: Bearer <access_token>`. List endpoints are paginated with `?page=&limit=` and return a `pagination` block.
 
 ### Auth
 | Method | Endpoint | Description |
@@ -457,6 +552,7 @@ All protected routes require `Authorization: Bearer <access_token>`.
 | `POST` | `/api/auth/verify-signup` | Verify OTP, create account |
 | `POST` | `/api/auth/signin` | Request OTP for existing account |
 | `POST` | `/api/auth/verify-signin` | Verify OTP, receive tokens |
+| `POST` | `/api/auth/google` | Sign in / up with a Google ID token |
 | `POST` | `/api/auth/refresh-token` | Rotate access token |
 
 ### Medicines
@@ -478,6 +574,11 @@ All protected routes require `Authorization: Bearer <access_token>`.
 | `GET` | `/api/donations/my-requests` | Get user's donation history |
 | `GET` | `/api/donations/:id` | Get single donation request |
 | `DELETE` | `/api/donations/:id` | Cancel pending request |
+| `POST` | `/api/donations/:id/review` | Rate a completed donation |
+| `DELETE` | `/api/donations/review/:reviewId` | Delete your own review |
+| `GET` | `/api/donations/center/:centerId/reviews` | Center reviews — paginated, `?rating=` filter |
+| `GET` | `/api/donations/:id/handoff-token` | Mint the 5-minute QR token for an approved donation |
+| `GET` | `/api/donations/verify/:id` | **Public** — HTML page verifying a shared receipt |
 
 ### Medical Centers
 | Method | Endpoint | Description |
@@ -505,7 +606,7 @@ All protected routes require `Authorization: Bearer <access_token>`.
 ### Notifications
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/notifications/` | Get user notifications |
+| `GET` | `/api/notifications/` | Get notifications — `?page=&limit=` |
 | `POST` | `/api/notifications/` | Add notification |
 | `DELETE` | `/api/notifications/:notificationId` | Dismiss one notification |
 | `DELETE` | `/api/notifications/` | Clear all notifications |
@@ -522,6 +623,9 @@ All protected routes require `Authorization: Bearer <access_token>`.
 | `GET` | `/api/vendor/requests` | View incoming donation requests |
 | `PUT` | `/api/vendor/requests/:id` | Approve / reject with note |
 | `PUT` | `/api/vendor/requests/:id/complete` | Mark donation as completed |
+| `POST` | `/api/vendor/scan` | Complete a donation from a scanned handover token |
+| `GET` | `/api/vendor/analytics` | KPIs, timeline & top medicines — `?months=6,12,24,60` |
+| `GET` | `/api/vendor/donated-medicines` | Ranked medicine totals, paginated |
 
 ### Admin (role: `admin`)
 | Method | Endpoint | Description |
@@ -585,8 +689,10 @@ User ──< Notification
 User ──< Blog ──< Comment
                   └──< Like
 MedicalCenter ──< DonationRequest
-Chat (Redis) ── userId
-Rag ── document chunks → Pinecone
+User ──< CenterReview >── MedicalCenter
+User ──< DeviceToken
+Chat (Redis 24h) ── userId ──> SQLite archive
+Rag ── document chunks → ChromaDB
 ```
 
 | Model | Key fields |
@@ -612,6 +718,9 @@ Rag ── document chunks → Pinecone
 | **Deleted Bin** | Soft-deleted medicines with hard-delete and restore |
 | **Donation** | Submit request to nearby centers, track status pipeline |
 | **My Donations** | Grouped by status: Pending → Approved → Completed / Rejected |
+| **Handover Code** | Auto-refreshing QR the donor shows at the counter |
+| **Donation Receipt** | Shareable receipt image with a public verification QR |
+| **Vendor Scanner** | Camera scanner that completes a donation on scan |
 | **Locations** | Geo-search map + list with filter by facility type |
 | **Blogs** | Community feed, create post with media, like and comment |
 | **PillBot** | Multi-agent AI chatbot with persistent chat history |
@@ -626,12 +735,35 @@ Rag ── document chunks → Pinecone
 
 | Concern | Implementation |
 |---|---|
-| Authentication | Email OTP — no passwords stored |
+| Authentication | Email OTP or Google — no passwords stored |
+| Google tokens | ID token verified server-side; Firebase config files gitignored |
 | Token strategy | Short-lived JWT access token + refresh token rotation |
 | OTP abuse | `express-rate-limit` — 10 requests per 10 minutes per phone / IP |
 | Role enforcement | Middleware guards: `requireVendor`, `requireAdmin` |
+| Handover tokens | Separate `typ: "handoff"` claim, 5-minute TTL — never accepted as a session token |
+| Receipt verification | Public page exposes only center, date and counts — no donor details |
 | Image upload | Cloudinary CDN, validated via Multer before storage |
 | Soft delete | Medicines are soft-deleted before permanent removal; 100-item history cap |
+
+---
+
+## 🚢 Deployment
+
+Both backends ship as Docker images on **Render**.
+
+| Service | Root Directory | Notes |
+|---|---|---|
+| Server | `server` | `node:22-alpine`, `npm ci --omit=dev` |
+| Agent | `agno_agent` | `python:3.11-slim`, single uvicorn worker |
+
+The agent **requires a persistent disk mounted at `/data`** — ChromaDB and SQLite write there, and Render's container filesystem is wiped on every redeploy. Without it the knowledge base and chat archive are lost on restart. One worker is deliberate: both stores are instance-local and don't tolerate concurrent writers.
+
+```bash
+# seed & maintenance scripts
+node scripts/seedDonations.js --count=60 --months=6
+node scripts/seedNotifications.js --count=45
+node scripts/backfillRatingCounters.js      # run once after deploying reviews
+```
 
 ---
 
@@ -643,11 +775,12 @@ cd agno_agent
 python test_endpoints.py
 python test_client.py
 
-# MCP tooling test
-python test_mcp.py
+# Flutter widget tests
+cd app
+flutter test
 ```
 
-No automated test suite exists yet for the Flutter app or Node.js backend — contributions welcome.
+Flutter coverage is currently limited to the donation receipt — it checks the layout survives 1, 14 and 34 medicines, and pins the receipt-number formula to the one the server uses. The Node.js backend has no automated suite yet — contributions welcome.
 
 ---
 

@@ -311,6 +311,20 @@ class DonationProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  //* Short-lived token the donor renders as a QR at the counter
+  Future<String?> fetchHandoffToken(String requestId) async {
+    _lastError = null;
+    final response = await _service.getHandoffToken(requestId);
+
+    if (response.statusCode == 200) {
+      return response.data?['token'] as String?;
+    }
+
+    _lastError = response.message;
+    notifyListeners();
+    return null;
+  }
+
   Future<bool> deleteReview(String reviewId) async {
     _lastError = null;
     final response = await _service.deleteReview(reviewId);

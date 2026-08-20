@@ -3,9 +3,14 @@ const MedicalCenter = require("../models/MedicalCenter");
 const CenterReview = require("../models/CenterReview");
 const { notify } = require("../services/notifyService");
 const {
+  generateHandoffToken,
+  HANDOFF_TTL_SECONDS,
+} = require("../utils/jwt");
+const {
   uploadImageService,
   deleteImageService,
 } = require("../services/clopudinaryService");
+const { buildReceiptNumber, countUnits } = require("../utils/receipt");
 
 const MAX_PENDING_PER_CENTER = 3;
 
@@ -387,6 +392,48 @@ const submitReview = async (req, res) => {
   }
 };
 
+//* Mint the QR payload the donor shows at the counter. Short-lived because a
+//* screenshot should stop working, and single-use in practice because the scan
+//* moves the request out of `approved`.
+const getHandoffToken = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const request = await DonationRequest.findById(id).select(
+      "userId status medicalCenterId"
+    );
+    if (!request) {
+      return res
+        .status(404)
+        .json({ statusCode: 404, message: "Request not found" });
+    }
+
+    if (request.userId.toString() !== req.user.id.toString()) {
+      return res
+        .status(403)
+        .json({ statusCode: 403, message: "Not authorized" });
+    }
+
+    if (request.status !== "approved") {
+      return res.status(400).json({
+        statusCode: 400,
+        message: "Only approved requests can be handed over",
+      });
+    }
+
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        token: generateHandoffToken(request._id, request.userId),
+        expiresIn: HANDOFF_TTL_SECONDS,
+      },
+    });
+  } catch (error) {
+    console.error("Handoff token error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
 //* Delete your own review
 const deleteReview = async (req, res) => {
   try {
@@ -480,6 +527,153 @@ const getCenterReviews = async (req, res) => {
   }
 };
 
+const HTML_ESCAPES = {
+  "&": "&amp;",
+  "<": "&lt;",
+  ">": "&gt;",
+  '"': "&quot;",
+  "'": "&#39;",
+};
+
+const escapeHtml = (value) =>
+  String(value == null ? "" : value).replace(
+    /[&<>"']/g,
+    (char) => HTML_ESCAPES[char]
+  );
+
+const verificationPage = ({ ok, receiptNumber, rows }) => {
+  const badge = ok
+    ? '<div class="badge ok">Verified donation</div>'
+    : '<div class="badge bad">Not found</div>';
+
+  const body = ok
+    ? rows
+        .map(
+          (row) =>
+            `<div class="row"><span>${escapeHtml(
+              row[0]
+            )}</span><strong>${escapeHtml(row[1])}</strong></div>`
+        )
+        .join("")
+    : '<p class="muted">No completed donation matches this receipt number. '
+      + "Check the code printed on the receipt and try again.</p>";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>PillBin receipt ${escapeHtml(receiptNumber)}</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center;
+    justify-content: center; padding: 24px; background: #F1F5F9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #0F172A;
+  }
+  .card {
+    width: 100%; max-width: 420px; background: #fff; border-radius: 16px;
+    padding: 28px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  }
+  .brand { font-size: 20px; font-weight: 700; color: #2563EB; margin-bottom: 18px; }
+  .badge {
+    display: inline-block; padding: 6px 12px; border-radius: 999px;
+    font-size: 13px; font-weight: 600; margin-bottom: 18px;
+  }
+  .ok { background: #DCFCE7; color: #166534; }
+  .bad { background: #FEE2E2; color: #991B1B; }
+  .row {
+    display: flex; justify-content: space-between; gap: 16px;
+    padding: 11px 0; border-top: 1px solid #E2E8F0; font-size: 14px;
+  }
+  .row span { color: #64748B; }
+  .row strong { text-align: right; font-weight: 600; }
+  .muted { color: #64748B; font-size: 14px; line-height: 1.5; margin: 0; }
+  .foot { margin-top: 22px; font-size: 12px; color: #94A3B8; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #0F172A; color: #E2E8F0; }
+    .card { background: #1E293B; box-shadow: none; }
+    .row { border-color: #334155; }
+    .row span, .muted, .foot { color: #94A3B8; }
+  }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">PillBin</div>
+    ${badge}
+    ${body}
+    <p class="foot">Receipt ${escapeHtml(
+      receiptNumber
+    )} &middot; Medicine donations carry no monetary value.</p>
+  </div>
+</body>
+</html>`;
+};
+
+//* Target of the QR printed on every receipt - deliberately unauthenticated so
+//* anyone holding the PDF can confirm it, and deliberately thin on detail so it
+//* leaks nothing about the donor
+const verifyReceipt = async (req, res) => {
+  let receiptNumber = "";
+  try {
+    const id = String(req.params.id || "");
+
+    const request = /^[0-9a-fA-F]{24}$/.test(id)
+      ? await DonationRequest.findOne({ _id: id, status: "completed" })
+          .select("medicines medicalCenterId statusHistory createdAt updatedAt")
+          .populate("medicalCenterId", "name")
+      : null;
+
+    if (!request) {
+      return res
+        .status(404)
+        .type("html")
+        .send(verificationPage({ ok: false, receiptNumber, rows: [] }));
+    }
+
+    receiptNumber = buildReceiptNumber(request._id, request.createdAt);
+
+    const completedAt =
+      (request.statusHistory || [])
+        .filter((entry) => entry.status === "completed")
+        .map((entry) => entry.at)
+        .pop() || request.updatedAt;
+
+    const rows = [
+      [
+        "Received by",
+        request.medicalCenterId
+          ? request.medicalCenterId.name
+          : "PillBin partner center",
+      ],
+      [
+        "Collected on",
+        new Date(completedAt).toLocaleDateString("en-IN", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        }),
+      ],
+      ["Items donated", String((request.medicines || []).length)],
+      ["Total units", String(countUnits(request.medicines || []))],
+    ];
+
+    res
+      .status(200)
+      .type("html")
+      .send(verificationPage({ ok: true, receiptNumber, rows }));
+  } catch (error) {
+    console.error("Verify receipt error:", error);
+    res
+      .status(500)
+      .type("html")
+      .send(verificationPage({ ok: false, receiptNumber: "", rows: [] }));
+  }
+};
+
 module.exports = {
   submitRequest,
   getMyRequests,
@@ -487,5 +681,7 @@ module.exports = {
   cancelRequest,
   submitReview,
   deleteReview,
+  getHandoffToken,
   getCenterReviews,
+  verifyReceipt,
 };
