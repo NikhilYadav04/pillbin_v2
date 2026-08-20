@@ -66,6 +66,11 @@ class DonationService extends ApiService {
         fromJson: (d) => d as Map<String, dynamic>);
   }
 
+  Future<ApiResponse<Map<String, dynamic>>> getHandoffToken(String id) async {
+    return get(ApiEndpoints.handoffToken(id),
+        fromJson: (d) => d as Map<String, dynamic>);
+  }
+
   Future<ApiResponse<Map<String, dynamic>>> deleteReview(
       String reviewId) async {
     return delete(ApiEndpoints.deleteReview(reviewId),

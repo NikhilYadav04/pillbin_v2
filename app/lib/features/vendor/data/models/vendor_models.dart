@@ -145,13 +145,22 @@ class InventoryItem {
 class RequestMedicine {
   final String name;
   final String quantity;
+  final String? category;
+  final String? condition;
 
-  const RequestMedicine({required this.name, required this.quantity});
+  const RequestMedicine({
+    required this.name,
+    required this.quantity,
+    this.category,
+    this.condition,
+  });
 
   factory RequestMedicine.fromJson(Map<String, dynamic> json) =>
       RequestMedicine(
         name: json['name'] as String? ?? '',
         quantity: json['quantity']?.toString() ?? '',
+        category: json['category'] as String?,
+        condition: json['condition'] as String?,
       );
 }
 

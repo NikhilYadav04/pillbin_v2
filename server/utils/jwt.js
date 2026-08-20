@@ -25,8 +25,32 @@ const generateRefreshToken = (userId) => {
   );
 };
 
+//* Short-lived, single-purpose token a donor renders as a QR at the counter.
+//* The `typ` claim keeps it from ever being accepted as a session token.
+const HANDOFF_TTL_SECONDS = 5 * 60;
+
+const generateHandoffToken = (requestId, userId) => {
+  return jwt.sign(
+    { typ: "handoff", rid: String(requestId), uid: String(userId) },
+    process.env.JWT_SECRET,
+    { expiresIn: HANDOFF_TTL_SECONDS }
+  );
+};
+
+const verifyHandoffToken = (token) => {
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return decoded && decoded.typ === "handoff" ? decoded : null;
+  } catch (error) {
+    return null;
+  }
+};
+
 module.exports = {
   generateToken,
   verifyToken,
   generateRefreshToken,
+  generateHandoffToken,
+  verifyHandoffToken,
+  HANDOFF_TTL_SECONDS,
 };

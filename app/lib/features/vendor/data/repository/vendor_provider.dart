@@ -438,6 +438,26 @@ class VendorProvider extends ChangeNotifier {
     return false;
   }
 
+  //* Completing by QR — same server path as the button, so the cached tabs
+  //* are just as stale afterwards
+  Future<String?> scanHandoff(String token) async {
+    _lastError = null;
+    final response = await _service.scanHandoff(token);
+
+    if (response.statusCode == 200) {
+      invalidateRequests();
+      invalidate();
+      notifyListeners();
+      return null;
+    }
+
+    _lastError = response.message;
+    notifyListeners();
+    return response.message.isNotEmpty
+        ? response.message
+        : 'Could not read that code';
+  }
+
   // ── Complete request ──
   Future<bool> completeRequest(String requestId) async {
     _lastError = null;

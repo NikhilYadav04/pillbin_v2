@@ -1,11 +1,13 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/shimmerCard.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/donation/presentation/widgets/status_timeline.dart';
 import 'package:pillbin/features/vendor/data/models/vendor_models.dart';
+import 'package:pillbin/features/donation/presentation/pages/donation_receipt_screen.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -60,6 +62,11 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
 
   String get _status => _statuses[_selectedIndex];
 
+  Future<void> _openScanner() async {
+    final completed = await Navigator.pushNamed(context, '/vendor-scan-screen');
+    if (completed == true && mounted) _load();
+  }
+
   void _load() {
     context.read<VendorProvider>().ensureRequests(status: _status);
   }
@@ -97,6 +104,15 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
         title: Text('Donation Requests',
             style: PillBinBold.style(
                 fontSize: sw * 0.048, color: PillBinColors.textPrimary)),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: _openScanner,
+        backgroundColor: PillBinColors.primary,
+        icon: Icon(Icons.qr_code_scanner_rounded,
+            size: sw * 0.055, color: Colors.white),
+        label: Text('Scan',
+            style:
+                PillBinMedium.style(fontSize: sw * 0.036, color: Colors.white)),
       ),
       body: FadeTransition(
         opacity: _fadeAnimation,
@@ -498,6 +514,10 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
                     () => _showResponseSheet(req.id, 'approved', provider))),
               ],
             ),
+          ] else if (status == 'completed') ...[
+            SizedBox(height: sh * 0.015),
+            _outlineBtn(sw, sh, Icons.receipt_long_rounded, 'Share Receipt',
+                PillBinColors.primary, () => _openReceipt(req, provider)),
           ] else if (status == 'approved') ...[
             SizedBox(height: sh * 0.015),
             _gradientBtn(sw, sh, Icons.done_all, 'Mark as Completed',
@@ -517,6 +537,46 @@ class _VendorRequestsScreenState extends State<VendorRequestsScreen>
         ],
       ),
     );
+  }
+
+  void _openReceipt(DonationRequest req, VendorProvider provider) {
+    final center = provider.center;
+
+    Navigator.pushNamed(
+      context,
+      '/donation-receipt-screen',
+      arguments: {
+        'data': DonationReceiptData(
+          requestId: req.id,
+          createdAt: DateTime.tryParse(req.createdAt ?? ''),
+          completedAt: _completedAt(req),
+          medicines: req.medicines
+              .map((m) => ReceiptMedicine(
+                    name: m.name,
+                    category: m.category ?? '-',
+                    quantity: m.quantity.isEmpty ? '1' : m.quantity,
+                    condition: m.condition ?? 'unknown',
+                  ))
+              .toList(),
+          donorName: req.user?.displayName ?? 'PillBin user',
+          donorEmail: req.user?.email,
+          donorPhone: req.user?.phoneNumber,
+          centerName: center?.name ?? 'Your center',
+          centerAddress: center?.address,
+          centerPhone: center?.phoneNumber,
+        ),
+        'transition': TransitionType.bottomToTop,
+      },
+    );
+  }
+
+  DateTime? _completedAt(DonationRequest req) {
+    for (final entry in req.statusHistory.reversed) {
+      if (entry is Map && entry['status'] == 'completed') {
+        return DateTime.tryParse(entry['at']?.toString() ?? '');
+      }
+    }
+    return null;
   }
 
   Widget _outlineBtn(double sw, double sh, IconData icon, String label,
