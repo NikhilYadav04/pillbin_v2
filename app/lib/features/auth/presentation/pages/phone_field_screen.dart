@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
@@ -6,6 +7,10 @@ import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:pillbin/network/utils/http_client.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+const String _privacyUrl = 'https://nikhilyadav04.github.io/privacy-policy/';
+const String _termsUrl = 'https://nikhilyadav04.github.io/privacy-policy/';
 
 class EmailAuthScreen extends StatefulWidget {
   final bool isLogin;
@@ -380,60 +385,84 @@ class _EmailAuthScreenState extends State<EmailAuthScreen>
   }
 
   Widget _buildGoogleButton(double sw, double sh, bool isTablet) {
-    return SizedBox(
-      width: double.infinity,
-      child: Material(
-        color: PillBinColors.surface,
-        borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-          onTap: _isGoogleLoading || _isLoading ? null : _handleGoogleAuth,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(isTablet ? 16 : 12),
-              border: Border.all(color: PillBinColors.greyLight, width: 1.5),
-            ),
-            padding: EdgeInsets.symmetric(
-              vertical: isTablet ? sh * 0.02 : sh * 0.018,
-              horizontal: isTablet ? sw * 0.03 : sw * 0.05,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                if (_isGoogleLoading)
-                  SizedBox(
-                    width: isTablet ? sw * 0.025 : sw * 0.04,
-                    height: isTablet ? sw * 0.025 : sw * 0.04,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor:
-                          AlwaysStoppedAnimation<Color>(PillBinColors.primary),
-                    ),
-                  )
-                else
-                  Image.asset(
-                    'assets/images/google_logo.png',
-                    width: isTablet ? sw * 0.025 : sw * 0.05,
-                    height: isTablet ? sw * 0.025 : sw * 0.05,
-                    errorBuilder: (_, __, ___) => Icon(
-                      Icons.g_mobiledata_rounded,
-                      size: isTablet ? sw * 0.032 : sw * 0.06,
-                      color: PillBinColors.textDark,
-                    ),
-                  ),
-                SizedBox(width: sw * 0.03),
-                Text(
-                  _isGoogleLoading ? 'Signing in...' : 'Continue with Google',
-                  style: PillBinMedium.style(
-                    fontSize: isTablet ? sw * 0.025 : sw * 0.042,
-                    color: PillBinColors.textDark,
-                  ),
+    //* Fixed height rather than a percentage of screen height — the percentage
+    //* made this tower over the email field on tall devices
+    final radius = BorderRadius.circular(isTablet ? 14 : 10);
+    final disabled = _isGoogleLoading || _isLoading;
+
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: isTablet ? 56 : 48,
+          child: Material(
+            color: PillBinColors.surface,
+            borderRadius: radius,
+            child: InkWell(
+              borderRadius: radius,
+              onTap: disabled ? null : _handleGoogleAuth,
+              child: Ink(
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(color: PillBinColors.greyLight, width: 1),
                 ),
-              ],
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isGoogleLoading)
+                      SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                              PillBinColors.primary),
+                        ),
+                      )
+                    else
+                      Image.asset(
+                        'assets/images/google_g.png',
+                        width: isTablet ? 22 : 20,
+                        height: isTablet ? 22 : 20,
+                        errorBuilder: (_, __, ___) => Icon(
+                          Icons.g_mobiledata_rounded,
+                          size: isTablet ? 26 : 24,
+                          color: PillBinColors.textDark,
+                        ),
+                      ),
+                    SizedBox(width: sw * 0.025),
+                    Text(
+                      _isGoogleLoading
+                          ? 'Signing in...'
+                          : 'Continue with Google',
+                      style: PillBinMedium.style(
+                        fontSize: isTablet ? sw * 0.022 : sw * 0.037,
+                        color: PillBinColors.textDark,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
+        SizedBox(height: sh * 0.012),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline_rounded,
+                size: isTablet ? 13 : 12, color: PillBinColors.textLight),
+            SizedBox(width: sw * 0.015),
+            Text(
+              'Secured by Google',
+              style: PillBinRegular.style(
+                fontSize: isTablet ? sw * 0.017 : sw * 0.028,
+                color: PillBinColors.textLight,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -478,18 +507,54 @@ class _EmailAuthScreenState extends State<EmailAuthScreen>
   }
 
   Widget _buildFooter(double sw, double sh, bool isTablet) {
+    final base = PillBinRegular.style(
+      fontSize: isTablet ? sw * 0.018 : sw * 0.028,
+      color: PillBinColors.textLight,
+    );
+    final link = base.copyWith(
+      color: PillBinColors.primary,
+      decoration: TextDecoration.underline,
+      decorationColor: PillBinColors.primary,
+    );
+
     return Column(
       children: [
-        Text(
-          'By continuing, you agree to our Terms of Service\nand Privacy Policy',
-          style: PillBinRegular.style(
-            fontSize: isTablet ? sw * 0.018 : sw * 0.028,
-            color: PillBinColors.textLight,
+        Text.rich(
+          TextSpan(
+            style: base,
+            children: [
+              const TextSpan(text: 'By continuing, you agree to our '),
+              TextSpan(
+                text: 'Terms of Service',
+                style: link,
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () => _openUrl(_termsUrl),
+              ),
+              const TextSpan(text: '\nand '),
+              TextSpan(
+                text: 'Privacy Policy',
+                style: link,
+                recognizer: TapGestureRecognizer()
+                  ..onTap = () => _openUrl(_privacyUrl),
+              ),
+            ],
           ),
           textAlign: TextAlign.center,
         ),
       ],
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!mounted) return;
+      CustomSnackBar.show(
+        context: context,
+        icon: Icons.error_outline,
+        title: 'Could not open the link',
+      );
+    }
   }
 
   void _handleAuth(String email, bool login) async {

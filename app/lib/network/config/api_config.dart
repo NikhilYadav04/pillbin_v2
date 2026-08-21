@@ -3,7 +3,7 @@ class ApiConfig {
   //* backends — both the Node server and the agno agent follow it.
   //*   'dev'  -> emulator localhost
   //*   'prod' -> Render
-  static const String currentEnvironment = 'dev';
+  static const String currentEnvironment = 'prod';
 
   static const bool _isProd = currentEnvironment == 'prod';
 

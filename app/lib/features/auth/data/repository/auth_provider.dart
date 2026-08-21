@@ -114,13 +114,16 @@ class AuthProvider extends ChangeNotifier {
   //* <-------------- EMAIL SERVICE --------------------->
 
   //* send email
-  Future<void> sendMailFromGmail(String sender, String sub, String text) async {
+  Future<void> sendMailFromGmail(String sender, String sub, String text,
+      {String? html}) async {
     //* Create the email message
     final message = Message()
-      ..from = Address(dotenv.env["GMAIL_MAIL"]!, sub)
+      ..from = Address(dotenv.env["GMAIL_MAIL"]!, 'PillBin')
       ..recipients.add(sender)
       ..subject = sub
       ..text = text;
+
+    if (html != null) message.html = html;
 
     //* Create Gmail SMTP server
     final gmailSmtp =
@@ -139,23 +142,102 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  //* prompt
-  String buildOtpEmail(String email, String otpCode) {
-    final text = '''
-Hi ${email.isNotEmpty ? email : 'there'},
+  //* Signing up and signing back in are different moments — a returning user
+  //* should not be welcomed aboard again
+  ({String subject, String text, String html}) buildOtpEmail(
+    String email,
+    String otpCode, {
+    required bool isLogin,
+  }) {
+    final greeting = email.isNotEmpty ? email : 'there';
 
-Welcome to PillBin! 🎉
-We're excited to have you on board. Use the OTP below to complete your signup:
+    final subject =
+        isLogin ? 'Your PillBin sign-in code' : 'Verify your PillBin email';
+
+    final headline = isLogin ? 'Sign in to PillBin' : 'Welcome to PillBin';
+
+    final intro = isLogin
+        ? 'Use the code below to sign in to your account.'
+        : 'You are almost set up. Use the code below to verify your email and '
+            'finish creating your account.';
+
+    final text = '''
+Hi $greeting,
+
+$headline
+
+$intro
 
 $otpCode
 
-This OTP is valid for the next 10 minutes. Please do not share it with anyone.
+This code expires in 10 minutes. Do not share it with anyone.
+If you did not request it, you can safely ignore this email.
 
-Best regards,
 The PillBin Team
 ''';
 
-    return text;
+    final html = '''
+<!doctype html>
+<html>
+<body style="margin:0;padding:0;background:#F1F5F9;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+         style="background:#F1F5F9;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+               style="max-width:480px;background:#FFFFFF;border-radius:12px;
+                      overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,
+                      'Segoe UI',Roboto,Arial,sans-serif;">
+          <tr>
+            <td style="background:#2563EB;padding:24px 28px;">
+              <div style="font-size:22px;font-weight:700;color:#FFFFFF;">PillBin</div>
+              <div style="font-size:13px;color:#DBEAFE;margin-top:4px;">
+                Safe medicine disposal and donation
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:28px;">
+              <div style="font-size:18px;font-weight:600;color:#0F172A;">
+                $headline
+              </div>
+              <div style="font-size:14px;color:#475569;line-height:1.6;margin-top:10px;">
+                Hi $greeting,<br/>$intro
+              </div>
+              <div style="margin:24px 0;padding:18px;background:#EFF6FF;
+                          border:1px solid #DBEAFE;border-radius:10px;text-align:center;">
+                <div style="font-size:11px;letter-spacing:1.5px;color:#64748B;
+                            text-transform:uppercase;font-weight:600;">
+                  Your code
+                </div>
+                <div style="font-size:32px;font-weight:700;letter-spacing:8px;
+                            color:#2563EB;margin-top:8px;">
+                  $otpCode
+                </div>
+              </div>
+              <div style="font-size:13px;color:#64748B;line-height:1.6;">
+                This code expires in <b>10 minutes</b>. Do not share it with anyone.
+              </div>
+              <div style="font-size:13px;color:#94A3B8;line-height:1.6;margin-top:14px;">
+                If you did not request this, you can safely ignore this email.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 28px;border-top:1px solid #E2E8F0;
+                       font-size:12px;color:#94A3B8;">
+              Sent by PillBin
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+''';
+
+    return (subject: subject, text: text, html: html);
   }
 
   //* <----------------END------------------------------>
@@ -212,11 +294,12 @@ The PillBin Team
 
       if (response.statusCode == 200) {
         String otp = response.data!["otp"];
-        String prompt = buildOtpEmail(email, otp.toString());
+        final mail = buildOtpEmail(email, otp.toString(), isLogin: false);
         await sendMailFromGmail(
           email,
-          "Welcome to PillBin – Your OTP for Signup",
-          prompt,
+          mail.subject,
+          mail.text,
+          html: mail.html,
         );
         await Future.delayed(const Duration(seconds: 1));
         return 'success';
@@ -276,11 +359,12 @@ The PillBin Team
 
       if (response.statusCode == 200) {
         String otp = response.data!["otp"];
-        String prompt = buildOtpEmail(email, otp.toString());
+        final mail = buildOtpEmail(email, otp.toString(), isLogin: true);
         await sendMailFromGmail(
           email,
-          "Welcome to PillBin – Your OTP for Signup",
-          prompt,
+          mail.subject,
+          mail.text,
+          html: mail.html,
         );
         await Future.delayed(const Duration(seconds: 1));
         return 'success';

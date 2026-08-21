@@ -77,8 +77,6 @@ const signup = async (req, res) => {
     Best regards,
     The PillBin Team`;
 
-    console.log(process.env.RESEND_API_KEY);
-
     // resend.emails.send({
     //   from: "onboarding@resend.dev",
     //   to: email,
