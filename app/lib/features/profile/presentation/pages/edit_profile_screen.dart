@@ -644,11 +644,14 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'Current Medicines (O)',
-              style: PillBinMedium.style(
-                fontSize: isTablet ? sw * 0.025 : sw * 0.04,
-                color: PillBinColors.textPrimary,
+            Flexible(
+              child: Text(
+                'Current Medicines (${_medicines.length})',
+                overflow: TextOverflow.ellipsis,
+                style: PillBinMedium.style(
+                  fontSize: isTablet ? sw * 0.025 : sw * 0.04,
+                  color: PillBinColors.textPrimary,
+                ),
               ),
             ),
             if (_medicines.length < _maxMedicines)
@@ -667,6 +670,8 @@ class _ProfileEditScreenState extends State<ProfileEditScreen>
                   ),
                 ),
                 style: TextButton.styleFrom(
+                  visualDensity: VisualDensity.compact,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   padding: EdgeInsets.symmetric(
                     horizontal: sw * 0.02,
                     vertical: sh * 0.005,

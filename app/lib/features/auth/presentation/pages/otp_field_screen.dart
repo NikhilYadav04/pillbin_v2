@@ -126,6 +126,43 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
     return _otpControllers.map((controller) => controller.text).join();
   }
 
+  //* A pasted code or a keyboard clipboard suggestion arrives in whichever box
+  //* had focus, as one string. Spread it across the boxes instead of letting a
+  //* single field swallow it.
+  void _spreadDigits(String raw, int startIndex) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+
+    if (digits.isEmpty) {
+      _setBox(startIndex, '');
+      setState(() {});
+      return;
+    }
+
+    //* A full-length code belongs at the start no matter where it was dropped
+    final start = digits.length >= _otpControllers.length ? 0 : startIndex;
+
+    for (var i = start; i < _otpControllers.length; i++) {
+      final offset = i - start;
+      _setBox(i, offset < digits.length ? digits[offset] : '');
+    }
+
+    final landed = (start + digits.length).clamp(0, _otpControllers.length - 1);
+    if (start + digits.length >= _otpControllers.length) {
+      _focusNodes[_otpControllers.length - 1].unfocus();
+    } else {
+      _focusNodes[landed].requestFocus();
+    }
+
+    setState(() {});
+  }
+
+  void _setBox(int index, String value) {
+    _otpControllers[index].value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+  }
+
   bool _isOtpComplete() {
     return _getOtpValue().length == 6;
   }
@@ -186,74 +223,99 @@ class _OtpScreenState extends State<OtpScreen> with TickerProviderStateMixin {
           ),
         ),
         SizedBox(height: sh * 0.02),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: List.generate(6, (index) {
-            return AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              width: isTablet ? sw * 0.08 : sw * 0.12,
-              height: isTablet ? sw * 0.08 : sw * 0.12,
-              decoration: BoxDecoration(
-                color: PillBinColors.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: _focusNodes[index].hasFocus
-                      ? PillBinColors.primary
-                      : _otpControllers[index].text.isNotEmpty
-                          ? PillBinColors.success
-                          : PillBinColors.greyLight,
-                  width: _focusNodes[index].hasFocus ? 2 : 1,
+        AutofillGroup(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: List.generate(6, (index) {
+              return AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: isTablet ? sw * 0.08 : sw * 0.12,
+                height: isTablet ? sw * 0.08 : sw * 0.12,
+                decoration: BoxDecoration(
+                  color: PillBinColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _focusNodes[index].hasFocus
+                        ? PillBinColors.primary
+                        : _otpControllers[index].text.isNotEmpty
+                            ? PillBinColors.success
+                            : PillBinColors.greyLight,
+                    width: _focusNodes[index].hasFocus ? 2 : 1,
+                  ),
+                  boxShadow: [
+                    if (_focusNodes[index].hasFocus)
+                      BoxShadow(
+                        color: PillBinColors.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                        spreadRadius: 1,
+                      ),
+                    if (_otpControllers[index].text.isNotEmpty &&
+                        !_focusNodes[index].hasFocus)
+                      BoxShadow(
+                        color: PillBinColors.success.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                  ],
                 ),
-                boxShadow: [
-                  if (_focusNodes[index].hasFocus)
-                    BoxShadow(
-                      color: PillBinColors.primary.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                      spreadRadius: 1,
+                child: Center(
+                  child: TextField(
+                    controller: _otpControllers[index],
+                    focusNode: _focusNodes[index],
+                    textAlign: TextAlign.center,
+                    keyboardType: TextInputType.number,
+                    //* No maxLength — it silently truncates a pasted code to its
+                    //* first character. Length is enforced in _spreadDigits.
+                    autofillHints:
+                        index == 0 ? const [AutofillHints.oneTimeCode] : null,
+                    style: PillBinBold.style(
+                      fontSize: isTablet ? sw * 0.03 : sw * 0.05,
+                      color: PillBinColors.textDark,
                     ),
-                  if (_otpControllers[index].text.isNotEmpty &&
-                      !_focusNodes[index].hasFocus)
-                    BoxShadow(
-                      color: PillBinColors.success.withOpacity(0.2),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      contentPadding: EdgeInsets.zero,
                     ),
-                ],
-              ),
-              child: Center(
-                child: TextField(
-                  controller: _otpControllers[index],
-                  focusNode: _focusNodes[index],
-                  textAlign: TextAlign.center,
-                  keyboardType: TextInputType.number,
-                  maxLength: 1,
-                  style: PillBinBold.style(
-                    fontSize: isTablet ? sw * 0.03 : sw * 0.05,
-                    color: PillBinColors.textDark,
-                  ),
-                  decoration: const InputDecoration(
-                    border: InputBorder.none,
-                    counterText: '',
-                  ),
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  onChanged: (value) {
-                    setState(() {}); // Rebuild to update button state
-
-                    if (value.length == 1) {
-                      if (index < 5) {
-                        _focusNodes[index + 1].requestFocus();
-                      } else {
-                        _focusNodes[index].unfocus();
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (value) {
+                      //* Three or more digits can only be a paste. Exactly two
+                      //* means the user typed over a box that already held a
+                      //* digit, so the newest one wins instead of shifting the
+                      //* old one along.
+                      if (value.length > 2) {
+                        _spreadDigits(value, index);
+                        return;
                       }
-                    } else if (value.isEmpty && index > 0) {
-                      _focusNodes[index - 1].requestFocus();
-                    }
-                  },
+                      if (value.length == 2) {
+                        _setBox(index, value.substring(1));
+                        setState(() {});
+                        if (index < 5) {
+                          _focusNodes[index + 1].requestFocus();
+                        } else {
+                          _focusNodes[index].unfocus();
+                        }
+                        return;
+                      }
+
+                      setState(() {}); // Rebuild to update button state
+
+                      if (value.length == 1) {
+                        if (index < 5) {
+                          _focusNodes[index + 1].requestFocus();
+                        } else {
+                          _focusNodes[index].unfocus();
+                        }
+                      } else if (value.isEmpty && index > 0) {
+                        _focusNodes[index - 1].requestFocus();
+                      }
+                    },
+                  ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ],
     );
