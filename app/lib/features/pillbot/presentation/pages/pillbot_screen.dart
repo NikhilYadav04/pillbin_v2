@@ -38,6 +38,12 @@ class _PillBotScreenState extends State<PillBotScreen>
   String? _pendingFileName;
   String _userInitial = 'U';
 
+  //* This tab is built eagerly by the IndexedStack in the shell, so it wakes up
+  //* at the same moment the profile request goes out. History needs the user id
+  //* that request returns, so the first load waits for it to arrive.
+  UserProvider? _userProvider;
+  bool _historyRequested = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,11 +55,27 @@ class _PillBotScreenState extends State<PillBotScreen>
     _scrollCtrl.addListener(_onScroll);
     _inputCtrl.addListener(_onTextChanged);
 
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadInitial());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _userProvider = context.read<UserProvider>();
+      _userProvider!.addListener(_onUserChanged);
+      _onUserChanged();
+    });
+  }
+
+  void _onUserChanged() {
+    if (_historyRequested || !mounted) return;
+
+    final id = _userProvider?.user?.id;
+    if (id == null || id.isEmpty) return;
+
+    _historyRequested = true;
+    _loadInitial();
   }
 
   @override
   void dispose() {
+    _userProvider?.removeListener(_onUserChanged);
     _fadeCtrl.dispose();
     _inputCtrl.dispose();
     _scrollCtrl.dispose();
