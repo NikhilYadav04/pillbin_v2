@@ -150,6 +150,9 @@ class PillBotProvider extends ChangeNotifier {
 
   Future<void> fetchHistory(
       {bool reset = false, String? userId}) async {
+    //* The id is the whole query — without it the agent answers 400. The caller
+    //* retries once the profile lands rather than surfacing an error here.
+    if (userId == null || userId.isEmpty) return;
     if (_isLoadingMessages) return;
     if (!reset && !_hasMorePages) return;
 
