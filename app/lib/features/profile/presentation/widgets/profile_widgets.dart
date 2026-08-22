@@ -5,9 +5,6 @@ import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/blog/data/repository/blog_provider.dart';
-import 'package:pillbin/features/depreceated/chatbot/data/repository/chatbot_provider.dart';
-import 'package:pillbin/features/depreceated/health_ai/data/repository/health_ai_provider.dart';
-import 'package:pillbin/features/depreceated/health_ai/data/repository/rag_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
@@ -752,16 +749,11 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                     child: TextButton(
                       onPressed: () async {
                         final HttpClient _httpClient = HttpClient();
-                        Map<String, String> map =
-                            await _httpClient.getUserData();
 
                         await context.read<UserProvider>().reset();
                         await context.read<MedicineProvider>().reset();
                         await context.read<MedicalCenterProvider>().reset();
-                        await context.read<ChatbotProvider>().reset();
                         await context.read<NotificationProvider>().reset();
-                        await context.read<HealthAiProvider>().reset();
-                        await context.read<RagProvider>().reset();
                         await context.read<BlogProvider>().reset();
                         await context.read<PillBotProvider>().reset();
                         context.read<DonationProvider>().reset();
@@ -771,17 +763,6 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
                         context.read<AuthProvider>().reset();
                         await CacheManager().clearAllCache();
                         await FcmService().deactivate();
-
-                        HealthAiProvider provider =
-                            context.read<HealthAiProvider>();
-
-                        final phone = map["phone"]?.toString() ?? '';
-                        provider.deleteFAISSIndex(
-                          userId:
-                              "${map["name"]}_${phone.substring(0, phone.length.clamp(0, 4))}",
-                        );
-
-                        provider.deleteFile();
                         await _httpClient.logout();
 
                         Navigator.pushReplacementNamed(

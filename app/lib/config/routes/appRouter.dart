@@ -7,8 +7,6 @@ import 'package:pillbin/features/blog/presentation/pages/all_blogs_screen.dart';
 import 'package:pillbin/features/blog/presentation/pages/my_blogs_screen.dart';
 import 'package:pillbin/features/blog/presentation/pages/update_blog_screen.dart';
 import 'package:pillbin/features/campaign/presentation/pages/campaign_screen.dart';
-import 'package:pillbin/features/depreceated/chatbot/presentation/pages/chatbot_screen.dart';
-import 'package:pillbin/features/depreceated/health_ai/presentation/pages/health_ai_history_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/home_screen.dart';
 import 'package:pillbin/features/home/presentation/pages/notification_screen.dart';
 import 'package:pillbin/features/info/presentation/pages/info_page.dart';
@@ -233,14 +231,8 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case '/campaign-screen':
       page = MyCampaignsScreen();
       break;
-    case '/chatbot-screen':
-      page = ChatBotScreen();
-      break;
     case '/info-screen':
       page = InformationHubBaseScreen();
-      break;
-    case '/rag-history-screen':
-      page = RagHistoryScreen();
       break;
 
     //* Blog
