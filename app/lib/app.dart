@@ -5,9 +5,6 @@ import 'package:pillbin/features/auth/data/repository/auth_provider.dart';
 import 'package:pillbin/features/blog/data/repository/blog_provider.dart';
 import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
 import 'package:pillbin/features/vendor/data/repository/vendor_provider.dart';
-import 'package:pillbin/features/depreceated/chatbot/data/repository/chatbot_provider.dart';
-import 'package:pillbin/features/depreceated/health_ai/data/repository/health_ai_provider.dart';
-import 'package:pillbin/features/depreceated/health_ai/data/repository/rag_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/locations/data/repository/saved_centers_provider.dart';
@@ -31,10 +28,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MedicineProvider()),
         ChangeNotifierProvider(create: (_) => MedicalCenterProvider()),
         ChangeNotifierProvider(create: (_) => SavedCentersProvider()),
-        ChangeNotifierProvider(create: (_) => ChatbotProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        ChangeNotifierProvider(create: (_) => HealthAiProvider()),
-        ChangeNotifierProvider(create: (_) => RagProvider()),
         ChangeNotifierProvider(create: (_) => BlogProvider()),
         ChangeNotifierProvider(create: (_) => PillBotProvider()),
         ChangeNotifierProvider(create: (_) => VendorProvider()),
