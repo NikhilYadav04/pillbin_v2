@@ -100,6 +100,9 @@ class Medicine {
   final MedicineImage? image; // Added image field
   final ProductLinks? productLinks; // Added product links
   final bool isDeleted; // Added isDeleted field
+  final bool isRecurring;
+  final int? refillIntervalDays;
+  final String? familyMemberId;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -119,6 +122,9 @@ class Medicine {
     this.image, // Added
     this.productLinks, // Added
     this.isDeleted = false, // Added
+    this.isRecurring = false,
+    this.refillIntervalDays,
+    this.familyMemberId,
     DateTime? createdAt,
     DateTime? updatedAt,
   })  : addedDate = addedDate ?? DateTime.now(),
@@ -163,6 +169,11 @@ class Medicine {
           ? ProductLinks.fromJson(json["productLinks"])
           : null,
       isDeleted: json["isDeleted"] ?? false,
+      isRecurring: json["isRecurring"] ?? false,
+      refillIntervalDays: json["refillIntervalDays"],
+      familyMemberId: json["familyMemberId"] is Map
+          ? json["familyMemberId"]["_id"]
+          : json["familyMemberId"],
       createdAt: json["createdAt"] != null
           ? DateTime.parse(json["createdAt"])
           : DateTime.now(),
@@ -190,6 +201,9 @@ class Medicine {
       "image": image?.toJson(),
       "productLinks": productLinks?.toJson(),
       "isDeleted": isDeleted,
+      "isRecurring": isRecurring,
+      "refillIntervalDays": refillIntervalDays,
+      "familyMemberId": familyMemberId,
       "createdAt": createdAt.toIso8601String(),
       "updatedAt": updatedAt.toIso8601String(),
     };
@@ -212,6 +226,9 @@ class Medicine {
     MedicineImage? image,
     ProductLinks? productLinks,
     bool? isDeleted,
+    bool? isRecurring,
+    int? refillIntervalDays,
+    String? familyMemberId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -231,6 +248,9 @@ class Medicine {
       image: image ?? this.image,
       productLinks: productLinks ?? this.productLinks,
       isDeleted: isDeleted ?? this.isDeleted,
+      isRecurring: isRecurring ?? this.isRecurring,
+      refillIntervalDays: refillIntervalDays ?? this.refillIntervalDays,
+      familyMemberId: familyMemberId ?? this.familyMemberId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

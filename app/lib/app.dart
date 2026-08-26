@@ -9,6 +9,7 @@ import 'package:pillbin/features/home/data/repository/notification_provider.dart
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/locations/data/repository/saved_centers_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/family_member_provider.dart';
 import 'package:pillbin/features/pillbot/data/repository/pillbot_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:provider/provider.dart';
@@ -26,6 +27,7 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => MedicineProvider()),
+        ChangeNotifierProvider(create: (_) => FamilyMemberProvider()),
         ChangeNotifierProvider(create: (_) => MedicalCenterProvider()),
         ChangeNotifierProvider(create: (_) => SavedCentersProvider()),
         ChangeNotifierProvider(create: (_) => NotificationProvider()),

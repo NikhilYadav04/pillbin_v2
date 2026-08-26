@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
@@ -8,6 +9,7 @@ import 'package:pillbin/features/blog/data/repository/blog_provider.dart';
 import 'package:pillbin/features/home/data/repository/notification_provider.dart';
 import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/family_member_provider.dart';
 import 'package:pillbin/features/pillbot/data/repository/pillbot_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/profile/presentation/widgets/my_posts_button.dart';
@@ -580,6 +582,67 @@ Widget buildProfileSurveySection(double sw, double sh, bool isTablet) {
   );
 }
 
+Widget _settingsSectionLabel(double sw, double sh, bool isTablet, String label) {
+  return Padding(
+    padding: EdgeInsets.only(
+      left: isTablet ? sw * 0.025 : sw * 0.04,
+      bottom: sh * 0.008,
+    ),
+    child: Text(
+      label.toUpperCase(),
+      style: PillBinMedium.style(
+              fontSize: isTablet ? sw * 0.018 : sw * 0.03,
+              color: PillBinColors.textSecondary)
+          .copyWith(letterSpacing: 0.6),
+    ),
+  );
+}
+
+Widget _settingsGroup(double sw, bool isTablet, List<Widget> items) {
+  final divider = Padding(
+    padding: EdgeInsets.only(left: isTablet ? sw * 0.075 : sw * 0.115),
+    child: Divider(height: 1, color: PillBinColors.greyLight),
+  );
+
+  final children = <Widget>[];
+  for (var i = 0; i < items.length; i++) {
+    children.add(items[i]);
+    if (i != items.length - 1) children.add(divider);
+  }
+
+  return Container(
+    decoration: BoxDecoration(
+      color: PillBinColors.surface,
+      borderRadius: BorderRadius.circular(isTablet ? 12 : 10),
+    ),
+    clipBehavior: Clip.antiAlias,
+    child: Column(children: children),
+  );
+}
+
+class _SettingsVersionFooter extends StatelessWidget {
+  final double sw;
+  const _SettingsVersionFooter({required this.sw});
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final version = snapshot.data?.version;
+        if (version == null) return const SizedBox.shrink();
+        return Center(
+          child: Text(
+            'PillBin v$version',
+            style: PillBinRegular.style(
+                fontSize: sw * 0.03, color: PillBinColors.textLight),
+          ),
+        );
+      },
+    );
+  }
+}
+
 Widget buildProfileSettings(
     double sw, double sh, bool isTablet, BuildContext context,
     {bool isVendor = false}) {
@@ -606,60 +669,169 @@ Widget buildProfileSettings(
           ],
         ),
         SizedBox(height: sh * 0.02),
-        // SettingsItem(
-        //   title: 'Notification Preferences',
-        //   icon: Icons.notifications_outlined,
-        //   onTap: () {},
-        //   sw: sw,
-        //   sh: sh,
-        // ),
-        if (!isVendor)
+        if (!isVendor) ...[
+          _settingsSectionLabel(sw, sh, isTablet, 'Account'),
+          _settingsGroup(sw, isTablet, [
+            SettingsItem(
+              title: 'My Donations',
+              icon: Icons.volunteer_activism_outlined,
+              onTap: () =>
+                  Navigator.pushNamed(context, '/my-donations-screen'),
+              sw: sw,
+              sh: sh,
+            ),
+          ]),
+          SizedBox(height: sh * 0.02),
+        ],
+        _settingsSectionLabel(sw, sh, isTablet, 'About'),
+        _settingsGroup(sw, isTablet, [
           SettingsItem(
-            title: 'My Donations',
-            icon: Icons.volunteer_activism_outlined,
-            onTap: () => Navigator.pushNamed(context, '/my-donations-screen'),
+            title: 'Privacy Settings',
+            icon: Icons.privacy_tip_outlined,
+            onTap: () async {
+              final Uri url = Uri.parse(
+                  'https://nikhilyadav04.github.io/privacy-policy/');
+              if (!await launchUrl(url,
+                  mode: LaunchMode.externalApplication)) {
+                throw Exception('Could not launch $url');
+              }
+            },
             sw: sw,
             sh: sh,
           ),
-        SettingsItem(
-          title: 'Privacy Settings',
-          icon: Icons.privacy_tip_outlined,
-          onTap: () {},
-          sw: sw,
-          sh: sh,
-        ),
-        SettingsItem(
-          title: 'Language & Region',
-          icon: Icons.language_outlined,
-          onTap: () {},
-          sw: sw,
-          sh: sh,
-        ),
-        SettingsItem(
-          title: 'Help & Support',
-          icon: Icons.help_outline,
-          onTap: () {},
-          sw: sw,
-          sh: sh,
-        ),
-        SettingsItem(
-          title: 'About PillBin',
-          icon: Icons.info_outline,
-          onTap: () {},
-          sw: sw,
-          sh: sh,
-        ),
-        SettingsItem(
-          title: 'Logout',
-          icon: Icons.logout,
-          onTap: () {
-            _showLogoutWarningDialog(context, sw, sh);
-          },
-          sw: sw,
-          sh: sh,
-        ),
+          SettingsItem(
+            title: 'Help & Support',
+            icon: Icons.help_outline,
+            onTap: () async {
+              final Uri url = Uri(
+                scheme: 'mailto',
+                path: 'byadav1723@gmail.com',
+                query: 'subject=PillBin Support',
+              );
+              if (!await launchUrl(url)) {
+                throw Exception('Could not launch $url');
+              }
+            },
+            sw: sw,
+            sh: sh,
+          ),
+          SettingsItem(
+            title: 'About PillBin',
+            icon: Icons.info_outline,
+            onTap: () => _showAboutDialog(context, sw, sh),
+            sw: sw,
+            sh: sh,
+          ),
+        ]),
+        SizedBox(height: sh * 0.02),
+        _settingsGroup(sw, isTablet, [
+          SettingsItem(
+            title: 'Logout',
+            icon: Icons.logout,
+            iconColor: PillBinColors.error,
+            titleColor: PillBinColors.error,
+            showChevron: false,
+            onTap: () {
+              _showLogoutWarningDialog(context, sw, sh);
+            },
+            sw: sw,
+            sh: sh,
+          ),
+        ]),
+        SizedBox(height: sh * 0.02),
+        _SettingsVersionFooter(sw: sw),
       ],
     ),
+  );
+}
+
+void _showAboutDialog(BuildContext context, double sw, double sh) async {
+  final bool isTablet = sw > 600;
+  final packageInfo = await PackageInfo.fromPlatform();
+
+  if (!context.mounted) return;
+
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(isTablet ? 24 : 20),
+        ),
+        backgroundColor: Colors.white,
+        contentPadding: EdgeInsets.zero,
+        content: Container(
+          width: isTablet ? sw * 0.4 : sw * 0.85,
+          padding: EdgeInsets.all(isTablet ? sw * 0.03 : sw * 0.05),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: EdgeInsets.all(isTablet ? sw * 0.02 : sw * 0.03),
+                decoration: BoxDecoration(
+                  color: PillBinColors.primary.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.medication_liquid_rounded,
+                  size: isTablet ? sw * 0.05 : sw * 0.1,
+                  color: PillBinColors.primary,
+                ),
+              ),
+              SizedBox(height: sh * 0.02),
+              Text(
+                'PillBin',
+                style: PillBinBold.style(
+                  fontSize: isTablet ? sw * 0.028 : sw * 0.05,
+                  color: Colors.black87,
+                ),
+              ),
+              SizedBox(height: sh * 0.006),
+              Text(
+                'Version ${packageInfo.version}',
+                style: PillBinRegular.style(
+                  fontSize: isTablet ? sw * 0.018 : sw * 0.032,
+                  color: Colors.black45,
+                ),
+              ),
+              SizedBox(height: sh * 0.015),
+              Text(
+                'Safe medicine disposal and donation, built to keep expired '
+                'and unused medicines out of landfills and water supply.',
+                textAlign: TextAlign.center,
+                style: PillBinRegular.style(
+                  fontSize: isTablet ? sw * 0.02 : sw * 0.036,
+                  color: Colors.black54,
+                ),
+              ),
+              SizedBox(height: sh * 0.025),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(
+                      vertical: isTablet ? sh * 0.015 : sh * 0.012,
+                    ),
+                    backgroundColor: PillBinColors.primary.withOpacity(0.1),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: Text(
+                    'Close',
+                    style: PillBinBold.style(
+                      fontSize: isTablet ? sw * 0.022 : sw * 0.038,
+                      color: PillBinColors.primary,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
   );
 }
 
@@ -752,6 +924,7 @@ void _showLogoutWarningDialog(BuildContext context, double sw, double sh) {
 
                         await context.read<UserProvider>().reset();
                         await context.read<MedicineProvider>().reset();
+                        context.read<FamilyMemberProvider>().reset();
                         await context.read<MedicalCenterProvider>().reset();
                         await context.read<NotificationProvider>().reset();
                         await context.read<BlogProvider>().reset();

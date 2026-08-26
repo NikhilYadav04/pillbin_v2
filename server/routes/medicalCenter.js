@@ -8,6 +8,8 @@ router.get("/all", medicalCenterController.getAllMedicalCenters);
 
 router.get("/nearby", medicalCenterController.getNearbyMedicalCenters);
 
+router.get("/nearby-needs", medicalCenterController.getNearbyNeeds);
+
 router.get("/search", medicalCenterController.searchMedicalCenters);
 
 router.get("/:id/inventory", medicalCenterController.getMedicalCenterInventory);

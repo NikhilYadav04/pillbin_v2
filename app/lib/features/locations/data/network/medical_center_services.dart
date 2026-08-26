@@ -26,6 +26,15 @@ class MedicalCenterServices extends ApiService {
         fromJson: (data) => data as Map<String, dynamic>);
   }
 
+  //* Get Nearby Needs (categories nearby centers are accepting)
+  Future<ApiResponse<Map<String, dynamic>>> getNearbyNeeds({
+    required double latitude,
+    required double longitude,
+  }) async {
+    return get(ApiEndpoints.getNearbyNeeds(latitude, longitude),
+        fromJson: (data) => data as Map<String, dynamic>);
+  }
+
   //* Search Medical Centers
   Future<ApiResponse<Map<String, dynamic>>> searchMedicalCenters({
     required String query,

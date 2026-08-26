@@ -451,12 +451,94 @@ const getMedicalCenterInventory = async (req, res) => {
   }
 };
 
+//* Top categories nearby centers are currently accepting, for a donor-facing nudge banner
+const getNearbyNeeds = async (req, res) => {
+  try {
+    const { latitude, longitude, radius = 15 } = req.query;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({
+        statusCode: 400,
+        message: "Latitude and longitude are required",
+      });
+    }
+
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    const radiusKm = parseFloat(radius);
+
+    if (isNaN(lat) || isNaN(lng) || isNaN(radiusKm)) {
+      return res.status(400).json({
+        statusCode: 400,
+        message: "Invalid latitude, longitude, or radius values",
+      });
+    }
+
+    const [result] = await MedicalCenter.aggregate([
+      {
+        $geoNear: {
+          near: { type: "Point", coordinates: [lng, lat] },
+          distanceField: "distance",
+          maxDistance: radiusKm * 1000,
+          spherical: true,
+          query: {
+            isActive: true,
+            $or: [
+              { isVendorManaged: false },
+              { isVendorManaged: true, verificationStatus: "approved" },
+            ],
+          },
+        },
+      },
+      {
+        $facet: {
+          categories: [
+            { $unwind: "$inventory" },
+            { $match: { "inventory.acceptanceStatus": "accepting" } },
+            {
+              $group: {
+                _id: "$inventory.category",
+                centerIds: { $addToSet: "$_id" },
+              },
+            },
+            {
+              $project: {
+                _id: 0,
+                category: "$_id",
+                centerCount: { $size: "$centerIds" },
+              },
+            },
+            { $sort: { centerCount: -1 } },
+            { $limit: 5 },
+          ],
+          centers: [
+            { $match: { inventory: { $elemMatch: { acceptanceStatus: "accepting" } } } },
+            { $count: "count" },
+          ],
+        },
+      },
+    ]);
+
+    res.status(200).json({
+      statusCode: 200,
+      data: {
+        centerCount: result?.centers?.[0]?.count || 0,
+        categories: result?.categories || [],
+      },
+    });
+  } catch (error) {
+    console.error("Get nearby needs error:", error);
+    res.status(500).json({ statusCode: 500, message: "Server error" });
+  }
+};
+
 module.exports = {
   addMedicalCenter,
   getAllMedicalCenters,
   getNearbyMedicalCenters,
   getMedicalCenterById,
   getMedicalCenterInventory,
+  getNearbyNeeds,
   updateMedicalCenter,
   deleteMedicalCenter,
   deleteMedicalCenterPermanent,

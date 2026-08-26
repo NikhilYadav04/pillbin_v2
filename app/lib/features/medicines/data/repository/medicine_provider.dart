@@ -280,6 +280,9 @@ class MedicineProvider extends ChangeNotifier {
     File? imageFile,
     userClass.UserModel? userModel,
     BuildContext? context,
+    bool isRecurring = false,
+    int? refillIntervalDays,
+    String? familyMemberId,
   }) async {
     try {
       _lastError = null;
@@ -294,6 +297,9 @@ class MedicineProvider extends ChangeNotifier {
         type: type,
         purchaseDate: purchaseDate,
         imageFile: imageFile,
+        isRecurring: isRecurring,
+        refillIntervalDays: refillIntervalDays,
+        familyMemberId: familyMemberId,
       );
 
       if (response.statusCode == 201) {
@@ -588,6 +594,9 @@ class MedicineProvider extends ChangeNotifier {
     required String batchNumber,
     required String type,
     required String purchaseDate,
+    bool? isRecurring,
+    int? refillIntervalDays,
+    String? familyMemberId,
   }) async {
     try {
       _lastError = null;
@@ -601,7 +610,10 @@ class MedicineProvider extends ChangeNotifier {
               manufacturer: manufacturer,
               batchNumber: batchNumber,
               type: type,
-              purchaseDate: purchaseDate);
+              purchaseDate: purchaseDate,
+              isRecurring: isRecurring,
+              refillIntervalDays: refillIntervalDays,
+              familyMemberId: familyMemberId);
 
       if (response.statusCode == 200) {
         Map<String, dynamic> data = response.data!["medicine"];
@@ -624,6 +636,11 @@ class MedicineProvider extends ChangeNotifier {
               : medicineStatus == "expired"
                   ? MedicineStatus.expired
                   : MedicineStatus.expiringSoon,
+          isRecurring: data["isRecurring"] ?? false,
+          refillIntervalDays: data["refillIntervalDays"],
+          familyMemberId: data["familyMemberId"] is Map
+              ? data["familyMemberId"]["_id"]
+              : data["familyMemberId"],
         );
 
         updateInventory(medicineStatus, medicineId, updatedMedicine);

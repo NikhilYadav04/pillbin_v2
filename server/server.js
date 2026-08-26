@@ -16,6 +16,7 @@ const ragRoutes = require("./routes/rag");
 const vendorRoutes = require("./routes/vendor");
 const donationRoutes = require("./routes/donation");
 const adminRoutes = require("./routes/admin");
+const familyMemberRoutes = require("./routes/familyMember");
 const { connectDB } = require("./config/database");
 const { scheduleExpiryJob } = require("./jobs/expiryJob");
 const morgan = require("morgan");
@@ -43,6 +44,7 @@ app.use("/api/blog", blogRoutes);
 app.use("/api/vendor", vendorRoutes);
 app.use("/api/donations", donationRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/family-members", familyMemberRoutes);
 
 //* Default Route
 app.get("/", (req, res) => {

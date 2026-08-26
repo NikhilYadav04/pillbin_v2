@@ -4,6 +4,8 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/inventoryShimmerCard.dart';
 import 'package:pillbin/features/donation/data/repository/donation_provider.dart';
+import 'package:pillbin/features/locations/data/repository/medical_center_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/family_member_provider.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/medicine_detail_display.dart';
@@ -28,6 +30,7 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedDateFilter = 'All Time';
+  bool _needsBannerDismissed = false;
 
   final List<String> _dateFilters = [
     'All Time',
@@ -55,7 +58,23 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
       if (provider.activeMedicinesInventory.isEmpty) {
         provider.getInventory();
       }
+      Provider.of<FamilyMemberProvider>(context, listen: false).load();
+
+      final user = Provider.of<UserProvider>(context, listen: false).user;
+      final coords = user?.location?.coordinates;
+      if (coords?.latitude != null && coords?.longitude != null) {
+        Provider.of<MedicalCenterProvider>(context, listen: false)
+            .getNearbyNeeds(
+                latitude: coords!.latitude!, longitude: coords.longitude!);
+      }
     });
+  }
+
+  List<Medicine> _filterByProfile(List<Medicine> medicines, String? profileId) {
+    if (profileId == null) {
+      return medicines.where((m) => m.familyMemberId == null).toList();
+    }
+    return medicines.where((m) => m.familyMemberId == profileId).toList();
   }
 
   @override
@@ -181,13 +200,24 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeAnimation,
-          child: Consumer<MedicineProvider>(
-            builder: (context, provider, _) {
+          child: Consumer2<MedicineProvider, FamilyMemberProvider>(
+            builder: (context, provider, familyProvider, _) {
+              final profileId = familyProvider.selectedId;
+              final active =
+                  _filterByProfile(provider.activeMedicinesInventory, profileId);
+              final expiringSoon = _filterByProfile(
+                  provider.expiringSoonMedicinesInventory, profileId);
+              final expired = _filterByProfile(
+                  provider.expiredMedicinesInventory, profileId);
+
               return Column(
                 children: [
                   ConnectivityBanner(),
                   buildInventoryHeader(sw, sh, isTablet, context),
                   SizedBox(height: sh * 0.00),
+                  _buildNeedsBanner(sw, sh, isTablet),
+                  _buildProfileRow(sw, sh, isTablet, familyProvider),
+                  SizedBox(height: sh * 0.012),
                   _buildFilters(sw, sh, isTablet, provider),
                   SizedBox(height: sh * 0.015),
                   buildInventoryTabBar(
@@ -195,11 +225,12 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                       sh,
                       isTablet,
                       _tabController,
-                      provider.activeMedicinesInventory.length,
-                      provider.expiringSoonMedicinesInventory.length,
-                      provider.expiredMedicinesInventory.length),
+                      active.length,
+                      expiringSoon.length,
+                      expired.length),
                   Expanded(
-                    child: _buildTabBarView(sw, sh, isTablet, provider),
+                    child: _buildTabBarView(sw, sh, isTablet, provider,
+                        active, expiringSoon, expired),
                   ),
                 ],
               );
@@ -225,6 +256,80 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
           size: isTablet ? sw * 0.03 : sw * 0.06,
         ),
       ),
+    );
+  }
+
+  Widget _buildNeedsBanner(double sw, double sh, bool isTablet) {
+    if (_needsBannerDismissed) return const SizedBox.shrink();
+
+    return Consumer<MedicalCenterProvider>(
+      builder: (context, centerProvider, _) {
+        final categories = centerProvider.nearbyNeedsCategories;
+        final centerCount = centerProvider.nearbyNeedsCenterCount;
+
+        if (categories.isEmpty || centerCount == 0) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: EdgeInsets.fromLTRB(
+              isTablet ? sw * 0.05 : sw * 0.04,
+              sh * 0.01,
+              isTablet ? sw * 0.05 : sw * 0.04,
+              sh * 0.014),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: () => Navigator.pushNamed(context, '/location-screen'),
+            child: Container(
+              padding: EdgeInsets.all(sw * 0.035),
+              decoration: BoxDecoration(
+                color: PillBinColors.success.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                    color: PillBinColors.success.withValues(alpha: 0.25)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: EdgeInsets.all(sw * 0.022),
+                    decoration: BoxDecoration(
+                      color: PillBinColors.success.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(Icons.campaign_outlined,
+                        size: sw * 0.05, color: PillBinColors.success),
+                  ),
+                  SizedBox(width: sw * 0.03),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            '$centerCount ${centerCount == 1 ? 'center' : 'centers'} near you '
+                            'accepting donations',
+                            style: PillBinMedium.style(
+                                fontSize: sw * 0.034,
+                                color: PillBinColors.textPrimary)),
+                        SizedBox(height: sh * 0.003),
+                        Text('In demand: ${categories.join(', ')}',
+                            style: PillBinRegular.style(
+                                fontSize: sw * 0.03,
+                                color: PillBinColors.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.close_rounded,
+                        size: sw * 0.042, color: PillBinColors.textLight),
+                    onPressed: () =>
+                        setState(() => _needsBannerDismissed = true),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -434,7 +539,13 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
   }
 
   Widget _buildTabBarView(
-      double sw, double sh, bool isTablet, MedicineProvider provider) {
+      double sw,
+      double sh,
+      bool isTablet,
+      MedicineProvider provider,
+      List<Medicine> active,
+      List<Medicine> expiringSoon,
+      List<Medicine> expired) {
     return TabBarView(
       controller: _tabController,
       children: [
@@ -448,8 +559,8 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 onRefresh: () async {
                   _refresh();
                 },
-                child: _buildMedicinesList(provider.activeMedicinesInventory,
-                    sw, sh, isTablet, 'No active medicines found'),
+                child: _buildMedicinesList(
+                    active, sw, sh, isTablet, 'No active medicines found'),
               ),
         provider.isFetching
             ? InventoryListShimmer(
@@ -463,16 +574,11 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 },
                 child: Column(
                   children: [
-                    if (provider.expiringSoonMedicinesInventory.isNotEmpty)
-                      _buildDonateBanner(
-                          sw, sh, provider.expiringSoonMedicinesInventory),
+                    if (expiringSoon.isNotEmpty)
+                      _buildDonateBanner(sw, sh, expiringSoon),
                     Expanded(
-                      child: _buildMedicinesList(
-                          provider.expiringSoonMedicinesInventory,
-                          sw,
-                          sh,
-                          isTablet,
-                          'No medicines expiring soon'),
+                      child: _buildMedicinesList(expiringSoon, sw, sh,
+                          isTablet, 'No medicines expiring soon'),
                     ),
                   ],
                 ),
@@ -487,10 +593,62 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 onRefresh: () async {
                   _refresh();
                 },
-                child: _buildMedicinesList(provider.expiredMedicinesInventory,
-                    sw, sh, isTablet, 'No expired medicines found'),
+                child: _buildMedicinesList(
+                    expired, sw, sh, isTablet, 'No expired medicines found'),
               ),
       ],
+    );
+  }
+
+  Widget _buildProfileRow(
+      double sw, double sh, bool isTablet, FamilyMemberProvider familyProvider) {
+    return SizedBox(
+      height: sh * 0.05,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: EdgeInsets.symmetric(horizontal: sw * 0.04),
+        children: [
+          _profileChip(sw, 'Self', familyProvider.selectedId == null,
+              () => familyProvider.selectProfile(null)),
+          ...familyProvider.members.map((member) => Padding(
+                padding: EdgeInsets.only(left: sw * 0.02),
+                child: _profileChip(
+                    sw,
+                    member.name,
+                    familyProvider.selectedId == member.id,
+                    () => familyProvider.selectProfile(member.id)),
+              )),
+          Padding(
+            padding: EdgeInsets.only(left: sw * 0.02),
+            child: ActionChip(
+              avatar: Icon(Icons.add, size: sw * 0.04),
+              label: Text('Add',
+                  style: PillBinRegular.style(
+                      fontSize: sw * 0.032, color: PillBinColors.textSecondary)),
+              backgroundColor: PillBinColors.surface,
+              side: BorderSide(color: PillBinColors.greyLight),
+              onPressed: () =>
+                  Navigator.pushNamed(context, '/manage-family-screen'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _profileChip(
+      double sw, String label, bool selected, VoidCallback onTap) {
+    return ChoiceChip(
+      label: Text(label,
+          style: PillBinMedium.style(
+              fontSize: sw * 0.032,
+              color: selected ? Colors.white : PillBinColors.textPrimary)),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: PillBinColors.primary,
+      backgroundColor: PillBinColors.surface,
+      side: BorderSide(
+          color: selected ? PillBinColors.primary : PillBinColors.greyLight),
     );
   }
 
@@ -558,7 +716,10 @@ class _MyInventoryScreenState extends State<MyInventoryScreen>
                 'quantity': medicines[index].dosage,
                 'manufacturer': medicines[index].manufacturer,
                 'batchNumber': medicines[index].batchNumber,
-                'notes': medicines[index].notes
+                'notes': medicines[index].notes,
+                'isRecurring': medicines[index].isRecurring,
+                'refillIntervalDays': medicines[index].refillIntervalDays,
+                'familyMemberId': medicines[index].familyMemberId,
               },
             );
           },
