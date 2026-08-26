@@ -9,6 +9,7 @@ import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/medicines/data/helper/ocr_helper.dart';
 import 'package:pillbin/features/medicines/data/repository/medicine_provider.dart';
+import 'package:pillbin/features/medicines/data/repository/family_member_provider.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
 import 'package:pillbin/features/medicines/presentation/widgets/add_medicine_widgets.dart';
 import 'package:provider/provider.dart';
@@ -49,6 +50,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   DateTime _purchaseDate = DateTime.now();
   String? _selectedMedicineType;
 
+  bool _isRecurring = false;
+  final _refillIntervalController = TextEditingController(text: '30');
+  String? _selectedFamilyMemberId;
+
   // Common medicine types
   final List<String> _medicineTypes = [
     'Tablet',
@@ -74,6 +79,8 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
   @override
   void initState() {
     super.initState();
+    _selectedFamilyMemberId =
+        context.read<FamilyMemberProvider>().selectedId;
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 600),
       vsync: this,
@@ -130,6 +137,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
     _notesController.dispose();
     _manufacturerController.dispose();
     _batchNumberController.dispose();
+    _refillIntervalController.dispose();
     super.dispose();
   }
 
@@ -933,6 +941,10 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
             isRequired: false,
           ),
           SizedBox(height: sh * 0.02),
+          _buildFamilyMemberPicker(sw, sh, isTablet),
+          SizedBox(height: sh * 0.02),
+          _buildRefillReminder(sw, sh, isTablet),
+          SizedBox(height: sh * 0.02),
           _buildTextField(
             'Notes',
             'Any additional notes (Optional)',
@@ -943,6 +955,135 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
             maxLines: 3,
             isRequired: false,
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFamilyMemberPicker(double sw, double sh, bool isTablet) {
+    return Consumer<FamilyMemberProvider>(
+      builder: (context, familyProvider, _) {
+        if (familyProvider.members.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Whose medicine is this?',
+              style: PillBinMedium.style(
+                fontSize: isTablet ? sw * 0.022 : sw * 0.036,
+                color: PillBinColors.textPrimary,
+              ),
+            ),
+            SizedBox(height: sh * 0.008),
+            DropdownButtonFormField<String?>(
+              value: _selectedFamilyMemberId,
+              decoration: InputDecoration(
+                contentPadding: EdgeInsets.symmetric(
+                    horizontal: sw * 0.04, vertical: sh * 0.014),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              items: [
+                DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Self',
+                      style: PillBinRegular.style(
+                          fontSize: sw * 0.035,
+                          color: PillBinColors.textPrimary)),
+                ),
+                ...familyProvider.members.map(
+                  (member) => DropdownMenuItem<String?>(
+                    value: member.id,
+                    child: Text(member.name,
+                        style: PillBinRegular.style(
+                            fontSize: sw * 0.035,
+                            color: PillBinColors.textPrimary)),
+                  ),
+                ),
+              ],
+              onChanged: (value) =>
+                  setState(() => _selectedFamilyMemberId = value),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRefillReminder(double sw, double sh, bool isTablet) {
+    return Container(
+      padding: EdgeInsets.all(isTablet ? sw * 0.02 : sw * 0.035),
+      decoration: BoxDecoration(
+        color: PillBinColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: PillBinColors.greyLight),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Take this regularly?',
+                  style: PillBinMedium.style(
+                    fontSize: isTablet ? sw * 0.022 : sw * 0.036,
+                    color: PillBinColors.textPrimary,
+                  ),
+                ),
+              ),
+              Switch(
+                value: _isRecurring,
+                onChanged: (value) => setState(() => _isRecurring = value),
+                activeColor: PillBinColors.primary,
+              ),
+            ],
+          ),
+          if (_isRecurring) ...[
+            SizedBox(height: sh * 0.012),
+            Row(
+              children: [
+                Text(
+                  'Remind me every',
+                  style: PillBinRegular.style(
+                    fontSize: isTablet ? sw * 0.02 : sw * 0.033,
+                    color: PillBinColors.textSecondary,
+                  ),
+                ),
+                SizedBox(width: sw * 0.025),
+                SizedBox(
+                  width: sw * 0.16,
+                  child: TextField(
+                    controller: _refillIntervalController,
+                    keyboardType: TextInputType.number,
+                    textAlign: TextAlign.center,
+                    style: PillBinMedium.style(
+                      fontSize: isTablet ? sw * 0.02 : sw * 0.034,
+                      color: PillBinColors.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: sh * 0.01),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                  ),
+                ),
+                SizedBox(width: sw * 0.025),
+                Text(
+                  'days',
+                  style: PillBinRegular.style(
+                    fontSize: isTablet ? sw * 0.02 : sw * 0.033,
+                    color: PillBinColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -1328,6 +1469,11 @@ class _AddMedicineScreenState extends State<AddMedicineScreen>
         imageFile: medicinePhoto,
         userModel: context.read<UserProvider>().user,
         context: context,
+        isRecurring: _isRecurring,
+        refillIntervalDays: _isRecurring
+            ? int.tryParse(_refillIntervalController.text.trim())
+            : null,
+        familyMemberId: _selectedFamilyMemberId,
       );
 
       // Stop animation

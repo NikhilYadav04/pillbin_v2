@@ -8,6 +8,9 @@ class SettingsItem extends StatelessWidget {
   final VoidCallback onTap;
   final double sw;
   final double sh;
+  final Color? iconColor;
+  final Color? titleColor;
+  final bool showChevron;
 
   const SettingsItem({
     Key? key,
@@ -16,45 +19,48 @@ class SettingsItem extends StatelessWidget {
     required this.onTap,
     required this.sw,
     required this.sh,
+    this.iconColor,
+    this.titleColor,
+    this.showChevron = true,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     final bool isTablet = sw > 600;
 
-    return Container(
-      margin: EdgeInsets.only(bottom: sh * 0.01),
-      decoration: BoxDecoration(
-        color: PillBinColors.surface,
-        borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(isTablet ? 12 : 8),
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              vertical: isTablet ? sh * 0.015 : sh * 0.012,
-              horizontal: isTablet ? sw * 0.025 : sw * 0.04,
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: PillBinColors.textSecondary,
-                  size: isTablet ? sw * 0.025 : sw * 0.04,
-                ),
-                SizedBox(width: sw * 0.03),
-                Text(
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            vertical: isTablet ? sh * 0.015 : sh * 0.014,
+            horizontal: isTablet ? sw * 0.025 : sw * 0.04,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                icon,
+                color: iconColor ?? PillBinColors.textSecondary,
+                size: isTablet ? sw * 0.025 : sw * 0.045,
+              ),
+              SizedBox(width: sw * 0.03),
+              Expanded(
+                child: Text(
                   title,
                   style: PillBinRegular.style(
                     fontSize: isTablet ? sw * 0.025 : sw * 0.04,
-                    color: PillBinColors.textPrimary,
+                    color: titleColor ?? PillBinColors.textPrimary,
                   ),
                 ),
-              ],
-            ),
+              ),
+              if (showChevron)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: PillBinColors.textLight,
+                  size: isTablet ? sw * 0.028 : sw * 0.05,
+                ),
+            ],
           ),
         ),
       ),

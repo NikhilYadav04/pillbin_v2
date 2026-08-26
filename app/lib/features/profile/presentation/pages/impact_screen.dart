@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
+import 'package:pillbin/core/utils/snackBar.dart';
 import 'package:pillbin/features/profile/data/repository/user_provider.dart';
+import 'package:pillbin/features/profile/presentation/widgets/impact_card.dart';
 import 'package:pillbin/network/models/user_model.dart';
 import 'package:provider/provider.dart';
 
@@ -16,6 +18,8 @@ class _ImpactScreenState extends State<ImpactScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
+  final GlobalKey<ImpactCardState> _shareCardKey = GlobalKey<ImpactCardState>();
+  bool _sharing = false;
 
   @override
   void initState() {
@@ -34,6 +38,32 @@ class _ImpactScreenState extends State<ImpactScreen>
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _share(UserModel? user) async {
+    if (_sharing) return;
+    setState(() => _sharing = true);
+
+    try {
+      final ok = await _shareCardKey.currentState?.share() ?? false;
+      if (!ok && mounted) {
+        CustomSnackBar.show(
+          context: context,
+          icon: Icons.error_outline,
+          title: 'Could not share your impact',
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        CustomSnackBar.show(
+          context: context,
+          icon: Icons.error_outline,
+          title: 'Could not share your impact',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sharing = false);
+    }
   }
 
   @override
@@ -63,71 +93,126 @@ class _ImpactScreenState extends State<ImpactScreen>
           final expiringSoon = user?.stats.expiringSoonCount ?? 0;
           final campaigns = user?.stats.campaignsJoinedCount ?? 0;
 
-          return FadeTransition(
-            opacity: _fadeAnimation,
-            child: SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                  sw * 0.05, sh * 0.01, sw * 0.05, sh * 0.05),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _headline(sw, sh, disposed),
-                  SizedBox(height: sh * 0.03),
-                  Text('Your Numbers',
-                      style: PillBinBold.style(
-                          fontSize: sw * 0.042,
-                          color: PillBinColors.textPrimary)),
-                  SizedBox(height: sh * 0.015),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _statTile(sw, sh, '$tracked', 'Medicines\nTracked',
-                            Icons.medication_outlined, PillBinColors.primary),
-                      ),
-                      SizedBox(width: sw * 0.035),
-                      Expanded(
-                        child: _statTile(sw, sh, '$disposed', 'Safely\nDisposed',
-                            Icons.eco_outlined, PillBinColors.success),
-                      ),
-                    ],
+          return Stack(
+            children: [
+              Positioned(
+                left: -10000,
+                top: 0,
+                child: ImpactCard(
+                  key: _shareCardKey,
+                  data: ImpactCardData(
+                    name: (user?.fullName?.trim().isNotEmpty ?? false)
+                        ? user!.fullName!.trim()
+                        : 'PillBin User',
+                    disposed: disposed,
+                    tracked: tracked,
+                    campaigns: campaigns,
+                    firstTimer: user?.badges.firstTimer.achieved ?? false,
+                    ecoHelper: user?.badges.ecoHelper.achieved ?? false,
+                    greenChampion: user?.badges.greenChampion.achieved ?? false,
                   ),
-                  SizedBox(height: sh * 0.018),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _statTile(
-                            sw,
-                            sh,
-                            '$expiringSoon',
-                            'Expiring\nSoon',
-                            Icons.schedule_outlined,
-                            PillBinColors.warning),
-                      ),
-                      SizedBox(width: sw * 0.035),
-                      Expanded(
-                        child: _statTile(
-                            sw,
-                            sh,
-                            '$campaigns',
-                            'Campaigns\nJoined',
-                            Icons.campaign_outlined,
-                            PillBinColors.info),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: sh * 0.035),
-                  Text('Achievements',
-                      style: PillBinBold.style(
-                          fontSize: sw * 0.042,
-                          color: PillBinColors.textPrimary)),
-                  SizedBox(height: sh * 0.015),
-                  _badges(sw, sh, user, tracked),
-                  SizedBox(height: sh * 0.03),
-                  _footerNote(sw, sh, disposed),
-                ],
+                ),
               ),
-            ),
+              FadeTransition(
+                opacity: _fadeAnimation,
+                child: SingleChildScrollView(
+                  physics: const BouncingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                      sw * 0.05, sh * 0.01, sw * 0.05, sh * 0.05),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _headline(sw, sh, disposed),
+                      SizedBox(height: sh * 0.02),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _sharing ? null : () => _share(user),
+                          icon: _sharing
+                              ? SizedBox(
+                                  width: sw * 0.045,
+                                  height: sw * 0.045,
+                                  child: const CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      valueColor: AlwaysStoppedAnimation(
+                                          Colors.white)),
+                                )
+                              : Icon(Icons.ios_share_rounded, size: sw * 0.05),
+                          label: Text(
+                              _sharing ? 'Preparing…' : 'Share my Impact',
+                              style: PillBinMedium.style(
+                                  fontSize: sw * 0.038, color: Colors.white)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: PillBinColors.success,
+                            foregroundColor: Colors.white,
+                            disabledBackgroundColor:
+                                PillBinColors.success.withValues(alpha: 0.6),
+                            disabledForegroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(vertical: sh * 0.016),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: sh * 0.02),
+                      Text('Your Numbers',
+                          style: PillBinBold.style(
+                              fontSize: sw * 0.042,
+                              color: PillBinColors.textPrimary)),
+                      SizedBox(height: sh * 0.015),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _statTile(sw, sh, '$tracked',
+                                'Medicines\nTracked', Icons.medication_outlined,
+                                PillBinColors.primary),
+                          ),
+                          SizedBox(width: sw * 0.035),
+                          Expanded(
+                            child: _statTile(sw, sh, '$disposed',
+                                'Safely\nDisposed', Icons.eco_outlined,
+                                PillBinColors.success),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: sh * 0.018),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _statTile(
+                                sw,
+                                sh,
+                                '$expiringSoon',
+                                'Expiring\nSoon',
+                                Icons.schedule_outlined,
+                                PillBinColors.warning),
+                          ),
+                          SizedBox(width: sw * 0.035),
+                          Expanded(
+                            child: _statTile(
+                                sw,
+                                sh,
+                                '$campaigns',
+                                'Campaigns\nJoined',
+                                Icons.campaign_outlined,
+                                PillBinColors.info),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: sh * 0.035),
+                      Text('Achievements',
+                          style: PillBinBold.style(
+                              fontSize: sw * 0.042,
+                              color: PillBinColors.textPrimary)),
+                      SizedBox(height: sh * 0.015),
+                      _badges(sw, sh, user, tracked),
+                      SizedBox(height: sh * 0.03),
+                      _footerNote(sw, sh, disposed),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           );
         },
       ),

@@ -73,6 +73,24 @@ const medicineSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    familyMemberId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "FamilyMember",
+      default: null,
+    },
+    isRecurring: {
+      type: Boolean,
+      default: false,
+    },
+    refillIntervalDays: {
+      type: Number,
+      min: 1,
+      default: null,
+    },
+    nextRefillAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -83,6 +101,33 @@ const medicineSchema = new mongoose.Schema(
 medicineSchema.index({ userId: 1, status: 1 });
 medicineSchema.index({ expiryDate: 1 });
 medicineSchema.index({ status: 1, lastNotifiedStatus: 1, isDeleted: 1 });
+medicineSchema.index({ isRecurring: 1, nextRefillAt: 1, isDeleted: 1 });
+medicineSchema.index({ userId: 1, familyMemberId: 1 });
+
+medicineSchema.methods.applyRecurrence = function (isRecurring, refillIntervalDays) {
+  if (isRecurring === undefined && refillIntervalDays === undefined) return;
+
+  const nextIsRecurring =
+    isRecurring !== undefined ? Boolean(isRecurring) : this.isRecurring;
+  const nextInterval =
+    refillIntervalDays !== undefined
+      ? refillIntervalDays === null
+        ? null
+        : Number(refillIntervalDays)
+      : this.refillIntervalDays;
+
+  this.isRecurring = nextIsRecurring;
+  this.refillIntervalDays = nextIsRecurring ? nextInterval : null;
+
+  if (this.isRecurring && this.refillIntervalDays > 0) {
+    const base = this.addedDate || new Date();
+    this.nextRefillAt = new Date(
+      base.getTime() + this.refillIntervalDays * 24 * 60 * 60 * 1000
+    );
+  } else {
+    this.nextRefillAt = null;
+  }
+};
 
 //* Method to update medicine status based on expiry date
 medicineSchema.methods.updateStatus = function () {

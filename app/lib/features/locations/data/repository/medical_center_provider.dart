@@ -104,6 +104,12 @@ class MedicalCenterProvider extends ChangeNotifier {
   bool _isLoadingNearby = false;
   bool get isLoadingNearby => _isLoadingNearby;
 
+  int _nearbyNeedsCenterCount = 0;
+  int get nearbyNeedsCenterCount => _nearbyNeedsCenterCount;
+
+  List<String> _nearbyNeedsCategories = [];
+  List<String> get nearbyNeedsCategories => _nearbyNeedsCategories;
+
   void resetAllCenters() {
     _isSearchAPI = false;
     _isLoading = false;
@@ -537,6 +543,28 @@ class MedicalCenterProvider extends ChangeNotifier {
     }
   }
 
+  //* Get Nearby Needs
+  Future<void> getNearbyNeeds({
+    required double latitude,
+    required double longitude,
+  }) async {
+    try {
+      final response = await _medicalCenterServices.getNearbyNeeds(
+          latitude: latitude, longitude: longitude);
+
+      if (response.statusCode == 200) {
+        final data = response.data!;
+        _nearbyNeedsCenterCount = data["centerCount"] ?? 0;
+        _nearbyNeedsCategories = ((data["categories"] as List?) ?? [])
+            .map((item) => item["category"].toString())
+            .toList();
+        notifyListeners();
+      }
+    } catch (e) {
+      Logger().e(e.toString());
+    }
+  }
+
   //* Search medical Centers
   Future<String> searchMedicalCenters({
     required String query,
@@ -675,6 +703,9 @@ class MedicalCenterProvider extends ChangeNotifier {
     _latitude = 0.0;
     _longitude = 0.0;
     _placeName = "";
+
+    _nearbyNeedsCenterCount = 0;
+    _nearbyNeedsCategories = [];
 
     notifyListeners();
   }

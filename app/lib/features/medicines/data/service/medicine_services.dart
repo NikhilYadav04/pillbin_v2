@@ -86,6 +86,9 @@ class MedicineServices extends ApiService {
     required String type,
     required String purchaseDate,
     File? imageFile, // Optional image parameter
+    bool isRecurring = false,
+    int? refillIntervalDays,
+    String? familyMemberId,
   }) async {
     dynamic requestData;
     Options? options;
@@ -101,6 +104,9 @@ class MedicineServices extends ApiService {
         "batchNumber": batchNumber,
         "purchaseDate": purchaseDate,
         "type": type,
+        "isRecurring": isRecurring,
+        if (refillIntervalDays != null) "refillIntervalDays": refillIntervalDays,
+        if (familyMemberId != null) "familyMemberId": familyMemberId,
         "photo": await MultipartFile.fromFile(
           imageFile.path,
           filename: imageFile.path.split('/').last,
@@ -121,6 +127,9 @@ class MedicineServices extends ApiService {
         "batchNumber": batchNumber,
         "purchaseDate": purchaseDate,
         "type": type,
+        "isRecurring": isRecurring,
+        if (refillIntervalDays != null) "refillIntervalDays": refillIntervalDays,
+        if (familyMemberId != null) "familyMemberId": familyMemberId,
       };
     }
 
@@ -154,7 +163,10 @@ class MedicineServices extends ApiService {
       required String manufacturer,
       required String batchNumber,
       required String type,
-      required String purchaseDate}) async {
+      required String purchaseDate,
+      bool? isRecurring,
+      int? refillIntervalDays,
+      String? familyMemberId}) async {
     return put(ApiEndpoints.updateMedicine(medicineId),
         data: {
           "name": name,
@@ -164,7 +176,12 @@ class MedicineServices extends ApiService {
           "manufacturer": manufacturer,
           "batchNumber": batchNumber,
           "purchaseDate": purchaseDate,
-          "type": type
+          "type": type,
+          if (isRecurring != null) "isRecurring": isRecurring,
+          if (refillIntervalDays != null) "refillIntervalDays": refillIntervalDays,
+          //* null clears it back to Self — this key must always be sent,
+          //* unlike the fields above where omitting means "leave unchanged"
+          "familyMemberId": familyMemberId,
         },
         fromJson: (data) => data as Map<String, dynamic>);
   }

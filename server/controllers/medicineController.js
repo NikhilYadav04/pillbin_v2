@@ -1,10 +1,23 @@
 const Medicine = require("../models/Medicine");
 const User = require("../models/User");
+const FamilyMember = require("../models/FamilyMember");
 const {
   uploadImageService,
   deleteImageService,
 } = require("../services/clopudinaryService.js");
 const { generateMedicineLinks } = require("../utils/medicineLinkGenerator.js");
+
+//* Resolves a familyMemberId from the request body — blank/undefined means
+//* the account owner, anything else must actually belong to this user
+const resolveFamilyMemberId = async (rawId, userId) => {
+  if (!rawId) return { familyMemberId: null };
+
+  const member = await FamilyMember.findById(rawId);
+  if (!member || member.userId.toString() !== userId.toString()) {
+    return { error: "Invalid family member" };
+  }
+  return { familyMemberId: rawId };
+};
 
 //* Helper function to update user stats
 const updateUserStats = async (userId) => {
@@ -36,6 +49,9 @@ const addMedicine = async (req, res) => {
       dosage,
       manufacturer,
       batchNumber,
+      isRecurring,
+      refillIntervalDays,
+      familyMemberId,
     } = req.body;
 
     if (!name || !expiryDate) {
@@ -76,6 +92,16 @@ const addMedicine = async (req, res) => {
       imageData.publicId = result.public_id;
     }
 
+    const familyMemberResult = await resolveFamilyMemberId(
+      familyMemberId,
+      userId
+    );
+    if (familyMemberResult.error) {
+      return res
+        .status(400)
+        .json({ statusCode: 400, message: familyMemberResult.error });
+    }
+
     const medicine = new Medicine({
       userId,
       name: cleanedName,
@@ -89,10 +115,12 @@ const addMedicine = async (req, res) => {
       batchNumber,
       image: imageData,
       productLinks: buyLinks,
+      familyMemberId: familyMemberResult.familyMemberId,
     });
 
     //* Update status based on expiry date
     const status = medicine.updateStatus();
+    medicine.applyRecurrence(isRecurring, refillIntervalDays);
     await medicine.save();
 
     //* Update user stats
@@ -530,6 +558,23 @@ const updateMedicine = async (req, res) => {
     //* Update status if expiry date changed
     if (updateData.expiryDate) {
       medicine.updateStatus();
+    }
+
+    if (updateData.isRecurring !== undefined || updateData.refillIntervalDays !== undefined) {
+      medicine.applyRecurrence(updateData.isRecurring, updateData.refillIntervalDays);
+    }
+
+    if (updateData.familyMemberId !== undefined) {
+      const familyMemberResult = await resolveFamilyMemberId(
+        updateData.familyMemberId,
+        userId
+      );
+      if (familyMemberResult.error) {
+        return res
+          .status(400)
+          .json({ statusCode: 400, message: familyMemberResult.error });
+      }
+      medicine.familyMemberId = familyMemberResult.familyMemberId;
     }
 
     await medicine.save();

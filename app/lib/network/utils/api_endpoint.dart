@@ -28,6 +28,10 @@ class ApiEndpoints {
 
   //* Medicine
   static String get addMedicine => '${ApiConfig.baseUrl}/api/medicine/add';
+
+  static String get familyMembers => '${ApiConfig.baseUrl}/api/family-members';
+  static String deleteFamilyMember(String id) =>
+      '${ApiConfig.baseUrl}/api/family-members/$id';
   static String get getInventory =>
       '${ApiConfig.baseUrl}/api/medicine/inventory';
   static String get getInventoryDeleted =>
@@ -51,6 +55,8 @@ class ApiEndpoints {
   static String getNearbyMedicalCenters(
           double latitude, double longitude, int radius, int page, int limit) =>
       '${ApiConfig.baseUrl}/api/medical-center/nearby?latitude=${latitude}&longitude=${longitude}&radius=${radius}&page=${page}&limit=${limit}';
+  static String getNearbyNeeds(double latitude, double longitude) =>
+      '${ApiConfig.baseUrl}/api/medical-center/nearby-needs?latitude=${latitude}&longitude=${longitude}';
   static String searchMedicalCenters(
           String query, String facilityType, int page, int limit) =>
       '${ApiConfig.baseUrl}/api/medical-center/search?query=${query}&facilityType=${facilityType}&page=${page}&limit=${limit}';

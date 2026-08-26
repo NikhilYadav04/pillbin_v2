@@ -19,6 +19,7 @@ import 'package:pillbin/features/medicines/presentation/pages/add_medicine_scree
 import 'package:pillbin/features/medicines/presentation/pages/edit_medicine_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_history_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicine_inventory_screen.dart';
+import 'package:pillbin/features/medicines/presentation/pages/manage_family_screen.dart';
 import 'package:pillbin/features/medicines/presentation/pages/medicines_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/edit_profile_screen.dart';
 import 'package:pillbin/features/profile/presentation/pages/impact_screen.dart';
@@ -155,6 +156,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       final String manufacturer = args?['manufacturer'] ?? '';
       final String batchNumber = args?['batchNumber'] ?? '';
       final String notes = args?['notes'] ?? '';
+      final bool isRecurring = args?['isRecurring'] ?? false;
+      final int? refillIntervalDays = args?['refillIntervalDays'];
+      final String? familyMemberId = args?['familyMemberId'];
 
       page = EditMedicineScreen(
         medicineId: medicineId,
@@ -166,6 +170,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         manufacturer: manufacturer,
         batchNumber: batchNumber,
         notes: notes,
+        isRecurring: isRecurring,
+        refillIntervalDays: refillIntervalDays,
+        familyMemberId: familyMemberId,
       );
       break;
 
@@ -215,6 +222,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       break;
     case '/inventory-screen':
       page = MyInventoryScreen();
+      break;
+    case '/manage-family-screen':
+      page = const ManageFamilyScreen();
       break;
     case '/medicine-history-screen':
       page = MedicineHistoryScreen();
