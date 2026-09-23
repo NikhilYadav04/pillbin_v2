@@ -28,6 +28,17 @@ const centerReviewSchema = new mongoose.Schema(
       trim: true,
       maxlength: 500,
     },
+    moderationStatus: {
+      type: String,
+      enum: ["published", "pending", "rejected"],
+      default: "published",
+      index: true,
+    },
+    moderation: {
+      label: String,
+      probability: Number,
+      checkedAt: Date,
+    },
   },
   {
     timestamps: true,

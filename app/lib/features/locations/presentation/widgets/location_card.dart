@@ -156,6 +156,45 @@ class _LocationCardState extends State<LocationCard> {
     return distanceInMeters / 1000;
   }
 
+  bool get _isVerified =>
+      widget.medicalCenter.isVendorManaged &&
+      widget.medicalCenter.verificationStatus == 'approved';
+
+  Widget _verifiedBadge(bool isTablet) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.sw * 0.02,
+        vertical: widget.sh * 0.004,
+      ),
+      decoration: BoxDecoration(
+        color: PillBinColors.primary.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: PillBinColors.primary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_rounded,
+            color: PillBinColors.primary,
+            size: isTablet ? widget.sw * 0.018 : widget.sw * 0.03,
+          ),
+          SizedBox(width: widget.sw * 0.008),
+          Text(
+            'Verified',
+            style: PillBinMedium.style(
+              fontSize: isTablet ? widget.sw * 0.02 : widget.sw * 0.032,
+              color: PillBinColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   //* Get icon based on facility type
   IconData _getFacilityIcon() {
     switch (widget.medicalCenter.facilityType) {
@@ -381,6 +420,10 @@ class _LocationCardState extends State<LocationCard> {
                         ],
                       ),
                     ),
+                  if (_isVerified) ...[
+                    SizedBox(width: widget.sw * 0.02),
+                    _verifiedBadge(isTablet),
+                  ],
                   Spacer(),
                   GestureDetector(
                     onTap: () async {

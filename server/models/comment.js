@@ -18,6 +18,17 @@ const commentSchema = new mongoose.Schema(
       maxlength: 2000,
       trim: true,
     },
+    moderationStatus: {
+      type: String,
+      enum: ["published", "pending", "rejected"],
+      default: "published",
+      index: true,
+    },
+    moderation: {
+      label: String,
+      probability: Number,
+      checkedAt: Date,
+    },
   },
   {
     timestamps: true,

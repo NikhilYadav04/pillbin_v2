@@ -37,6 +37,10 @@ class BlogModel {
   final bool isLiked;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String moderationStatus;
+
+  bool get isUnderReview => moderationStatus == 'pending';
+  bool get isRemoved => moderationStatus == 'rejected';
 
   BlogModel({
     required this.id,
@@ -53,6 +57,7 @@ class BlogModel {
     required this.isLiked,
     required this.createdAt,
     required this.updatedAt,
+    this.moderationStatus = 'published',
   });
 
   factory BlogModel.fromJson(Map<String, dynamic> json) {
@@ -74,6 +79,7 @@ class BlogModel {
       isLiked: json['liked'] as bool? ?? false,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      moderationStatus: json['moderationStatus'] as String? ?? 'published',
     );
   }
 
@@ -93,6 +99,7 @@ class BlogModel {
       'liked': isLiked,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
+      'moderationStatus': moderationStatus,
     };
   }
 
@@ -116,6 +123,7 @@ class BlogModel {
       isLiked: isLiked ?? this.isLiked,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      moderationStatus: moderationStatus,
     );
   }
 }

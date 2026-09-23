@@ -7,6 +7,7 @@ from agno.agent import Agent
 from agno.tools.websearch import WebSearchTools
 
 from backend.models.output_schema import Output
+from backend.services import jev_client
 from backend.services.llm_factory import get_router_llm, get_agent_llm
 from backend.services.knowledge_service import knowledge_base
 from backend.tools.inventory_tools import InventoryTools
@@ -149,33 +150,125 @@ ROUTER_BY_ROLE = {
     "user": USER_ROUTER_INSTRUCTIONS,
 }
 
-INTENTS_BY_ROLE = {
-    VENDOR_ROLE: ("requests", "center", "notifications", "outofscope", "general"),
-    "user": (
-        "inventory",
-        "directory",
-        "donations",
-        "notifications",
-        "knowledge",
-        "general",
-    ),
+INTENT_CRITERIA_BY_ROLE = {
+    VENDOR_ROLE: {
+        "requests": (
+            "Donation requests sent to the vendor's center, pending approvals, "
+            "incoming or donated medicines, including 'my medicines' or 'my inventory'"
+        ),
+        "center": (
+            "The vendor's center profile, analytics, performance, fulfilment rate, "
+            "ratings, reviews, verification status"
+        ),
+        "notifications": "The vendor's alerts, notifications, unread messages",
+        "outofscope": (
+            "The vendor asking about themselves as a patient: their personal medicine "
+            "cabinet at home, personal prescriptions, their own lab report, "
+            "nearby hospitals to visit"
+        ),
+        "general": "Medical questions, drug information, health advice, greetings, anything else",
+    },
+    "user": {
+        "inventory": "The user's own medicines: prescriptions, expiry dates, stock, deleted medicines",
+        "directory": "Finding nearby hospitals, clinics, pharmacies or medical centers",
+        "donations": "Donation requests the user submitted: status, approvals, pickups",
+        "notifications": "The user's alerts, notifications, unread messages, what they missed",
+        "knowledge": "The user's own uploaded documents, reports, lab or test results",
+        "general": (
+            "Medical questions, symptoms, drug information, health advice, "
+            "greetings, anything else"
+        ),
+    },
 }
+
+INTENTS_BY_ROLE = {
+    role: tuple(criteria) for role, criteria in INTENT_CRITERIA_BY_ROLE.items()
+}
+
+JEV_INTENT_THRESHOLD = 0.7
+JEV_FOLLOWUP_THRESHOLD = 0.7
+JEV_EMERGENCY_THRESHOLD = 0.5
+
+EMERGENCY_INSTRUCTION = (
+    "\n\nThe user's message may describe a medical emergency. Open your reply by "
+    "telling them to seek immediate medical care or call emergency services, "
+    "before anything else."
+)
 
 
 def _normalise_role(role: str) -> str:
     return VENDOR_ROLE if (role or "").strip().lower() == VENDOR_ROLE else "user"
 
 
+def _jev_questions(role: str, has_history: bool) -> dict:
+    questions = {
+        "intent": {
+            "type": "choice",
+            "instructions": "Which category does the latest user query belong to?",
+            "criteria": INTENT_CRITERIA_BY_ROLE[role],
+        },
+    }
+    if has_history:
+        questions["is_followup"] = {
+            "type": "boolean",
+            "instructions": (
+                "Is the latest user query a conversational follow-up about the earlier "
+                "conversation, like 'tell me more' or 'explain that', rather than a "
+                "request for fresh data?"
+            ),
+        }
+    if role != VENDOR_ROLE:
+        questions["is_emergency"] = {
+            "type": "boolean",
+            "instructions": (
+                "Does the latest user query describe a possible medical emergency "
+                "happening now, such as chest pain, trouble breathing, stroke signs, "
+                "severe bleeding, a severe allergic reaction, an overdose or "
+                "suicidal thoughts?"
+            ),
+        }
+    return questions
+
+
 async def classify_intent(
     user_message: str, history_block: str, role: str = "user"
-) -> tuple[str, Optional[str]]:
+) -> tuple[str, Optional[str], bool]:
     prompt = user_message
     if history_block:
         prompt = f"{history_block}\n\nUser query: {user_message}"
 
     role = _normalise_role(role)
-
     t = Timer()
+    emergency = False
+
+    answers = await jev_client.evaluate(prompt, _jev_questions(role, bool(history_block)))
+    if answers is not None:
+        emergency_p = jev_client.boolean_probability(answers.get("is_emergency"))
+        followup_p = jev_client.boolean_probability(answers.get("is_followup"))
+        intent, intent_p = jev_client.top_choice(answers.get("intent"))
+        emergency = emergency_p is not None and emergency_p >= JEV_EMERGENCY_THRESHOLD
+
+        logger.info(
+            f"     jev → intent={intent}:{intent_p:.2f} "
+            f"followup={followup_p} emergency={emergency_p}"
+        )
+
+        is_followup = followup_p is not None and followup_p >= JEV_FOLLOWUP_THRESHOLD
+        if (
+            not is_followup
+            and intent in INTENTS_BY_ROLE[role]
+            and intent_p >= JEV_INTENT_THRESHOLD
+        ):
+            log_intent(f"{role}:{intent}", "jev", t.elapsed())
+            return intent, None, emergency
+
+    intent, answer = await _classify_with_llm(prompt, role, t)
+    return intent, answer, emergency
+
+
+async def _classify_with_llm(
+    prompt: str, role: str, t: Timer
+) -> tuple[str, Optional[str]]:
     router_agent = Agent(
         name="IntentRouter",
         model=get_router_llm(),
@@ -244,9 +337,11 @@ async def get_agent_response(
     history_block = f"## Recent Conversation\n{history_text}" if history_text else ""
 
     role = _normalise_role(role)
-    intent, direct_answer = await classify_intent(user_message, history_block, role)
+    intent, direct_answer, emergency = await classify_intent(
+        user_message, history_block, role
+    )
 
-    if intent == "history" and direct_answer:
+    if intent == "history" and direct_answer and not emergency:
         log_response(direct_answer, False, 0.9, "0ms (history)")
         return Output(
             id=agent_message_id or "history",
@@ -259,6 +354,8 @@ async def get_agent_response(
         f"\n\nUse '{agent_message_id}' for the `id` field in your response. "
         "Set isTable=true when response contains lists, stats, or tabular data."
     )
+    if emergency:
+        instructions += EMERGENCY_INSTRUCTION
 
     if intent == "knowledge" and role != VENDOR_ROLE:
         agent_name = "KnowledgeAgent (ChromaDB)"

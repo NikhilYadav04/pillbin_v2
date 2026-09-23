@@ -93,6 +93,9 @@ class CommentModel {
   final String content;
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String moderationStatus;
+
+  bool get isUnderReview => moderationStatus == 'pending';
 
   CommentModel({
     required this.id,
@@ -101,6 +104,7 @@ class CommentModel {
     required this.content,
     required this.createdAt,
     required this.updatedAt,
+    this.moderationStatus = 'published',
   });
 
   factory CommentModel.fromJson(Map<String, dynamic> json) {
@@ -111,6 +115,7 @@ class CommentModel {
       content: json['content'] as String,
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
+      moderationStatus: json['moderationStatus'] as String? ?? 'published',
     );
   }
 
@@ -121,6 +126,7 @@ class CommentModel {
         'content': content,
         'createdAt': createdAt.toIso8601String(),
         'updatedAt': updatedAt.toIso8601String(),
+        'moderationStatus': moderationStatus,
       };
 
   CommentModel copyWith({String? content}) {
@@ -131,6 +137,7 @@ class CommentModel {
       content: content ?? this.content,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      moderationStatus: moderationStatus,
     );
   }
 }

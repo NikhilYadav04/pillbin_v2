@@ -12,6 +12,13 @@ const {
 } = require("../services/clopudinaryService");
 const { buildReceiptNumber, countUnits } = require("../utils/receipt");
 const { runInTransaction } = require("../utils/transaction");
+const {
+  HIDDEN_STATUSES,
+  REJECTED_MESSAGE,
+  moderate,
+  moderationFields,
+  notifyAdminsOfPending,
+} = require("../services/moderationService");
 
 const MAX_PENDING_PER_CENTER = 3;
 
@@ -150,7 +157,7 @@ const getMyRequests = async (req, res) => {
     //* Attach the user's own review so the client knows what's already rated
     const reviews = await CenterReview.find({
       donationRequestId: { $in: requests.map((r) => r._id) },
-    }).select("donationRequestId rating comment");
+    }).select("donationRequestId rating comment moderationStatus");
 
     const reviewByRequest = new Map(
       reviews.map((r) => [r.donationRequestId.toString(), r])
@@ -164,6 +171,7 @@ const getMyRequests = async (req, res) => {
           _id: review._id,
           rating: review.rating,
           comment: review.comment,
+          moderationStatus: review.moderationStatus || "published",
         };
       }
       return plain;
@@ -369,6 +377,14 @@ const submitReview = async (req, res) => {
       });
     }
 
+    const moderation = await moderate("review", comment);
+    if (moderation.status === "rejected") {
+      return res.status(422).json({
+        statusCode: 422,
+        message: REJECTED_MESSAGE,
+      });
+    }
+
     //* The row and the center's counters move together, otherwise a failure
     //* between them leaves a visible review the star average never counted
     const review = await runInTransaction(async (session) => {
@@ -380,6 +396,7 @@ const submitReview = async (req, res) => {
             donationRequestId: id,
             rating: numericRating,
             comment,
+            ...moderationFields(moderation),
           },
         ],
         { session }
@@ -394,6 +411,10 @@ const submitReview = async (req, res) => {
 
       return created;
     });
+
+    if (moderation.status === "pending") {
+      notifyAdminsOfPending("review", review._id);
+    }
 
     res.status(201).json({
       statusCode: 201,
@@ -520,6 +541,10 @@ const getCenterReviews = async (req, res) => {
       plain.isMine = r.userId && r.userId._id
         ? r.userId._id.toString() === req.user.id.toString()
         : false;
+      if (HIDDEN_STATUSES.includes(plain.moderationStatus) && !plain.isMine) {
+        plain.comment = null;
+      }
+      if (!plain.isMine) delete plain.moderation;
       return plain;
     });
 

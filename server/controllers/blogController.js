@@ -7,12 +7,30 @@ const {
   deleteImageService,
 } = require("../services/clopudinaryService.js");
 const Blog = require("../models/blog.js");
+const {
+  HIDDEN_STATUSES,
+  REJECTED_MESSAGE,
+  moderate,
+  moderationFields,
+  notifyAdminsOfPending,
+} = require("../services/moderationService.js");
+
+const EDITABLE_FIELDS = ["content", "role", "experience", "phone", "email", "name"];
 
 class BlogController {
   async createBlog(req, res) {
     try {
       const { content, role, experience, phone, email, name } = req.body;
       const userId = req.user.id;
+
+      const moderation = await moderate("blog", content);
+      if (moderation.status === "rejected") {
+        return res.status(422).json({
+          statusCode: 422,
+          success: false,
+          message: REJECTED_MESSAGE,
+        });
+      }
 
       let images = [];
 
@@ -40,9 +58,14 @@ class BlogController {
         email,
         images,
         name,
+        ...moderationFields(moderation),
       });
 
       await blog.save();
+
+      if (moderation.status === "pending") {
+        notifyAdminsOfPending("blog", blog._id);
+      }
 
       const blogResponse = blog.toObject();
       blogResponse.author = { email };
@@ -64,11 +87,14 @@ class BlogController {
       const userId = req.user?.id;
 
       const [blog, liked] = await Promise.all([
-        Blog.findById(id).populate("author", "name email").lean(),
+        Blog.findById(id).select("-moderation").populate("author", "name email").lean(),
         userId ? Like.exists({ blog: id, user: userId }) : false,
       ]);
 
-      if (!blog) {
+      const isAuthor =
+        blog && blog.author && String(blog.author._id) === String(userId);
+
+      if (!blog || (HIDDEN_STATUSES.includes(blog.moderationStatus) && !isAuthor)) {
         return res.status(404).json({
           statusCode: 404,
           success: false,
@@ -94,10 +120,12 @@ class BlogController {
       const userId = req.user?.id;
       const skip = (page - 1) * limit;
 
-      const query = userId ? { author: { $ne: userId } } : {};
+      const query = { moderationStatus: { $nin: HIDDEN_STATUSES } };
+      if (userId) query.author = { $ne: userId };
 
       const [blogs, total] = await Promise.all([
         Blog.find(query)
+          .select("-moderation")
           .populate("author", "name email")
           .sort({ createdAt: -1 })
           .skip(skip)
@@ -198,7 +226,6 @@ class BlogController {
     try {
       const { id } = req.params;
       const userId = req.user.id;
-      const updateData = req.body;
 
       const blog = await Blog.findById(id);
 
@@ -218,8 +245,30 @@ class BlogController {
         });
       }
 
-      Object.assign(blog, updateData);
+      const updates = {};
+      for (const field of EDITABLE_FIELDS) {
+        if (req.body[field] !== undefined) updates[field] = req.body[field];
+      }
+
+      let moderation = null;
+      if (updates.content !== undefined && updates.content !== blog.content) {
+        moderation = await moderate("blog", updates.content);
+        if (moderation.status === "rejected") {
+          return res.status(422).json({
+            statusCode: 422,
+            success: false,
+            message: REJECTED_MESSAGE,
+          });
+        }
+        Object.assign(updates, moderationFields(moderation));
+      }
+
+      Object.assign(blog, updates);
       await blog.save();
+
+      if (moderation && moderation.status === "pending") {
+        notifyAdminsOfPending("blog", blog._id);
+      }
 
       const blogResponse = blog.toObject();
       blogResponse.author = { email: blogResponse.email };

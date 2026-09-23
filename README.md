@@ -4,6 +4,8 @@
 
 ### Smart, offline-first medicine management — track, donate, and dispose responsibly
 
+[![Get it on Google Play](https://img.shields.io/badge/Google_Play-Download-414141?logo=googleplay&logoColor=white)](https://play.google.com/store/apps/details?id=com.nikhil.pillbin)
+
 [![Flutter](https://img.shields.io/badge/Flutter-3.4.4-02569B?logo=flutter)](https://flutter.dev) [![Node.js](https://img.shields.io/badge/Node.js-22-339933?logo=nodedotjs)](https://nodejs.org) [![FastAPI](https://img.shields.io/badge/FastAPI-Python-009688?logo=fastapi)](https://fastapi.tiangolo.com) [![MongoDB](https://img.shields.io/badge/MongoDB-8.x-47A248?logo=mongodb)](https://mongodb.com) [![Agno](https://img.shields.io/badge/Agno-Multi--Agent-FF6B35?logo=openai)](https://github.com/agno-agi/agno) [![ChromaDB](https://img.shields.io/badge/ChromaDB-Hybrid%20RAG-FFB300)](https://trychroma.com) [![Firebase](https://img.shields.io/badge/FCM-Push-FFCA28?logo=firebase)](https://firebase.google.com) [![Render](https://img.shields.io/badge/Render-Deployed-46E3B7?logo=render)](https://render.com)
 
 </div>
@@ -27,9 +29,9 @@
 
 ## 📖 Overview
 
-**PillBin** is a comprehensive, offline-first medicine management application built for both patients and medical centers. Users can track medicines, receive smart expiry alerts, discover nearby disposal centers, donate unused medicines, and get AI-powered health insights — all from a single app.
+**PillBin** is a comprehensive, offline-first medicine management application built for both patients and medical centers, **live on [Google Play](https://play.google.com/store/apps/details?id=com.nikhil.pillbin)**. Users can track medicines for themselves and their family, get expiry and refill reminders, discover nearby disposal centers, donate unused medicines, and get AI-powered health insights — all from a single app.
 
-The platform connects users with **verified vendor centers** through a full donation and approval pipeline, enriched with contextual in-app nudges, a community blog, and **PillBot** — a multi-agent AI chatbot powered by the Agno framework with RAG over medical PDFs.
+The platform connects users with **verified vendor centers** through a full donation and approval pipeline, enriched with contextual in-app nudges, a moderated community blog, and **PillBot** — a multi-agent AI chatbot built on the Agno framework, with a low-latency decision model routing each question to the right specialist agent and RAG over the user's own uploaded documents.
 
 ---
 
@@ -41,7 +43,15 @@ At its core, PillBin is a smart medicine cabinet. Users can add medicines with f
 - **Expiring Soon** — 5 days or fewer until expiry, shown in amber with a daily 9 AM push notification
 - **Expired** — past expiry date, shown in red with a one-tap bulk-clear action
 
-Medicines are **soft-deleted** first (moved to a "Deleted Bin" with up to 100-item history), then permanently wiped on demand or auto-cleaned after 15 days. A per-account cap of **100 active medicines** keeps queries performant. Each medicine also stores product links to external pharmacy sites (`Tata 1mg`, `PharmEasy`, `Netmeds`) for quick reordering.
+Medicines are **soft-deleted** first (moved to a "Deleted Bin" with up to 100-item history), then permanently wiped on demand. Medicines expired for more than 15 days can also be auto-cleaned by the daily job (opt-in via `EXPIRY_CLEANUP_ENABLED`). A per-account cap of **100 active medicines** keeps queries performant. Each medicine also stores product links to external pharmacy sites (`Tata 1mg`, `PharmEasy`, `Netmeds`) for quick reordering.
+
+#### 🔁 Refill Reminders
+
+Any medicine can be marked as **recurring** with a refill interval in days. The server stores `nextRefillAt`, and the same daily 9 AM job that sends expiry alerts also finds every medicine whose refill is due, sends **one grouped push per user** ("Time to refill 3 medicines"), and rolls `nextRefillAt` forward by the interval. A per-user, per-day dedup key makes a job re-run on the same day a no-op instead of a second notification.
+
+#### 👨‍👩‍👧 Family Profiles
+
+One account can track medicines for the whole household. Users add family members (name and optional relation) and tag each medicine as theirs or a member's; the inventory screen gets a **Self / Mom / Dad** profile switcher that filters every tab. It is deliberately one shared inventory with a tag, not separate inventories, so expiry alerts, refills and stats keep working unchanged — notifications just read "Paracetamol (Mom)". The server validates that a submitted `familyMemberId` belongs to the caller before saving it, and deleting a member moves their medicines back to the account owner.
 
 ---
 
@@ -60,6 +70,10 @@ Pending → Approved / Rejected → Completed
 ```
 
 Once approved, the user is notified and can call the center directly from the app to schedule pickup. Vendors can attach a `vendorNote` on approval or rejection. Users can cancel `pending` requests at any time. All donations are searchable by medicine name or center name and grouped by status.
+
+**"Centers near you need…" banner.** Vendors mark each medicine category they take as `accepting`, `full` or `not_accepting`. A `$geoNear` + `$facet` aggregation (`GET /api/medical-center/nearby-needs`) finds approved centers near the user and returns the categories most of them are currently accepting, which the inventory screen shows as a dismissible banner — so donations go where they are actually wanted.
+
+Completing a donation is **atomic**: the status change, the center's donation counter and the donor's inventory update run in a single **MongoDB transaction**, and the push notification is sent only after the commit, so a retried transaction can never notify twice.
 
 ---
 
@@ -100,7 +114,9 @@ Centers carry two numbers: a plain **average** shown as stars, and a **Bayesian 
 weighted = (C × 3.5 + ratingSum) / (C + totalReviews)     // C = 5
 ```
 
-Both are maintained as **running counters** (`ratingSum`, `totalReviews`, `ratingBreakdown`) updated with a single `$inc` per write — no aggregation, so the cost is flat whether a center has 10 reviews or 10 million. Reviews paginate with a **server-side star filter**, so filtering searches every review rather than the loaded page.
+Both are maintained as **running counters** (`ratingSum`, `totalReviews`, `ratingBreakdown`) updated with a single `$inc` per write — no aggregation, so the cost is flat whether a center has 10 reviews or 10 million. The review row and the counter update commit together in one **MongoDB transaction**. Reviews paginate with a **server-side star filter**, so filtering searches every review rather than the loaded page.
+
+Review text goes through the same [content moderation](#content-moderation) as blog posts. A held review still counts toward the star rating (it comes from a real completed donation); only its text is hidden until an admin approves it.
 
 ---
 
@@ -120,7 +136,9 @@ Surfaces total requests, fulfilment rate, average approval latency (computed fro
 
 ### 📈 Donation Impact
 
-Donors get an impact screen summarising what they've contributed — medicines donated, centers helped, and completion streaks — plus a per-request **status timeline** rendered from `statusHistory`, so every state change is visible with its timestamp.
+Donors get an impact screen summarising what they've contributed — medicines safely disposed, medicines tracked, campaigns joined and badges earned — plus a per-request **status timeline** rendered from `statusHistory`, so every state change is visible with its timestamp.
+
+**Share my Impact** turns that screen into a branded image card (name, medicines disposed, stats and badges) and opens the share sheet. It uses the same on-device technique as the receipt: an off-screen `RepaintBoundary` captured to PNG, with no server call.
 
 ---
 
@@ -129,15 +147,27 @@ Donors get an impact screen summarising what they've contributed — medicines d
 PillBot is built on the **Agno** multi-agent framework and is the most technically complex feature in PillBin. It exposes a **FastAPI** endpoint that the Flutter app calls with user queries and a `userId` for session continuity.
 
 The agent pipeline:
-1. **Query intake** — user message received by FastAPI, `userId` resolved to a Redis chat history key
-2. **Intent routing** — a fast, cheap model classifies the query and picks exactly one specialist path, so a simple question never pays for the full toolchain
-3. **RAG retrieval** — query embedded with Gemini and searched against a **ChromaDB** hybrid index (vector + keyword, RRF-fused) over chunked medical PDFs
-4. **Live tools** — inventory, directory, donation, vendor and notification tools call the Node API so answers reflect the user's real data
-5. **Web search** — DuckDuckGo for health information not covered by the indexed PDFs
-6. **LLM reasoning** — Agno composes the context and answers via **Gemini** (or **Groq**, switchable through `LLM_PROVIDER`)
+1. **Query intake** — user message received by FastAPI, `userId` resolved to a Redis chat history key, and the caller's role (`user` or `vendor`) verified against the Node API rather than trusted from the request
+2. **Intent routing** — a router picks exactly one specialist path, so a simple question never pays for the full toolchain. The categories are role-aware: users get inventory, directory, donations, notifications, knowledge and general; vendors get requests, center, notifications, out-of-scope and general
+3. **RAG retrieval** — for questions about the user's own uploaded documents, the query is searched against a **ChromaDB** hybrid index (vector + keyword, RRF-fused, `k=60`), filtered to that user's documents only
+4. **Live tools** — inventory, directory, donation, vendor and notification tools call the Node API with the user's JWT, so answers reflect the user's real data
+5. **Web search** — DuckDuckGo for general health questions, with safety rules: no diagnosis, no dosing advice, emergency guidance first
+6. **LLM reasoning** — Agno composes the context and answers via **Gemini** (or **Groq**, switchable through `LLM_PROVIDER`), with a 60 s timeout and a structured fallback response on failure
 7. **Two-tier history** — recent turns live in **Redis** with a 24h TTL, older ones fall back to **SQLite**, paged 40 messages at a time
 
 Chat history is persisted per `userId`, providing continuity across app sessions.
+
+#### ⚡ Decision-model router (Jev)
+
+Routing is a classification problem, so instead of asking a text-generating LLM to write a category name, PillBot asks **Jev** — a "System 1" decision model from TypeSafe AI that returns calibrated probabilities instead of text — three typed questions in a single call:
+
+| Question | Type | Used for |
+|---|---|---|
+| `intent` | choice | Which specialist agent handles the query |
+| `is_followup` | boolean | Conversational follow-ups ("tell me more") that need the chat history |
+| `is_emergency` | boolean | Chest pain, stroke signs, overdose and similar — users only |
+
+The decision is confidence-gated: a top intent probability ≥ 0.7 is used directly; follow-ups, low-confidence answers, and any Jev error or timeout (2 s) fall back to the original Gemini router, so an outage degrades speed, never correctness. An emergency score ≥ 0.5 adds a *seek immediate care first* instruction to whichever agent answers and bypasses the history shortcut. Jev is called through the **Vercel AI Gateway** and toggled with `JEV_ENABLED`. In live testing it routed 7/7 sample queries correctly — including a vendor asking about their own medicine at home (out of scope) and a chest-pain message (emergency 0.99) — in about 0.4–0.6 s per call.
 
 ---
 
@@ -147,7 +177,7 @@ Users can discover nearby medical and disposal centers using **MongoDB `$geoNear
 
 - `Hospital`, `Clinic`, `Pharmacy`, `Health Center`
 
-Each center card shows: operating hours, accepted medicine types, ratings, an image gallery, and a direct-call button. Only **admin-approved** centers appear in this list — centers awaiting verification are invisible to users.
+Each center card shows: operating hours, accepted medicine types, ratings, an image gallery, and a direct-call button. Only **admin-approved** centers appear in this list — centers awaiting verification are invisible to users. Vendor-registered centers that passed admin document review carry a **Verified** badge on both the list card and the detail screen, so donors can tell a reviewed listing apart at a glance.
 
 Users can **save** centers to a personal list (`savedMedicalCenters` on the `User` model) and access them quickly from their profile.
 
@@ -160,11 +190,15 @@ PillBin has a server-side notification model (`Notification` collection) with 4 
 | Type | Trigger | Schedule | Priority |
 |---|---|---|---|
 | Welcome | Signup completion | Instant | Normal |
-| Medicine Expiry | Expires within 5 days | Daily 9 AM (`node-cron`) | Urgent |
+| Medicine Expiry | Expiring within 5 days, or expired | Daily 9 AM IST (`node-cron`) | Important / Alert |
+| Refill Due | A recurring medicine's refill date has arrived | Daily 9 AM IST (same job) | Normal |
 | Donation Updates | Submitted / approved / completed / cancelled | Instant | Important |
-| Custom Alerts | Admin / system events | Instant | Varies |
+| Moderation | Content held for review (admins) · approved / removed (author) | Instant | Important / Normal |
+| Center Verification | Admin approves or rejects a vendor center | Instant | Important |
 
-The inbox is **paginated 20 at a time** with infinite scroll, and a **60-day TTL index** ages rows out automatically. The unread badge reads a server-side `countDocuments` rather than the loaded page, so it stays correct past page one.
+Expiry and refill alerts are **grouped per user** ("3 medicines expire soon") and carry a per-user, per-day dedup key backed by a unique index, so a re-run of the job on the same day can't double-notify. The inbox is **paginated 20 at a time** with infinite scroll, and a **60-day TTL index** ages rows out automatically. The unread badge reads a server-side `countDocuments` rather than the loaded page, so it stays correct past page one.
+
+If the user has turned notifications off at the OS level, **Settings** shows a warning ("you'll miss expiry and refill reminders") with a button that opens the phone's app settings — otherwise every reminder feature would fail silently.
 
 ---
 
@@ -191,9 +225,21 @@ PillBin has a fully-featured community blog for health awareness content:
 
 - Browse all community posts in a chronological feed
 - Create posts with up to 2 media attachments (photos)
-- **AI-generated blog images** — a dedicated `/api/blogs/generate/image` endpoint uses **Gemini** (`@google/genai`) to generate a relevant cover image from the blog title
+- **AI-generated blog images** — a dedicated `/api/blog/generate/image` endpoint uses **Azure FLUX** to generate a relevant cover image from the post's text
 - Like posts (toggle), view likers, add / edit / delete comments
 - Personal feed showing only your own posts
+
+### Content Moderation
+
+In a health app, user posts are a real risk: dangerous medical advice ("stop your insulin"), people trying to sell prescription drugs, spam and abuse. Every blog post, comment and review text is classified by **Jev** on create **and on edit** (so a harmless post can't later be edited into a harmful one) into `ok`, `spam`, `abusive`, `selling_medicines` or `dangerous_advice`:
+
+| Result | Action |
+|---|---|
+| `ok` ≥ 0.7 | Published |
+| `spam` / `abusive` / `selling_medicines` ≥ 0.85 | Rejected with a community-guidelines message; nothing is saved |
+| Anything else, including all `dangerous_advice` | **Held**: saved but visible only to its author (shown as *Under review*) until an admin approves it |
+
+`dangerous_advice` is never auto-rejected, however confident the model is, because a doctor's genuine advice can trip it — a person always makes that call. Held items notify every admin and sit in a review queue (`GET /api/admin/moderation`); approving or rejecting notifies the author. Comment counts only include visible comments, so holding, approving or deleting a comment never drifts the count. Moderation **fails open**: if Jev is disabled, errors or times out, content publishes exactly as it would without moderation, so an outage never blocks posting.
 
 ---
 
@@ -205,7 +251,7 @@ Every API response that the app fetches is saved to a **custom TTL cache** built
 2. **Cache miss / expired** — call API, refresh cache, update UI
 3. **Network error** — fall back to stale cache, show connectivity banner
 
-TTL is **24 hours**. `Connectivity Plus` monitors network state in real time; the app syncs in the background as soon as connectivity is restored.
+TTLs are **per data type**, from 1 hour for fast-changing data (profile, chat history) up to 24 hours for slow-changing data (all centers); the default is 24 hours. `Connectivity Plus` monitors network state in real time; the app syncs in the background as soon as connectivity is restored.
 
 ---
 
@@ -244,7 +290,7 @@ PillBin supports **passwordless email OTP** and **Google Sign-In**, both landing
 
 Google is only ever an *identity check* — the app's own JWT still runs the session, so every protected route is unchanged. Accounts are matched **by email**, so signing in with Google on an existing OTP account **links** the two providers instead of creating a duplicate: the same `_id`, role, and donation history are kept.
 
-OTP requests are rate-limited to **10 per 10 minutes** per email / IP via `express-rate-limit`. Three roles exist — `user`, `vendor`, `admin` — each enforced by dedicated middleware (`requireVendor`, `requireAdmin`) on all sensitive routes.
+OTP requests are rate-limited via `express-rate-limit` at **5 per 10 minutes per email** (stops one inbox being flooded) and **30 per 10 minutes per IP** (stops one client spraying many emails), using `ipKeyGenerator` so IPv6 clients can't dodge the limit by rotating addresses. Three roles exist — `user`, `vendor`, `admin` — each enforced by dedicated middleware (`requireVendor`, `requireAdmin`) on all sensitive routes.
 
 ---
 
@@ -279,33 +325,41 @@ pillbin/
 │
 ├── server/                           # Node.js Backend API
 │   ├── controllers/
-│   │   ├── adminController.js        # Center approval / rejection
+│   │   ├── adminController.js        # Center verification + moderation queue
 │   │   ├── authController.js
 │   │   ├── blogController.js
-│   │   ├── donationController.js
+│   │   ├── commentController.js
+│   │   ├── donationController.js     # Donations, reviews, receipts
+│   │   ├── familyMemberController.js
 │   │   ├── medicalCenterController.js
 │   │   ├── medicineController.js
 │   │   ├── notificationController.js
 │   │   └── vendorController.js
+│   ├── jobs/expiryJob.js             # Daily expiry + refill notifications
+│   ├── services/
+│   │   ├── moderationService.js      # Jev content moderation
+│   │   ├── notifyService.js          # Inbox row + FCM push
+│   │   └── pushService.js
 │   ├── models/
 │   ├── routes/
 │   ├── middleware/
-│   ├── services/
+│   ├── utils/transaction.js          # MongoDB transaction helper
 │   ├── server.js
 │   └── Dockerfile
 │
 └── agno_agent/                       # Python AI Agent
     └── backend/
-        ├── config/
-        │   ├── redis_client.py
+        ├── database/
         │   ├── redis_client.py
         │   ├── sqlite_client.py
         │   └── chat_repository.py    # Redis hot tier → SQLite archive
-        ├── models/schemas.py
-        ├── routes/
-        ├── tools/                    # inventory, directory, donation, vendor
+        ├── models/output_schema.py
+        ├── routes/                   # /query, /history, /knowledge
+        ├── tools/                    # inventory, directory, donation, vendor, notification
+        ├── utils/role_resolver.py    # Verifies user vs vendor with the Node API
         └── services/
-            ├── agent_service.py      # two-stage intent router
+            ├── agent_service.py      # Intent router + specialist agents
+            ├── jev_client.py         # Jev decision-model client
             ├── knowledge_service.py  # ChromaDB hybrid RAG
             └── llm_factory.py        # Gemini / Groq switch
 ```
@@ -342,7 +396,9 @@ pillbin/
 | Scheduling | `node-cron` (daily expiry job) |
 | File Storage | Cloudinary + Multer |
 | Email OTP | Nodemailer / Resend |
-| AI (blog images) | Gemini via `@google/genai` |
+| AI (blog images) | Azure FLUX |
+| AI (moderation) | Jev via Vercel AI Gateway |
+| Transactions | MongoDB multi-document transactions |
 | Rate Limiting | express-rate-limit |
 
 ### AI Agent
@@ -350,7 +406,8 @@ pillbin/
 |---|---|
 | Runtime | Python 3.11 |
 | API Server | FastAPI + Uvicorn |
-| Agent Framework | Agno (two-stage intent router) |
+| Agent Framework | Agno (intent router + specialist agents) |
+| Intent Router | Jev decision model, with Gemini / Groq fallback |
 | LLM | Gemini or Groq (`LLM_PROVIDER`) |
 | Embeddings | Gemini |
 | Vector Search | ChromaDB — hybrid vector + keyword, RRF-fused |
@@ -365,6 +422,7 @@ pillbin/
 | Redis | Agent chat history cache |
 | Cloudinary | Medical center & medicine image CDN |
 | Firebase | Cloud Messaging + Google Sign-In |
+| Vercel AI Gateway | Access to the Jev decision model |
 | Render | Server + agent hosting (Docker) |
 
 ---
@@ -372,42 +430,30 @@ pillbin/
 ## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                      PILLBIN ECOSYSTEM                       │
-├──────────────────────────────────────────────────────────────┤
-│                                                              │
-│  ┌──────────────┐          ┌───────────────┐                │
-│  │  Flutter App │◄────────►│  Node.js API  │                │
-│  │  (Mobile)    │          │  (Express)    │                │
-│  └──────┬───────┘          └───────┬───────┘                │
-│         │                          │                         │
-│         │                  ┌───────┴────────┐               │
-│         │                  │    MongoDB     │               │
-│         │                  │  + Cloudinary  │               │
-│         │                  └────────────────┘               │
-│         │                                                    │
-│         └──────────────────────┐                            │
-│                                ▼                            │
-│                      ┌─────────────────┐                    │
-│                      │  Python Agent   │                    │
-│                      │   (FastAPI)     │                    │
-│                      └───────┬─────────┘                    │
-│                              │                              │
-│              ┌───────────────┼───────────────┐             │
-│              ▼               ▼               ▼             │
-│       ┌──────────┐   ┌──────────────┐  ┌─────────┐        │
-│       │  Agno    │   │   ChromaDB   │  │  Redis  │        │
-│       │ (Router) │   │ Hybrid Vector│  │ + SQLite│        │
-│       └────┬─────┘   └──────────────┘  └─────────┘        │
-│            │                                                │
-│     ┌──────┴──────┐                                        │
-│     ▼             ▼                                        │
-│  ┌───────┐  ┌──────────┐                                   │
-│  │Gemini │  │  Node    │                                   │
-│  │/ Groq │  │API Tools │                                   │
-│  └───────┘  └──────────┘                                   │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
+┌──────────────┐                 ┌──────────────────┐      ┌──────────────────┐
+│ Flutter App  │◄───────────────►│   Node.js API    │─────►│ MongoDB          │
+│ (Android)    │   REST + FCM    │   (Express)      │      │ + Cloudinary     │
+└──────┬───────┘                 └────────┬─────────┘      └──────────────────┘
+       │                                  │  content moderation
+       │ /query                           ▼
+       │                         ┌──────────────────┐
+       │                         │ Jev (Vercel AI   │
+       │                         │ Gateway)         │
+       │                         └──────────────────┘
+       ▼                                  ▲  intent · follow-up · emergency
+┌─────────────────────────────────────────┴──────────────────────────────────┐
+│ Python Agent (FastAPI)                                                     │
+│                                                                            │
+│  query ──► Router ──confident──► Specialist agent (Agno) ──► answer        │
+│              │                        │          │                         │
+│              └─ unsure / error ──► Gemini router │                         │
+│                                       ▼          ▼                         │
+│                              Node API tools   ChromaDB hybrid RAG          │
+│                              (user's JWT)     (user's own documents)       │
+│                                                                            │
+│  Chat history: Redis (hot, 24h) → SQLite (archive)                         │
+│  LLM: Gemini or Groq (LLM_PROVIDER)                                        │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -431,36 +477,7 @@ npm install
 cp .env.example .env
 ```
 
-Edit `.env`:
-
-```env
-PORT=5000
-NODE_ENV=development
-MONGODB_URI="mongodb://localhost:27017/pillbin"
-JWT_SECRET="your_jwt_secret_min_32_chars"
-JWT_REFRESH_SECRET="your_refresh_secret"
-JWT_EXPIRES_IN=3h
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-GEMINI_API_KEY="your_gemini_api_key"
-CLOUDINARY_CLOUD_NAME="your_cloud_name"
-CLOUDINARY_API_KEY="your_cloudinary_key"
-CLOUDINARY_API_SECRET="your_cloudinary_secret"
-ADMIN="your_admin_secret_key"
-
-# Google Sign-In — the OAuth **Web** client ID, not the Android one
-GOOGLE_CLIENT_ID="xxxxx.apps.googleusercontent.com"
-
-# Firebase Cloud Messaging
-FIREBASE_PROJECT_ID="your_project_id"
-FIREBASE_CLIENT_EMAIL="firebase-adminsdk@your-project.iam.gserviceaccount.com"
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----
-...
------END PRIVATE KEY-----
-"
-```
+Fill in `server/.env`. The required values are `MONGODB_URI`, the two JWT secrets, SMTP (for OTP emails), Cloudinary and `GOOGLE_CLIENT_ID` (the OAuth **Web** client ID, not the Android one). Firebase, Azure image generation and Jev are optional: each feature switches itself off when its values are empty.
 
 ```bash
 npm start
@@ -477,22 +494,10 @@ cd agno_agent
 python -m venv venv
 source venv/bin/activate       # Windows: venv\Scripts\activate
 pip install -r backend/requirements.txt
+cp .env.example .env
 ```
 
-Edit `agno_agent/.env`:
-
-```env
-LLM_PROVIDER=gemini                 # or "groq"
-GEMINI_API_KEY="your_gemini_api_key"
-GROQ_API_KEY="your_groq_api_key"    # only if LLM_PROVIDER=groq
-
-REDIS_URL="redis://localhost:6379"
-CHROMA_PATH="tmp/chromadb"          # /data/chromadb in Docker
-SQLITE_PATH="tmp/pillbin.db"        # /data/pillbin.db in Docker
-
-NODE_JS_BASE_URL="http://localhost:5000"
-CORS_ORIGINS="*"
-```
+Fill in `agno_agent/.env`: `GEMINI_API_KEY` (or `GROQ_API_KEY` with `LLM_PROVIDER=groq`) and `REDIS_URL`. In Docker, point `CHROMA_PATH` and `SQLITE_PATH` at the persistent disk (`/data/chromadb`, `/data/pillbin.db`). Jev is optional.
 
 ```bash
 uvicorn backend.main:app --reload
@@ -509,19 +514,11 @@ cd app
 flutter pub get
 ```
 
-Create `app/.env`:
-
-```env
-AUTH_TOKEN_KEY=...
-REFRESH_TOKEN_KEY=...
-USER_DATA_KEY=...
-SESSION=...
-GMAIL_MAIL=...
-GMAIL_PASSWORD=...
-
-# same Web client ID the server uses
-GOOGLE_SERVER_CLIENT_ID="xxxxx.apps.googleusercontent.com"
+```bash
+cp .env.example .env
 ```
+
+Fill in `app/.env`: `GOOGLE_SERVER_CLIENT_ID` (the same Web client ID the server uses) and the Gmail account that sends OTP emails. The `*_KEY` entries are just storage key names and can stay as they are.
 
 The Google Maps key is read from `app/android/local.properties` (gitignored) and injected into the manifest as a placeholder, so it never enters the repo. Add:
 
@@ -551,106 +548,132 @@ flutter run
 
 ## 📡 REST API Reference
 
-All protected routes require `Authorization: Bearer <access_token>`. List endpoints are paginated with `?page=&limit=` and return a `pagination` block.
+All Node routes are prefixed with `/api`. Protected routes require `Authorization: Bearer <access_token>`. List endpoints are paginated with `?page=&limit=`.
 
-### Auth
+### Auth — `/api/auth`
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/auth/signup` | Request OTP for new account |
-| `POST` | `/api/auth/verify-signup` | Verify OTP, create account |
-| `POST` | `/api/auth/signin` | Request OTP for existing account |
-| `POST` | `/api/auth/verify-signin` | Verify OTP, receive tokens |
-| `POST` | `/api/auth/google` | Sign in / up with a Google ID token |
-| `POST` | `/api/auth/refresh-token` | Rotate access token |
+| `POST` | `/signup` | Request OTP for a new account |
+| `POST` | `/verify-signup` | Verify OTP, create account |
+| `POST` | `/signin` | Request OTP for an existing account |
+| `POST` | `/verify-signin` | Verify OTP, receive tokens |
+| `POST` | `/google` | Sign in / up with a Google ID token |
+| `POST` | `/refresh-token` | Rotate access token |
 
-### Medicines
+### User — `/api/user`
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/medicines/add` | Add medicine (with optional photo) |
-| `GET` | `/api/medicines/inventory` | Get active inventory |
-| `GET` | `/api/medicines/deleted-inventory` | Get soft-deleted medicines |
-| `PUT` | `/api/medicines/update/:medicineId` | Update medicine details |
-| `DELETE` | `/api/medicines/delete/:medicineId` | Soft-delete medicine |
-| `DELETE` | `/api/medicines/delete-all-expired` | Bulk soft-delete all expired |
-| `DELETE` | `/api/medicines/delete/:medicineId/hard` | Permanently delete medicine |
-| `DELETE` | `/api/medicines/delete-all-hard` | Permanently wipe deleted bin |
+| `GET` | `/profile` | Get full profile |
+| `POST` | `/complete-profile` | Complete onboarding profile |
+| `PUT` | `/edit-profile` | Edit profile details |
+| `POST` | `/save-medical-center` | Save a center as favourite |
+| `DELETE` | `/remove-saved-medical-center` | Remove saved center |
+| `GET` | `/saved-medical-centers` | List saved centers |
 
-### Donations
+### Medicines — `/api/medicine`
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/donations/` | Submit donation request (with photos) |
-| `GET` | `/api/donations/my-requests` | Get user's donation history |
-| `GET` | `/api/donations/:id` | Get single donation request |
-| `DELETE` | `/api/donations/:id` | Cancel pending request |
-| `POST` | `/api/donations/:id/review` | Rate a completed donation |
-| `DELETE` | `/api/donations/review/:reviewId` | Delete your own review |
-| `GET` | `/api/donations/center/:centerId/reviews` | Center reviews — paginated, `?rating=` filter |
-| `GET` | `/api/donations/:id/handoff-token` | Mint the 5-minute QR token for an approved donation |
-| `GET` | `/api/donations/verify/:id` | **Public** — HTML page verifying a shared receipt |
+| `POST` | `/add` | Add medicine (optional photo, recurrence, family member) |
+| `GET` | `/inventory` | Get active inventory |
+| `GET` | `/deleted-inventory` | Get soft-deleted medicines |
+| `PUT` | `/update/:medicineId` | Update medicine details |
+| `DELETE` | `/delete/:medicineId` | Soft-delete medicine |
+| `DELETE` | `/delete-all-expired` | Bulk soft-delete all expired |
+| `DELETE` | `/delete/:medicineId/hard` | Permanently delete medicine |
+| `DELETE` | `/delete-all-hard` | Permanently wipe deleted bin |
 
-### Medical Centers
+### Family Members — `/api/family-members`
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/medical-centers/nearby` | Geo-search nearby centers |
-| `GET` | `/api/medical-centers/search` | Search centers by name/type |
-| `GET` | `/api/medical-centers/all` | List all approved centers |
-| `GET` | `/api/medical-centers/:id` | Get center details |
-| `GET` | `/api/medical-centers/:id/inventory` | Get center's accepted inventory |
+| `GET` | `/` | List the account's family members |
+| `POST` | `/` | Add a family member |
+| `DELETE` | `/:memberId` | Remove a member; their medicines move back to the owner |
 
-### Blogs
+### Donations — `/api/donations`
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/blogs/` | Get all community blogs |
-| `GET` | `/api/blogs/user` | Get current user's blogs |
-| `GET` | `/api/blogs/:id` | Get single blog post |
-| `POST` | `/api/blogs/` | Create blog post (with media) |
-| `PUT` | `/api/blogs/:id` | Update blog post |
-| `DELETE` | `/api/blogs/:id` | Delete blog post |
-| `POST` | `/api/blogs/:id/likes` | Toggle like |
-| `POST` | `/api/blogs/:id/comments` | Add comment |
-| `PUT` | `/api/blogs/:id/comments/:commentId` | Edit comment |
-| `DELETE` | `/api/blogs/:id/comments/:commentId` | Delete comment |
+| `POST` | `/` | Submit donation request (with photos) |
+| `GET` | `/my-requests` | Get the user's donation history |
+| `GET` | `/:id` | Get a single donation request |
+| `DELETE` | `/:id` | Cancel a pending request |
+| `GET` | `/:id/handoff-token` | Mint the 5-minute QR token for an approved donation |
+| `POST` | `/:id/review` | Rate a completed donation (moderated) |
+| `DELETE` | `/review/:reviewId` | Delete your own review |
+| `GET` | `/center/:centerId/reviews` | Center reviews — paginated, `?rating=` filter |
+| `GET` | `/verify/:id` | **Public** — HTML page verifying a shared receipt |
 
-### Notifications
+### Medical Centers — `/api/medical-center`
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/notifications/` | Get notifications — `?page=&limit=` |
-| `POST` | `/api/notifications/` | Add notification |
-| `DELETE` | `/api/notifications/:notificationId` | Dismiss one notification |
-| `DELETE` | `/api/notifications/` | Clear all notifications |
+| `GET` | `/nearby` | Geo-search nearby centers — `?latitude=&longitude=&radius=` |
+| `GET` | `/nearby-needs` | Categories nearby centers are currently accepting |
+| `GET` | `/search` | Search centers by name / type |
+| `GET` | `/all` | List all approved centers |
+| `GET` | `/:id` | Get center details |
+| `GET` | `/:id/inventory` | Get a center's accepted inventory |
 
-### Vendor (role: `vendor`)
+### Blogs — `/api/blog`
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/vendor/register-center` | Register medical center |
-| `GET` | `/api/vendor/my-center` | Get vendor's center details |
-| `PUT` | `/api/vendor/my-center` | Update center profile |
-| `PUT` | `/api/vendor/my-center/images` | Upload center photos |
-| `PUT` | `/api/vendor/inventory` | Update accepted medicine inventory |
-| `POST` | `/api/vendor/verify-documents` | Upload verification documents |
-| `GET` | `/api/vendor/requests` | View incoming donation requests |
-| `PUT` | `/api/vendor/requests/:id` | Approve / reject with note |
-| `PUT` | `/api/vendor/requests/:id/complete` | Mark donation as completed |
-| `POST` | `/api/vendor/scan` | Complete a donation from a scanned handover token |
-| `GET` | `/api/vendor/analytics` | KPIs, timeline & top medicines — `?months=6,12,24,60` |
-| `GET` | `/api/vendor/donated-medicines` | Ranked medicine totals, paginated |
+| `GET` | `/` | Community feed (published posts only) |
+| `GET` | `/user` | Current user's posts, including held ones |
+| `GET` | `/:id` | Get a single post |
+| `POST` | `/` | Create post with media (moderated) |
+| `PUT` | `/:id` | Update post (re-moderated if the content changes) |
+| `DELETE` | `/:id` | Delete post |
+| `POST` | `/generate/image` | Generate a cover image with Gemini |
+| `POST` | `/:id/likes` | Toggle like |
+| `GET` | `/:id/likes` | List likers |
+| `GET` | `/:id/likes/status` | Whether the current user liked the post |
+| `GET` | `/:id/comments` | List comments |
+| `POST` | `/:id/comments` | Add comment (moderated) |
+| `PUT` | `/:id/comments/:commentId` | Edit comment (re-moderated) |
+| `DELETE` | `/:id/comments/:commentId` | Delete comment |
 
-### Admin (role: `admin`)
+### Notifications — `/api/notifications`
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/admin/verifications` | Get pending center verifications |
-| `PUT` | `/api/admin/verifications/:centerId/approve` | Approve vendor center |
-| `PUT` | `/api/admin/verifications/:centerId/reject` | Reject vendor center |
+| `GET` | `/` | Get notifications — paginated |
+| `GET` | `/unread-count` | Server-side unread count for the badge |
+| `POST` | `/read` | Mark notifications as read |
+| `POST` | `/tokens/register` | Register this device's FCM token |
+| `POST` | `/tokens/deactivate` | Deactivate the token on logout |
+| `DELETE` | `/:notificationId` | Dismiss one notification |
+| `DELETE` | `/` | Clear all notifications |
 
-### User Profile
+### Vendor — `/api/vendor` (role: `vendor`)
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/users/profile` | Get full profile |
-| `POST` | `/api/users/complete-profile` | Complete onboarding profile |
-| `PUT` | `/api/users/edit-profile` | Edit profile details |
-| `POST` | `/api/users/save-medical-center` | Save a center as favourite |
-| `DELETE` | `/api/users/remove-saved-medical-center` | Remove saved center |
-| `GET` | `/api/users/saved-medical-centers` | List saved centers |
+| `POST` | `/register-center` | Register a medical center |
+| `GET` | `/my-center` | Get the vendor's center |
+| `PUT` | `/my-center` | Update center profile |
+| `PUT` | `/my-center/images` | Upload center photos |
+| `PUT` | `/inventory` | Update accepted categories and their status |
+| `POST` | `/verify-documents` | Upload verification documents |
+| `GET` | `/requests` | Incoming donation requests |
+| `PUT` | `/requests/:id` | Approve / reject with a note |
+| `PUT` | `/requests/:id/complete` | Mark a donation as completed |
+| `POST` | `/scan` | Complete a donation from a scanned handover token |
+| `GET` | `/analytics` | KPIs, timeline & top medicines — `?months=6,12,24,60` |
+| `GET` | `/analytics/medicines` | Ranked donated-medicine totals, paginated |
+
+### Admin — `/api/admin` (role: `admin`)
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/verifications` | Pending center verifications |
+| `PUT` | `/verifications/:centerId/approve` | Approve a vendor center |
+| `PUT` | `/verifications/:centerId/reject` | Reject a vendor center (reason required) |
+| `GET` | `/moderation` | Held posts, comments and reviews — `?type=blog\|comment\|review` |
+| `PUT` | `/moderation/:type/:id/approve` | Publish a held item |
+| `PUT` | `/moderation/:type/:id/reject` | Remove a held item |
+
+### AI Agent (FastAPI, port 8000)
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/query` | Ask PillBot (form data: `token`, `user_message`, optional location, role and PDF upload) |
+| `GET` | `/history` | Chat history — paginated, 40 per page |
+| `DELETE` | `/history` | Clear chat history |
+| `DELETE` | `/knowledge` | Delete the user's indexed documents |
 
 ---
 
@@ -662,15 +685,23 @@ The Flutter app implements a custom **11-type TTL cache** using `FlutterSecureSt
 2. On cache miss or expiry, hit the API and refresh the cache
 3. On network error, fall back to stale cache (no hard failure)
 
-Cache TTL is **24 hours** with background sync on reconnect. Connectivity state is monitored via `Connectivity Plus`.
+TTLs are set per data type (1–24 hours) with background sync on reconnect. Connectivity state is monitored via `Connectivity Plus`.
 
 ### Medicine Status Engine
-Statuses are computed dynamically from `expiryDate`:
+Statuses are computed from `expiryDate` whenever a medicine is saved, and recomputed for every medicine by the daily job:
 - `active` — more than 5 days until expiry
-- `expiring_soon` — ≤ 5 days until expiry (triggers push alert at 9 AM daily)
+- `expiring_soon` — ≤ 5 days until expiry
 - `expired` — past expiry date
 
-A scheduled job (`/api/medicines/update-statuses`) recalculates all statuses and auto-cleans medicines expired for more than 15 days.
+A daily `node-cron` job (9 AM IST, configurable via `EXPIRY_CRON`) finds medicines whose status changed since the last alert, sends one grouped notification per user, then sends refill reminders. A run lock prevents two overlapping runs, and per-day dedup keys make re-runs safe. Cleanup of medicines expired for more than 15 days is opt-in (`EXPIRY_CLEANUP_ENABLED=true`).
+
+### Confidence-Gated Decisions (Jev)
+Both AI decision points follow the same pattern: act automatically only above a confidence threshold, route everything uncertain to a slower but safer path, and treat any model failure as "no decision":
+
+| Decision | Confident | Uncertain | Model unavailable |
+|---|---|---|---|
+| PillBot routing | Use Jev's intent (≥ 0.7) | Gemini router | Gemini router |
+| Content moderation | Publish (`ok` ≥ 0.7) or reject (≥ 0.85) | Hold for an admin | Publish |
 
 ### In-App Nudge Engine (max 3/session)
 Priority-ordered contextual slide-up cards injected into the `RootScreen` overlay:
@@ -691,28 +722,29 @@ Nudges auto-dismiss after 6 s, support swipe-to-dismiss, and tap actions navigat
 ## 🗄️ Database Schema
 
 ```
-User ──< Medicine
+User ──< Medicine >── FamilyMember (optional tag)
+User ──< FamilyMember
 User ──< DonationRequest >── MedicalCenter
-User ──< Notification
-User ──< Blog ──< Comment
-                  └──< Like
-MedicalCenter ──< DonationRequest
 User ──< CenterReview >── MedicalCenter
+User ──< Notification
 User ──< DeviceToken
+User ──< Blog ──< Comment
+            └──< Like
 Chat (Redis 24h) ── userId ──> SQLite archive
-Rag ── document chunks → ChromaDB
+Uploaded documents ── chunks ──> ChromaDB
 ```
 
 | Model | Key fields |
 |---|---|
-| `User` | `id`, `email`, `phoneNumber`, `role`, `stats`, `badges`, `savedMedicalCenters` |
-| `Medicine` | `id`, `userId`, `name`, `expiryDate`, `status`, `batchNumber`, `isDeleted` |
-| `DonationRequest` | `id`, `userId`, `medicalCenterId`, `medicines[]`, `status`, `medicinePhotos[]` |
-| `MedicalCenter` | `id`, `name`, `location` (GeoJSON), `facilityType`, `isApproved`, `images[]` |
-| `Notification` | `id`, `userId`, `message`, `priority`, `createdAt` |
-| `Blog` | `id`, `authorId`, `title`, `content`, `media[]`, `likesCount` |
-| `Comment` | `id`, `blogId`, `userId`, `text` |
-| `Chat` | `id`, `userId`, `messages[]` (Redis-backed) |
+| `User` | `email`, `role` (`user` / `vendor` / `admin`), `stats`, `badges`, `savedMedicalCenters` |
+| `Medicine` | `userId`, `name`, `expiryDate`, `status`, `isDeleted`, `familyMemberId`, `isRecurring`, `refillIntervalDays`, `nextRefillAt` |
+| `FamilyMember` | `userId`, `name`, `relation` |
+| `DonationRequest` | `userId`, `medicalCenterId`, `medicines[]`, `status`, `statusHistory[]`, `medicinePhotos[]` |
+| `MedicalCenter` | `name`, `location` (GeoJSON, `2dsphere`), `facilityType`, `isVendorManaged`, `verificationStatus`, `inventory[]`, `ratingSum`, `totalReviews`, `weightedRating` |
+| `CenterReview` | `userId`, `medicalCenterId`, `donationRequestId` (unique), `rating`, `comment`, `moderationStatus` |
+| `Notification` | `userId`, `type`, `title`, `description`, `status`, `dedupKey` (unique, sparse), `isRead` — 60-day TTL |
+| `Blog` | `author`, `content`, `role`, `images[]`, `likesCount`, `commentsCount`, `moderationStatus` |
+| `Comment` | `blog`, `author`, `content`, `moderationStatus` |
 
 ---
 
@@ -720,22 +752,26 @@ Rag ── document chunks → ChromaDB
 
 | Screen | Description |
 |---|---|
-| **Auth** | Email OTP signup / signin with rate limiting |
+| **Auth** | Email OTP (paste-friendly 6-box input) or Google Sign-In |
 | **Home** | Dashboard — expiry summary, quick actions, nudge overlay |
-| **Medicine Inventory** | Active / expiring / expired tabs, add and edit medicines |
+| **Medicine Inventory** | Active / expiring / expired tabs, family profile switcher, centers-need banner |
+| **Add / Edit Medicine** | Full metadata, photo, refill reminder, family member picker |
+| **Manage Family** | Add and remove family members |
 | **Deleted Bin** | Soft-deleted medicines with hard-delete and restore |
 | **Donation** | Submit request to nearby centers, track status pipeline |
 | **My Donations** | Grouped by status: Pending → Approved → Completed / Rejected |
 | **Handover Code** | Auto-refreshing QR the donor shows at the counter |
 | **Donation Receipt** | Shareable receipt image with a public verification QR |
 | **Vendor Scanner** | Camera scanner that completes a donation on scan |
-| **Locations** | Geo-search map + list with filter by facility type |
-| **Blogs** | Community feed, create post with media, like and comment |
+| **Locations** | Geo-search map + list with facility filter and Verified badges |
+| **Blogs** | Community feed, create post with media, like and comment; own held posts marked *Under review* |
 | **PillBot** | Multi-agent AI chatbot with persistent chat history |
 | **Notifications** | Inbox with bulk clear and individual dismiss |
-| **Profile** | Stats, badges, medical conditions, saved centers |
-| **Vendor Dashboard** | Center management, image gallery, donation request inbox |
-| **Admin Panel** | Pending center verifications — approve or reject |
+| **Profile & Settings** | Stats, badges, saved centers, notifications-off warning, privacy, help, about |
+| **My Impact** | Disposal stats and badges, shareable impact card |
+| **Vendor Dashboard** | Center management, image gallery, donation request inbox, analytics |
+
+Admin tasks (center verification, moderation queue) are done through the admin API; there is no admin screen in the app.
 
 ---
 
@@ -746,12 +782,15 @@ Rag ── document chunks → ChromaDB
 | Authentication | Email OTP or Google — no passwords stored |
 | Google tokens | ID token verified server-side; Firebase config files gitignored |
 | Token strategy | Short-lived JWT access token + refresh token rotation |
-| OTP abuse | `express-rate-limit` — 10 requests per 10 minutes per phone / IP |
-| Role enforcement | Middleware guards: `requireVendor`, `requireAdmin` |
+| OTP abuse | 5 requests / 10 min per email and 30 / 10 min per IP (`express-rate-limit`, IPv6-safe) |
+| Role enforcement | Middleware guards: `requireVendor`, `requireAdmin`; the agent re-checks the role with the Node API instead of trusting the client |
+| Ownership checks | A submitted `familyMemberId` must belong to the caller; blog edits accept only whitelisted fields, so authors can't change `author`, counts or moderation status |
 | Handover tokens | Separate `typ: "handoff"` claim, 5-minute TTL — never accepted as a session token |
 | Receipt verification | Public page exposes only center, date and counts — no donor details |
+| User content | Jev moderation on create and edit; dangerous medical advice is always held for a human |
+| AI safety | PillBot won't diagnose or give dosing advice; emergencies get a "seek care now" instruction first |
+| Secrets | Maps key injected at build time from `local.properties`; `.env` files gitignored |
 | Image upload | Cloudinary CDN, validated via Multer before storage |
-| Soft delete | Medicines are soft-deleted before permanent removal; 100-item history cap |
 
 ---
 
@@ -766,11 +805,14 @@ Both backends ship as Docker images on **Render**.
 
 The agent **requires a persistent disk mounted at `/data`** — ChromaDB and SQLite write there, and Render's container filesystem is wiped on every redeploy. Without it the knowledge base and chat archive are lost on restart. One worker is deliberate: both stores are instance-local and don't tolerate concurrent writers.
 
+Jev is off until `JEV_ENABLED=true` is set on each service. Both services fall back safely while it is off, so it can be enabled independently.
+
 ```bash
-# seed & maintenance scripts
+# seed & maintenance scripts (server/)
 node scripts/seedDonations.js --count=60 --months=6
 node scripts/seedNotifications.js --count=45
 node scripts/backfillRatingCounters.js      # run once after deploying reviews
+node scripts/verifyAllCenters.js --dry-run  # dev only: approve pending centers
 ```
 
 ---
@@ -788,7 +830,7 @@ cd app
 flutter test
 ```
 
-Flutter coverage is currently limited to the donation receipt — it checks the layout survives 1, 14 and 34 medicines, and pins the receipt-number formula to the one the server uses. The Node.js backend has no automated suite yet — contributions welcome.
+Flutter tests cover the donation receipt (layout survives 1, 14 and 34 medicines, and the receipt-number formula matches the server's) and the medicine inventory card layout. The Jev router and the moderation pipeline were verified against live Jev and the database during development; turning those checks into an automated suite, and adding one for the Node.js backend, is the next step.
 
 ---
 

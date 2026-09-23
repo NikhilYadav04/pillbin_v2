@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/core/widgets/moderation_badge.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/features/blog/data/repository/blog_provider.dart';
@@ -297,6 +298,10 @@ class _CommentTile extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (comment.moderationStatus != 'published') ...[
+                  SizedBox(height: sh * 0.005),
+                  ModerationBadge(status: comment.moderationStatus, sw: sw),
+                ],
               ],
             ),
           ),

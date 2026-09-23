@@ -1,5 +1,6 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:pillbin/core/widgets/moderation_badge.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
@@ -128,6 +129,17 @@ class BlogCard extends StatelessWidget {
                 sh: sh,
                 isTablet: isTablet,
               ),
+
+              if (blog.isUnderReview || blog.isRemoved)
+                Positioned(
+                  top: sw * 0.02,
+                  left: sw * 0.02,
+                  child: ModerationBadge(
+                    status: blog.moderationStatus,
+                    sw: sw,
+                    solid: true,
+                  ),
+                ),
             ],
           ),
         ),

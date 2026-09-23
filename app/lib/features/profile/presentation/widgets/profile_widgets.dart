@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:pillbin/config/cache/cache_manager.dart';
 import 'package:pillbin/config/notifications/fcm_service.dart';
 import 'package:pillbin/config/routes/appRouter.dart';
@@ -582,6 +583,74 @@ Widget buildProfileSurveySection(double sw, double sh, bool isTablet) {
   );
 }
 
+class _NotificationPermissionBanner extends StatelessWidget {
+  final double sw;
+  final double sh;
+  final bool isTablet;
+
+  const _NotificationPermissionBanner({
+    required this.sw,
+    required this.sh,
+    required this.isTablet,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PermissionStatus>(
+      future: Permission.notification.status,
+      builder: (context, snapshot) {
+        if (snapshot.data == null || snapshot.data!.isGranted) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: EdgeInsets.only(bottom: sh * 0.02),
+          child: Container(
+            padding: EdgeInsets.all(sw * 0.035),
+            decoration: BoxDecoration(
+              color: PillBinColors.warning.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border:
+                  Border.all(color: PillBinColors.warning.withOpacity(0.3)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.notifications_off_outlined,
+                    color: PillBinColors.warning,
+                    size: isTablet ? sw * 0.03 : sw * 0.05),
+                SizedBox(width: sw * 0.03),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Notifications are off',
+                          style: PillBinMedium.style(
+                              fontSize: isTablet ? sw * 0.022 : sw * 0.036,
+                              color: PillBinColors.textPrimary)),
+                      SizedBox(height: sh * 0.003),
+                      Text("You'll miss expiry and refill reminders",
+                          style: PillBinRegular.style(
+                              fontSize: isTablet ? sw * 0.02 : sw * 0.032,
+                              color: PillBinColors.textSecondary)),
+                    ],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => openAppSettings(),
+                  child: Text('Enable',
+                      style: PillBinMedium.style(
+                          fontSize: isTablet ? sw * 0.02 : sw * 0.034,
+                          color: PillBinColors.warning)),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
 Widget _settingsSectionLabel(double sw, double sh, bool isTablet, String label) {
   return Padding(
     padding: EdgeInsets.only(
@@ -669,6 +738,7 @@ Widget buildProfileSettings(
           ],
         ),
         SizedBox(height: sh * 0.02),
+        _NotificationPermissionBanner(sw: sw, sh: sh, isTablet: isTablet),
         if (!isVendor) ...[
           _settingsSectionLabel(sw, sh, isTablet, 'Account'),
           _settingsGroup(sw, isTablet, [

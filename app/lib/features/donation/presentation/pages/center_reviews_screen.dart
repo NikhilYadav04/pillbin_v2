@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pillbin/core/widgets/moderation_badge.dart';
 import 'package:pillbin/config/theme/appColors.dart';
 import 'package:pillbin/config/theme/appTextStyles.dart';
 import 'package:pillbin/core/utils/snackBar.dart';
@@ -482,6 +483,13 @@ class _CenterReviewsScreenState extends State<CenterReviewsScreen> {
                 style: PillBinRegular.style(
                     fontSize: sw * 0.032,
                     color: PillBinColors.textSecondary)),
+          ],
+          if (isMine && comment.isNotEmpty) ...[
+            SizedBox(height: sh * 0.008),
+            ModerationBadge(
+              status: review['moderationStatus'] as String? ?? 'published',
+              sw: sw,
+            ),
           ],
         ],
       ),

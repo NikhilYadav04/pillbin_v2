@@ -216,6 +216,44 @@ class _MedicalCenterDetailScreenState
     );
   }
 
+  bool get _isVerified =>
+      center.isVendorManaged && center.verificationStatus == 'approved';
+
+  Widget _verifiedBadge(bool isTablet) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: sw * 0.02,
+        vertical: sh * 0.004,
+      ),
+      decoration: BoxDecoration(
+        color: PillBinColors.primary.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: PillBinColors.primary.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.verified_rounded,
+            color: PillBinColors.primary,
+            size: isTablet ? sw * 0.018 : sw * 0.03,
+          ),
+          SizedBox(width: sw * 0.008),
+          Text(
+            'Verified',
+            style: PillBinMedium.style(
+              fontSize: isTablet ? sw * 0.02 : sw * 0.032,
+              color: PillBinColors.primary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeaderCard(bool isTablet) {
     return Container(
       padding: EdgeInsets.all(isTablet ? sw * 0.025 : sw * 0.04),
@@ -251,12 +289,20 @@ class _MedicalCenterDetailScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _getFacilityTypeName(),
-                  style: PillBinMedium.style(
-                    fontSize: isTablet ? sw * 0.022 : sw * 0.036,
-                    color: PillBinColors.primary,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      _getFacilityTypeName(),
+                      style: PillBinMedium.style(
+                        fontSize: isTablet ? sw * 0.022 : sw * 0.036,
+                        color: PillBinColors.primary,
+                      ),
+                    ),
+                    if (_isVerified) ...[
+                      SizedBox(width: sw * 0.02),
+                      _verifiedBadge(isTablet),
+                    ],
+                  ],
                 ),
                 SizedBox(height: sh * 0.004),
                 _buildRatingRow(isTablet),

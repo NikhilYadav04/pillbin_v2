@@ -113,12 +113,16 @@ class BlogProvider extends ChangeNotifier {
           CustomSnackBar.show(
             context: context,
             icon: Icons.check_circle,
-            title: "Blog created successfully",
+            title: blog.isUnderReview
+                ? "Posted. Others will see it after a quick review."
+                : "Blog created successfully",
           );
         }
 
         return 'success';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
+      } else if (response.statusCode == 400 ||
+          response.statusCode == 404 ||
+          response.statusCode == 422) {
         _isLoading = false;
         notifyListeners();
 
@@ -210,12 +214,16 @@ class BlogProvider extends ChangeNotifier {
           CustomSnackBar.show(
             context: context,
             icon: Icons.check_circle,
-            title: "Blog created successfully",
+            title: blog.isUnderReview
+                ? "Posted. Others will see it after a quick review."
+                : "Blog created successfully",
           );
         }
 
         return 'success';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
+      } else if (response.statusCode == 400 ||
+          response.statusCode == 404 ||
+          response.statusCode == 422) {
         _isLoading = false;
         notifyListeners();
 
@@ -589,12 +597,16 @@ class BlogProvider extends ChangeNotifier {
           CustomSnackBar.show(
             context: context,
             icon: Icons.check_circle,
-            title: "Blog updated successfully",
+            title: updatedBlog.isUnderReview
+                ? "Updated. Others will see it after a quick review."
+                : "Blog updated successfully",
           );
         }
 
         return 'success';
-      } else if (response.statusCode == 400 || response.statusCode == 404) {
+      } else if (response.statusCode == 400 ||
+          response.statusCode == 404 ||
+          response.statusCode == 422) {
         _isLoading = false;
         notifyListeners();
 
@@ -960,9 +972,17 @@ class BlogProvider extends ChangeNotifier {
           await _blogService.addComment(blogId: blogId, content: content);
 
       if (response.statusCode == 201) {
-        _blogComments.insert(0, CommentModel.fromJson(response.data!));
-        _updateCommentsCount(blogId, 1);
+        final comment = CommentModel.fromJson(response.data!);
+        _blogComments.insert(0, comment);
+        if (!comment.isUnderReview) _updateCommentsCount(blogId, 1);
         notifyListeners();
+        if (comment.isUnderReview && context.mounted) {
+          CustomSnackBar.show(
+            context: context,
+            icon: Icons.hourglass_top_rounded,
+            title: "Others will see your comment after a quick review.",
+          );
+        }
         return 'success';
       } else {
         if (context.mounted) {
@@ -994,8 +1014,10 @@ class BlogProvider extends ChangeNotifier {
           blogId: blogId, commentId: commentId);
 
       if (response.statusCode == 200) {
+        final wasCounted = _blogComments
+            .any((c) => c.id == commentId && !c.isUnderReview);
         _blogComments.removeWhere((c) => c.id == commentId);
-        _updateCommentsCount(blogId, -1);
+        if (wasCounted) _updateCommentsCount(blogId, -1);
         notifyListeners();
         return 'success';
       } else if (response.statusCode == 403) {

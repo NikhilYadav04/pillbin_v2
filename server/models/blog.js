@@ -58,6 +58,17 @@ const blogSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    moderationStatus: {
+      type: String,
+      enum: ["published", "pending", "rejected"],
+      default: "published",
+      index: true,
+    },
+    moderation: {
+      label: String,
+      probability: Number,
+      checkedAt: Date,
+    },
   },
   {
     timestamps: true,

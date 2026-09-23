@@ -1,6 +1,15 @@
 // controllers/comment.controller.js
 const Comment = require("../models/comment.js");
 const Blog = require("../models/blog.js");
+const {
+  HIDDEN_STATUSES,
+  REJECTED_MESSAGE,
+  moderate,
+  moderationFields,
+  notifyAdminsOfPending,
+} = require("../services/moderationService.js");
+
+const isVisible = (comment) => !HIDDEN_STATUSES.includes(comment.moderationStatus);
 
 class CommentController {
   /**
@@ -30,13 +39,27 @@ class CommentController {
         });
       }
 
+      const moderation = await moderate("comment", content);
+      if (moderation.status === "rejected") {
+        return res.status(422).json({
+          statusCode: 422,
+          success: false,
+          message: REJECTED_MESSAGE,
+        });
+      }
+
       const comment = await Comment.create({
         blog: blogId,
         author: userId,
         content: content.trim(),
+        ...moderationFields(moderation),
       });
 
-      await Blog.findByIdAndUpdate(blogId, { $inc: { commentsCount: 1 } });
+      if (isVisible(comment)) {
+        await Blog.findByIdAndUpdate(blogId, { $inc: { commentsCount: 1 } });
+      } else {
+        notifyAdminsOfPending("comment", comment._id);
+      }
 
       const populated = await comment.populate("author", "name email");
 
@@ -67,10 +90,17 @@ class CommentController {
         });
       }
 
-      const query = { blog: blogId };
+      const query = {
+        blog: blogId,
+        $or: [
+          { moderationStatus: { $nin: HIDDEN_STATUSES } },
+          { author: req.user.id },
+        ],
+      };
 
       const [comments, total] = await Promise.all([
         Comment.find(query)
+          .select("-moderation")
           .populate("author", "name email")
           .sort({ createdAt: -1 })
           .skip(skip)
@@ -131,8 +161,30 @@ class CommentController {
           .json({ statusCode: 403, success: false, message: "Unauthorized" });
       }
 
+      const wasVisible = isVisible(comment);
+
+      const moderation = await moderate("comment", content);
+      if (moderation.status === "rejected") {
+        return res.status(422).json({
+          statusCode: 422,
+          success: false,
+          message: REJECTED_MESSAGE,
+        });
+      }
+
       comment.content = content.trim();
+      comment.set(moderationFields(moderation));
       await comment.save();
+
+      const nowVisible = isVisible(comment);
+      if (wasVisible !== nowVisible) {
+        await Blog.findByIdAndUpdate(comment.blog, {
+          $inc: { commentsCount: nowVisible ? 1 : -1 },
+        });
+      }
+      if (moderation.status === "pending") {
+        notifyAdminsOfPending("comment", comment._id);
+      }
 
       const populated = await comment.populate("author", "name email");
 
@@ -171,7 +223,9 @@ class CommentController {
 
       await Promise.all([
         comment.deleteOne(),
-        Blog.findByIdAndUpdate(blogId, { $inc: { commentsCount: -1 } }),
+        isVisible(comment)
+          ? Blog.findByIdAndUpdate(blogId, { $inc: { commentsCount: -1 } })
+          : null,
       ]);
 
       res.status(200).json({
